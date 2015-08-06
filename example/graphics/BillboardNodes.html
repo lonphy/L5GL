@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <title>BillboardNodes - Samples</title>
+    <script src="../../dist/l5.js"></script>
+</head>
+<body>
+<canvas id="ctx" width="640" height="480"></canvas>
+<script>
+    "use strict";
+
+    function BillBoardNodes () {
+        L5.Application3.call(this, 'test', 640, 480, [0,0,0,0], 'ctx');
+        /**
+         * @type {L5.Node}
+         */
+        this.scene = null;
+
+        /**
+         * @type {L5.Culler}
+         */
+        this.culler = null;
+
+        // Override of shader cull and wireframe state.
+        /**
+         * @type {L5.CullState}
+         */
+        this.cullState = null;
+
+        /**
+         *
+         * @type {L5.TriMesh}
+         */
+        this.ground = null;
+
+        // billboard0 (rectangle attached)
+        /**
+         * @type {L5.BillboardNode}
+         */
+        this.billboard0 = null;
+        /**
+         * @type {L5.TriMesh}
+         */
+        this.rectangle  = null;
+
+        // billboard1 (torus attached)
+        /**
+         * @type {L5.BillboardNode}
+         */
+        this.billboard1 = null;
+        /**
+         * @type {L5.TriMesh}
+         */
+        this.torus      = null;
+
+        this.textColor = new Float32Array ([ 0, 0, 0, 1 ]);
+    }
+
+    L5.extendFix(BillBoardNodes, L5.Application3);
+
+    BillBoardNodes.prototype.onInitialize = function () {
+
+        // Set up the camera.
+        this.camera.setFrustum (60.0, 4 / 3, 0.1, 100.0);
+
+        var camPosition = new L5.Point (0, -1, 0.25);
+        var camDVector  = new L5.Point (0, 1, 0);
+        var camUVector  = new L5.Point (0, 0, 1);
+        var camRVector  = camDVector.cross (camUVector);
+
+        this.camera.setFrame (camPosition, camDVector, camUVector, camRVector);
+
+        this.createScene ();
+
+        // Initial update of objects.
+        this.scene.update ();
+
+        // Initial culling of scene.
+        this.culler.camera = this.camera;
+        this.culler.computeVisibleSet (this.scene);
+
+        this.initializeCameraMotion (0.001, 0.001);
+        this.initializeObjectMotion (this.scene);
+        return true;
+    };
+
+    BillBoardNodes.prototype.createScene = function () {
+
+        this.scene     = new L5.Node ();
+        this.cullState = new L5.CullState ();
+
+        this.renderer.overrideCullState = this.cullState;
+
+        // All triangle meshes have this common vertex format.  Use StandardMesh
+        // to create these meshes.
+        var format = L5.VertexFormat.create (2,
+                L5.VertexFormat.AU_POSITION, L5.VertexFormat.AT_FLOAT3, 0,
+                L5.VertexFormat.AU_TEXCOORD, L5.VertexFormat.AT_FLOAT2, 0
+        );
+
+        var stdMesh = new L5.StandardMesh (format);
+
+        // Create the ground.  It covers a square with vertices (1,1,0), (1,-1,0),
+        // (-1,1,0), and (-1,-1,0).  Multiply the texture coordinates by a factor
+        // to enhance the wrap-around.
+        this.ground = stdMesh.rectangle (2, 2, 16, 16);
+
+        var vba = new L5.VertexBufferAccessor (this.ground);
+        var i;
+        for (i = 0; i < vba.getNumVertices (); ++i) {
+            vba.tCoord[ 0 ][ i ] *= 128;
+            vba.tCoord[ 0 ][ i + 1 ] *= 128;
+        }
+
+        // Create a texture effect for the ground.
+        var texture = L5.Texture2D.loadWMTF ("Horizontal.wmtf");
+
+        var instance = L5.Texture2DEffect.createUniqueInstance (
+                texture,
+                L5.Shader.SF_LINEAR_LINEAR,
+                L5.Shader.SC_REPEAT,
+                L5.Shader.SC_REPEAT
+        );
+        this.ground.setEffectInstance (instance);
+        this.scene.attachChild (this.ground);
+
+        // Create a rectangle mesh.  The mesh is in the xy-plane.  Do not apply
+        // local transformations to the mesh.  Use the billboard node transforms
+        // to control the mesh location and orientation.
+        this.rectangle = stdMesh.rectangle (2, 2, 0.125, 0.25);
+
+        // Create a texture effect for the rectangle and for the torus.
+        var geomEffect = new L5.Texture2DEffect (L5.Shader.SF_LINEAR);
+        texture        = L5.Texture2D.loadWMTF ("RedSky.wmtf");
+        this.rectangle.setEffectInstance (geomEffect.createInstance (texture));
+
+        // Create a billboard node that causes a rectangle to always be facing
+        // the camera.  This is the type of billboard for an avatar.
+        this.billboard0 = new L5.BillboardNode (this.camera);
+        this.billboard0.attachChild (this.rectangle);
+        this.scene.attachChild (this.billboard0);
+
+        // The billboard rotation is about its model-space up-vector (0,1,0).  In
+        // this application, world-space up is (0,0,1).  Locally rotate the
+        // billboard so it's up-vector matches the world's.
+        this.billboard0.localTransform.setTranslate (new L5.Point (-0.25, 0, 0.25));
+        this.billboard0.localTransform.setRotate (
+                L5.Matrix.makeRotation (
+                        L5.Vector.UNIT_X,
+                        L5.Math.HALF_PI
+                )
+        );
+
+        // Create a torus mesh.  Do not apply local transformations to the mesh.
+        // Use the billboard node transforms to control the mesh location and
+        // orientation.
+        this.torus = new L5.StandardMesh (format, false).Torus (16, 16, 1, 0.25);
+        this.torus.localTransform.setUniformScale (0.1);
+
+        // Create a texture effect for the torus.  It uses the RedSky image that
+        // the rectangle uses.
+        this.torus.setEffectInstance (geomEffect.createInstance (texture));
+
+        // Create a billboard node that causes an object to always be oriented
+        // the same way relative to the camera.
+        this.billboard1 = new L5.BillboardNode (this.camera);
+        this.billboard1.attachChild (this.torus);
+        this.scene.attachChild (this.billboard1);
+
+        // The billboard rotation is about its model-space up-vector (0,1,0).  In
+        // this application, world-space up is (0,0,1).  Locally rotate the
+        // billboard so it's up-vector matches the world's.
+        this.billboard1.localTransform.setTranslate (new L5.Point (0.25, 0, 0.25));
+        this.billboard1.localTransform.setRotate (
+                L5.Matrix.makeRotation (
+                        L5.Vector.UNIT_X,
+                        L5.Math.HALF_PI
+                )
+        );
+    };
+
+    BillBoardNodes.prototype.onIdle = function () {
+        this.measureTime ();
+
+        // Update set of visible objects.
+        if (this.moveCamera ()) {
+            this.billboard0.update ();
+            this.billboard1.update ();
+            this.culler.computeVisibleSet (this.scene);
+        }
+        if (this.moveObject ()) {
+            this.scene.update ();
+            this.culler.computeVisibleSet (scene);
+        }
+
+
+        // Draw the scene.
+        if (this.renderer.preDraw ()) {
+            this.renderer.clearBuffers ();
+            this.renderer.draw (this.culler.getVisibleSet ());
+
+            this.drawFrameRate (8, GetHeight () - 8, this.textColor);
+
+            this.renderer.postDraw ();
+            this.renderer.displayColorBuffer ();
+        }
+
+        this.updateFrameCount ();
+    };
+
+    var bbn = new BillBoardNodes();
+    bbn.run();
+
+</script>
+</body>
+</html>

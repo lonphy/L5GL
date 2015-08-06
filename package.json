@@ -1,0 +1,17 @@
+{
+  "name": "l5",
+  "version": "0.1.0",
+  "author": {
+    "name": "lonphy",
+    "url": "http://lonphy.com/"
+  },
+  "homepage": "http://webgl.lonphy.com/",
+  "devDependencies": {
+    "grunt": "*",
+    "grunt-contrib-concat": "^0.5.1",
+    "grunt-contrib-jshint": "^0.11.2",
+    "grunt-contrib-uglify": "0.2.0",
+    "grunt-contrib-watch": "^0.6.1"
+  },
+  "description": "WebGL 1.0 framework"
+}

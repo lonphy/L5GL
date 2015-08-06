@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <title></title>
+    <script src="../../dist/l5.js"></script>
+</head>
+<body>
+<script>
+    var axis = L5.Vector.UNIT_Y;
+
+    // 生成绕Y轴旋转45度的矩阵
+    var mat = L5.Matrix.makeRotation(axis, L5.Math.HALF_PI);
+    console.log(mat);
+
+    var q = L5.HQuaternion.fromRotateMatrix(mat);
+    console.log(q);
+
+    var q1 = L5.HQuaternion.fromAxisAngle(axis, L5.Math.HALF_PI);
+    console.log(q1);
+    console.log(q.equals(q1));
+
+    var m1 = q.toRotateMatrix();
+    console.log(L5.HQuaternion.fromRotateMatrix(m1));
+
+    console.log(q1.toAxisAngle());
+
+    console.log(mat.mulPoint( new L5.Point(1, 0, 0)));
+    console.log(mat.orthoNormalize().mulPoint( new L5.Point(1, 0, 0)));
+
+
+</script>
+</body>
+</html>

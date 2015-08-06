@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title></title>
+</head>
+<body>
+<script>
+    var gl = document.createElement('canvas').getContext('webgl');
+
+
+    var Point = function(){
+        this._content = new Float32Array([0,0,0,1]);
+    };
+
+    Point.prototype = {
+        get 0 () {
+            return this._content[0];
+        },
+        get 1 () {
+            return this._content[1];
+        },
+        get 2 () {
+            return this._content[2];
+        },
+        get 3 () {
+            return this._content[3];
+        },
+        set 0 (val) {
+            this._content[0] = val;
+        },
+        set 1 (val) {
+            this._content[1] = val;
+        },
+        set 2 (val) {
+            this._content[2] = val;
+        },
+        set 3 (val) {
+            this._content[3] = val;
+        }
+    };
+</script>
+
+</body>
+</html>

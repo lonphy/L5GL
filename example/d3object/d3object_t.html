@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <title></title>
+    <script src="../../dist/l5.js"></script>
+</head>
+<body>
+<script>
+
+    var scene = new L5.Node();
+    console.log(scene);
+
+
+    var vformat = L5.VertexFormat.Create(3,
+            L5.VertexFormat.AU_POSITION, L5.VertexFormat.AT_FLOAT3, 0,
+            L5.VertexFormat.AU_TEXCOORD, L5.VertexFormat.AT_FLOAT2, 0,
+            L5.VertexFormat.AU_NORMAL, L5.VertexFormat.AT_FLOAT3, 0
+    );
+    console.log(vformat);
+</script>
+
+</body>
+</html>

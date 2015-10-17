@@ -11,8 +11,11 @@
  * @private
  */
 L5.Renderer.prototype._bindVertexShader = function(
-    shader
-) {};
+    shader) {
+    if (!this.vertexShaders.get(shader)) {
+        this.vertexShaders.set(shader, new L5.GLVertexShader(this, shader));
+    }
+};
 /**
  * @param shader {L5.VertexShader}
  * @private
@@ -36,17 +39,28 @@ L5.Renderer._unbindAllVertexShader = function(
 ){};
 /**
  * @param shader {L5.VertexShader}
+ * @param program {Map}
  * @param parameters {L5.ShaderParameters}
  * @private
  */
-L5.Renderer.prototype._enableVertexShader = function(
-    shader, parameters
-) {};
+L5.Renderer.prototype._enableVertexShader = function(shader, mapping, parameters) {
+    var glVShader = this.vertexShaders.get(shader);
+    if (!glVShader) {
+        glVShader = new L5.GLVertexShader(this, shader);
+        this.vertexShaders.set(shader, glVShader);
+    }
+
+    glVShader.enable(this, mapping, shader, parameters);
+};
 /**
  * @param shader {L5.VertexShader}
  * @param parameters {L5.ShaderParameters}
  * @private
  */
 L5.Renderer.prototype._disableVertexShader = function(
-    shader, parameters
-){};
+    shader, parameters) {
+    var glVShader = this.vertexShaders.get(shader);
+    if (glVShader) {
+        glVShader.disable(this, shader, parameters);
+    }
+};

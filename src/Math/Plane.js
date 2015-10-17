@@ -15,9 +15,7 @@
  * @param constant {number} 平面常量
  * @class
  */
-L5.Plane = function (
-    normal, constant
-) {
+L5.Plane = function (normal, constant) {
     this._content = new Float32Array(4);
     this._content[0] = normal[0];
     this._content[1] = normal[1];
@@ -33,9 +31,7 @@ L5.Plane.name = "Plane";
  * @param point {L5.Point} 平面上的点
  * @returns {L5.Plane}
  */
-L5.Plane.fromPoint1 = function(
-    normal, point
-) {
+L5.Plane.fromPoint1 = function (normal, point) {
     return new L5.Plane
     (
         normal,
@@ -51,9 +47,7 @@ L5.Plane.fromPoint1 = function(
  * @param constant {number}
  * @returns {L5.Plane}
  */
-L5.Plane.fromNumber = function(
-    normal0, normal1, normal2, constant
-) {
+L5.Plane.fromNumber = function (normal0, normal1, normal2, constant) {
     return new L5.Plane
     (
         new L5.Vector
@@ -67,19 +61,19 @@ L5.Plane.fromNumber = function(
 };
 
 /**
- * 3个点确定一个平面
- * normal = cross(point1-point0,point2-point0)/length(cross(point1-P0,point2-P0))
+ * 通过3个点创建一个平面
+ *
+ * normal = normalize(cross(point1-point0,point2-point0))
  * c = dot(normal,point0)
+ *
  * @param point0 {L5.Point} 平面上的点
  * @param point1 {L5.Point} 平面上的点
  * @param point2 {L5.Point} 平面上的点
  * @returns {L5.Plane}
  */
-L5.Plane.fromPoint3 = function(
-    point0, point1, point2
-) {
-    var edge1 = point1.sub(point0);
-    var edge2 = point2.sub(point0);
+L5.Plane.fromPoint3 = function (point0, point1, point2) {
+    var edge1 = point1.subP(point0);
+    var edge2 = point2.subP(point0);
     var normal = edge1.unitCross(edge2);
     return new L5.Plane
     (
@@ -115,7 +109,7 @@ L5.Plane.prototype = {
         return -this._content[3];
     },
     set constant(val) {
-        this._content[3] = -val||0;
+        this._content[3] = -val || 0;
     }
 };
 
@@ -123,9 +117,7 @@ L5.Plane.prototype = {
  * 复制
  * @param plane {L5.Plane}
  */
-L5.Plane.prototype.copy = function(
-    plane
-) {
+L5.Plane.prototype.copy = function (plane) {
     this._content[0] = plane._content[0];
     this._content[1] = plane._content[1];
     this._content[2] = plane._content[2];
@@ -139,13 +131,12 @@ L5.Plane.prototype.copy = function(
  */
 L5.Plane.prototype.normalize = function () {
     var length = L5.Math.sqrt(
-        this._content[0]*this._content[0] +
-        this._content[1]*this._content[1] +
-        this._content[2]*this._content[2]);
+        this._content[0] * this._content[0] +
+        this._content[1] * this._content[1] +
+        this._content[2] * this._content[2]);
 
-    if (length > 0)
-    {
-        var invLength = 1/length;
+    if (length > 0) {
+        var invLength = 1 / length;
         this._content[0] *= invLength;
         this._content[1] *= invLength;
         this._content[2] *= invLength;
@@ -169,21 +160,17 @@ L5.Plane.prototype.normalize = function () {
  * @returns {number}
  */
 L5.Plane.prototype.distanceTo = function (p) {
-    return this._content[0]* p.x +
-           this._content[1]* p.y +
-           this._content[2]* p.z +
-           this._content[3];
+    var c = this._content;
+    return c[0] * p.x + c[1] * p.y + c[2] * p.z + c[3];
 };
 
 L5.Plane.prototype.whichSide = function (p) {
     var distance = this.distanceTo(p);
 
-    if (distance < 0)
-    {
+    if (distance < 0) {
         return -1;
     }
-    else if (distance > 0)
-    {
+    else if (distance > 0) {
         return +1;
     }
 

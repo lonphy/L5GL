@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <title>Lights - Samples</title>
+    <script src="../../dist/l5.js"></script>
+    <style>
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+<canvas id="ctx" width="640" height="480"></canvas>
+<script>
+    function PointLightController() {
+        L5.PointController.call(this);
+        this.count = 0;
+        this.position = L5.Point.ORIGIN;
+    }
+    L5.extendFix(PointLightController, L5.PointController);
+
+    PointLightController.prototype.updatePointMotion = function () {
+        var points = this.object;
+        var vba = L5.VertexBufferAccessor.fromVisual(points);
+        this.count++;
+        var angle = this.count * Math.PI / 180;
+
+        var s = Math.sin(angle) * 10;
+        var c = Math.cos(angle) * 10;
+        this.position.set(s, 13, c);
+        vba.setPosition(4, this.position);
+
+        L5.Renderer.updateAll(points.vertexBuffer);
+        if (this.count > 360) {
+            this.count = 0;
+        }
+    };
+    PointLightController.prototype.getPosition = function () {
+        return this.position;
+    };
+
+</script>
+
+<script>
+    "use strict";
+
+    function Lights() {
+        L5.Application3.call(this, 'Lights', 640, 480, [0, 0, 0, 1], 'ctx');
+
+        this.textColor = "#fff";
+        this.sceneCuller = null;
+        this.scene = null;
+
+        this.lights = [];
+
+        this.effects = {
+            left: [],
+            right: [],
+            plane: []
+        };
+
+        this.pointLightPosition = new L5.Point(0, 13, 0);
+        this.ptc = null;
+
+        this.caption = new Array(3);
+    }
+    L5.extendFix(Lights, L5.Application3);
+
+    Lights.prototype.onInitialize = function () {
+        if (!L5.Application3.prototype.onInitialize.call(this)) {
+            return false;
+        }
+
+        // Set up the camera.
+        this.camera.setPerspective(60.0, this.getAspectRatio(), 0.1, 100);
+
+        this.camera.lookAt(L5.Point.ORIGIN, L5.Point.ORIGIN, L5.Vector.UNIT_Y);
+        var pos = new L5.Point(0, 3, -20);
+        this.camera.setPosition(pos);
+
+        // 禁用背面剔除
+        this.renderer.overrideCullState.enabled = false;
+
+        this.createScene();
+        this.createPoints();
+
+        // Initial update of objects.
+        this.scene.update();
+        this.scene.culling = L5.Spatial.CULLING_NEVER;
+
+        // Initial culling of scene,
+        this.sceneCuller = new L5.Culler(this.camera);
+        this.sceneCuller.computeVisibleSet(this.scene);
+
+        this.initializeCameraMotion(1, 0.05);
+        this.initializeObjectMotion(this.scene);
+        return true;
+    };
+
+    Lights.prototype.onIdle = function () {
+        this.measureTime();
+
+        this.moveCamera();
+        this.moveObject();
+        this.sceneCuller.computeVisibleSet(this.scene);
+        this.scene.update(this.applicationTime);
+        var pos = this.ptc.getPosition();
+        this.pointLightPosition.copy(pos);
+        this.lights[1].setPosition(pos);
+        this.lights[2].setPosition(pos);
+
+        // Draw the scene.
+        if (this.renderer.preDraw()) {
+            this.renderer.clearBuffers();
+            this.renderer.drawVisibleSet(this.sceneCuller.visibleSet);
+            this.drawFrameRate();
+            this.renderer.postDraw();
+        }
+        this.updateFrameCount();
+    };
+
+    Lights.prototype.createScene = function () {
+        this.scene = new L5.Node();
+        var l;
+
+        // 平行光
+        l = new L5.Light(L5.Light.LT_DIRECTIONAL);
+        l.ambient.set([0.2, 0.2, 0.2, 1]);
+        l.diffuse.set([1, 1, 1, 1]);
+        l.specular.set([1, 1, 1, 1]);
+        l.setDirection(new L5.Vector(-1, 1, -1));
+        this.lights[0] = l;
+
+        // 点光源
+        l = new L5.Light(L5.Light.LT_POINT);
+        l.ambient.set([0.1, 0.1, 0.1, 1]);
+        l.diffuse.set([1, 1, 1, 1]);
+        l.specular.set([1, 1, 1, 1]);
+        l.setPosition(this.pointLightPosition);
+        this.lights[1] = l;
+
+        // 聚光灯
+        l = new L5.Light(L5.Light.LT_SPOT);
+        l.ambient.set([0.1, 0.1, 0.1, 1]);
+        l.diffuse.set([1, 1, 1, 1]);
+        l.specular.set([1, 1, 1, 1]);
+        l.setPosition(this.pointLightPosition);
+        l.setDirection(new L5.Vector(0, -1, 0));
+        l.setAngle(30 * L5.Math.PI / 180);    // 45/2度
+        l.exponent = 1;
+        this.lights[2] = l;
+
+
+        //  地板材质
+        var m1 = new L5.Material();
+        m1.emissive.set([0, 0, 0, 1]);
+        m1.ambient.set([0.23, 0.09, 0.03, 1]);
+        m1.diffuse.set([0.55, 0.21, 0.07, 1]);
+        m1.specular.set([0.58, 0.22, 0.07, 51.2]);
+
+        // 球体材质
+        var m2 = new L5.Material();
+        m2.emissive.set([0, 0, 0, 1]);
+        m2.ambient.set([0.24725, 0.2245, 0.0645, 1]);
+        m2.diffuse.set([0.34615, 0.3143, 0.0903, 1]);
+        m2.specular.set([0.797357, 0.723991, 0.208006, 83.2]);
+
+        // Create the effects.
+        var effectDV = new L5.LightDirPerVerEffect();               // 平行光, 顶点光照
+        var effectDF = new L5.LightDirPerFragEffect();              // 平行光, 片元光照
+        var effectPV = new L5.LightPointPerVertexEffect();          // 点光源, 顶点光照
+        var effectPF = new L5.LightPointPerFragmentEffect();        // 点光源, 片元光照
+        var effectSV = new L5.LightSpotPerVertexEffect();           // 聚光灯, 顶点光照
+        var effectSF = new L5.LightSpotPerFragmentEffect();         // 聚光灯, 片段光照
+
+        // 左边球体 三种光特效
+        this.effects.left[0] = effectDV.createInstance(this.lights[0], m2);
+        this.effects.left[1] = effectPV.createInstance(this.lights[1], m2);
+        this.effects.left[2] = effectSV.createInstance(this.lights[2], m2);
+
+        // 右边球体 三种光特效
+        this.effects.right[0] = effectDV.createInstance(this.lights[0], m2);
+        this.effects.right[1] = effectPF.createInstance(this.lights[1], m2);
+        this.effects.right[2] = effectSF.createInstance(this.lights[2], m2);
+
+        // 地板 三种光特效
+        this.effects.plane[0] = effectDF.createInstance(this.lights[0], m1);
+        this.effects.plane[1] = effectPF.createInstance(this.lights[1], m1);
+        this.effects.plane[2] = effectSF.createInstance(this.lights[2], m1);
+
+        var format = L5.VertexFormat.create(2,
+                L5.VertexFormat.AU_POSITION, L5.VertexFormat.AT_FLOAT3, 0,
+                L5.VertexFormat.AU_NORMAL, L5.VertexFormat.AT_FLOAT3, 0);
+
+        var std = new L5.StandardMesh(format);
+
+        this.plane0 = std.rectangle(2, 2, 16, 8);
+        this.plane0.localTransform.setRotate(L5.Matrix.makeRotateX(-Math.PI / 2));
+        this.plane0.effect = this.effects.plane[2];
+        this.scene.attachChild(this.plane0);
+
+        this.sphere0 = std.sphere(48, 48, 4);
+        this.sphere0.localTransform.setTranslate(new L5.Point(-8, 4, 0));
+        this.sphere0.effect = this.effects.right[2];
+        this.scene.attachChild(this.sphere0);
+
+//        this.sphere1 = std.sphere(48, 48, 3);
+//        this.sphere1.localTransform.setTranslate( new L5.Point(6, 4, 0));
+//        this.sphere1.effect = this.effects.right[1];
+//        this.sphere1.culling = L5.Spatial.CULLING_NEVER;
+//        this.scene.attachChild(this.sphere1);
+//        this.caption[0] = "Directional Light (left per vertex, right per pixel)";
+//        this.caption[1] = "Point Light (left per vertex, right per pixel)";
+//        this.caption[2] = "Spot Light (left per vertex, right per pixel)";
+//        this.currentCaption = this.caption[0];
+//        this.activeType = 0;
+    };
+
+    // 创建参考点
+    Lights.prototype.createPoints = function () {
+        var format = L5.VertexFormat.create(2,
+                L5.VertexFormat.AU_POSITION, L5.VertexFormat.AT_FLOAT3, 0,
+                L5.VertexFormat.AU_COLOR, L5.VertexFormat.AT_FLOAT3, 0);
+
+        const stride = format.stride;
+        const usage = format.usage;
+
+        // Create the floor mesh.
+        var vbuffer = new L5.VertexBuffer(5, stride);
+        var vba = new L5.VertexBufferAccessor(format, vbuffer);
+
+        vba.setPosition(0, [0, 0, 0]);   // 原点: 红色
+        vba.setPosition(1, [1, 0, 0]);  // +x: 绿色
+        vba.setPosition(2, [0, 1, 0]);  // +y: 蓝色
+        vba.setPosition(3, [0, 0, 1]);  // +z: 黄色
+        vba.setPosition(4, this.pointLightPosition);  // 点光源位置, 白色
+
+        vba.setColor(0, 0, [1, 0, 0]);
+        vba.setColor(0, 1, [0, 1, 0]);
+        vba.setColor(0, 2, [0, 0, 1]);
+        vba.setColor(0, 3, [1, 1, 0]);
+        vba.setColor(0, 4, [1, 1, 1]);
+
+        this.points = new L5.PolyPoint(format, vbuffer);
+        this.points.effect = L5.VertexColor3Effect.createUniqueInstance();
+        this.points.culling = L5.Spatial.CULLING_NEVER;
+        this.ptc = new PointLightController();
+        this.points.attachController(this.ptc);
+        this.scene.attachChild(this.points);
+    };
+
+    L5.runApplication(Lights);
+
+</script>
+</body>
+</html>

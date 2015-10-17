@@ -8,12 +8,16 @@ L5.GLRenderData = function () {
     /**
      * @type {L5.GLRenderState}
      */
-    this.currentRS = null;
+    this.currentRS = new L5.GLRenderState();
 
+    const m = L5.GLRenderData.MAX_NUM_PSAMPLERS;
     /**
      * @type {Array<L5.GLSamplerState>}
      */
-    this.currentSS = new Array (L5.GLRenderData.MAX_NUM_PSAMPLERS);
+    this.currentSS = new Array(m);
+    for (var i = 0; i < m; ++i) {
+        this.currentSS[i] = new L5.GLSamplerState();
+    }
 
     // Capabilities (queried at run time).
     this.maxVShaderImages  = 0;

@@ -2,6 +2,7 @@
     "use strict";
 
     var L5 = Object.create(null);
+    Object.defineProperty(L5, 'VERSION', {value: 'WM_VERSION_5_1'});
 
     L5.setDebug = function (flag) {
         if (flag) {
@@ -48,6 +49,12 @@
      */
     L5.nameFix = function(c, name) {
         Object.defineProperty(c, 'name', {value: name});
+    };
+
+    L5.runApplication = function (Klass) {
+        var i = new Klass();
+        window.x = i;
+        i.run();
     };
 
     global.L5 = L5;

@@ -7,18 +7,42 @@
  * @version 1.0
  */
 
-L5.Renderer = function(
-    canvas
-) {
+L5.Renderer = function (canvas, width, height, clearColor, colorFormat, depthStencilFormat, numMultiSamples) {
     /**
      * @type {WebGLRenderingContext}
      */
-    this.gl = canvas.getContext('webgl');
+    var gl = canvas.getContext('webgl', {
+        alpha: true,
+        depth: true,
+        stencil: false
+    });
+    this.gl = gl;
+    this.clearColor = new Float32Array([0, 0, 0, 1]);
+    this.clearColor.set(clearColor);
+    this.initialize(width, height, colorFormat, depthStencilFormat, numMultiSamples);
 
+    // The platform-specific data.  It is in public scope to allow the
+    // renderer resource classes to access it.
+    var data = new L5.GLRenderData();
+    this.data = data;
 
+    data.maxVShaderImages = gl.getParameter(gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS);
+    data.maxFShaderImages = gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS);
+    data.maxCombinedImages = gl.getParameter(gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS);
+
+    // Set the default render states.
+    data.currentRS.initialize(gl,
+        this.defaultAlphaState,
+        this.defaultCullState,
+        this.defaultDepthState,
+        this.defaultOffsetState,
+        this.defaultStencilState
+    );
+    L5.Renderer.renderers.add(this);
 };
 
 L5.nameFix(L5.Renderer, 'Renderer');
+L5.Renderer.renderers = new Set();
 
 /**
  *
@@ -28,9 +52,7 @@ L5.nameFix(L5.Renderer, 'Renderer');
  * @param depthStencilFormat {number} L5.TEXTURE_FORMAT_XXX
  * @param numMultiSamples {number}
  */
-L5.Renderer.prototype.initialize = function(
-    width, height, colorFormat, depthStencilFormat, numMultiSamples
-){
+L5.Renderer.prototype.initialize = function (width, height, colorFormat, depthStencilFormat, numMultiSamples) {
 
     this._loadExt();
 
@@ -41,28 +63,25 @@ L5.Renderer.prototype.initialize = function(
     this.numMultiSamples = numMultiSamples;
 
     // 全局状态
-    this.alphaState   = new L5.AlphaState();
-    this.cullState    = new L5.CullState();
-    this.depthState   = new L5.DepthState();
-    this.offsetState  = new L5.OffsetState();
+    this.alphaState = new L5.AlphaState();
+    this.cullState = new L5.CullState();
+    this.depthState = new L5.DepthState();
+    this.offsetState = new L5.OffsetState();
     this.stencilState = new L5.StencilState();
-    //this.wireState    = new L5.WireState();
 
-    this.defaultAlphaState   = new L5.AlphaState();
-    this.defaultCullState    = new L5.CullState();
-    this.defaultDepthState   = new L5.DepthState();
-    this.defaultOffsetState  = new L5.OffsetState();
+    this.defaultAlphaState = new L5.AlphaState();
+    this.defaultCullState = new L5.CullState();
+    this.defaultDepthState = new L5.DepthState();
+    this.defaultOffsetState = new L5.OffsetState();
     this.defaultStencilState = new L5.StencilState();
-    //this.defaultWireState    = new L5.WireState();
 
 
     // 覆盖全局状态
-    this.overrideAlphaState   = new L5.AlphaState();
-    this.overrideCullState    = new L5.CullState();
-    this.overrideDepthState   = new L5.DepthState();
-    this.overrideOffsetState  = new L5.OffsetState();
+    this.overrideAlphaState = new L5.AlphaState();
+    this.overrideCullState = new L5.CullState();
+    this.overrideDepthState = new L5.DepthState();
+    this.overrideOffsetState = new L5.OffsetState();
     this.overrideStencilState = new L5.StencilState();
-    //this.overrideWireState    = new L5.WireState();
 
 
     this.reverseCullOrder = false;
@@ -74,51 +93,47 @@ L5.Renderer.prototype.initialize = function(
 
     // Access to the current clearing parameters for the color, depth, and
     // stencil buffers.  The color buffer is the back buffer.
-    this.clearColor = new Float32Array(4);
     this.clearDepth = 1.0;
     this.clearStencil = 0;
 
     // Channel masking for the back buffer., allow rgba,
-    this._colorMask = (0x1 | 0x2 |0x4 | 0x8);
+    this._colorMask = (0x1 | 0x2 | 0x4 | 0x8);
 
     // 框架结构对应到底层结构
     this.vertexFormats = new Map();
     this.vertexBuffers = new Map();
-    this.indexBuffers  = new Map();
-    this.texture2Ds    = new Map();
-    this.texture3Ds    = new Map();
-    this.textureCubes  = new Map();
+    this.indexBuffers = new Map();
+    this.texture2Ds = new Map();
+    this.texture3Ds = new Map();
+    this.textureCubes = new Map();
     this.renderTargets = new Map();
     this.vertexShaders = new Map();
-    this.fragShaders   = new Map();
+    this.fragShaders = new Map();
+    this.programs = new Map();
 
-    this.renderers = new Set();
-
-    // The platform-specific data.  It is in public scope to allow the
-    // renderer resource classes to access it.
-    this.data = null;
-
-};
-
-L5.Renderer.prototype._loadExt = function() {
     var gl = this.gl;
-    var c;
+    var cc = this.clearColor;
+    gl.clearColor(cc[0], cc[1], cc[2], cc[3]);
+    gl.clearDepth(this.clearDepth);
+    gl.clearStencil(this.clearStencil);
 
-    var ext = gl.getExtension('EXT_texture_filter_anisotropic');
-    for (c in ext) {
-        if (ext.hasOwnProperty(c)) {
-            gl[c] = ext[c];
-        }
-    }
 };
 
-L5.Renderer.prototype.terminate = function(){};
+L5.Renderer.prototype._loadExt = function () {
+    L5.GLExtensions.init(this.gl);
+};
+
+L5.Renderer.prototype.terminate = function () {
+};
 
 
 // 访问当前摄像机状态
-L5.Renderer.prototype.getViewMatrix = function(){};
-L5.Renderer.prototype.getProjectionMatrix = function(){};
-L5.Renderer.prototype.getPostProjectionMatrix = function(){};
+L5.Renderer.prototype.getViewMatrix = function () {
+};
+L5.Renderer.prototype.getProjectionMatrix = function () {
+};
+L5.Renderer.prototype.getPostProjectionMatrix = function () {
+};
 
 // Compute a picking ray from the specified left-handed screen
 // coordinates (x,y) and using the current camera.  The output
@@ -132,9 +147,7 @@ L5.Renderer.prototype.getPostProjectionMatrix = function(){};
  * @param origin {L5.Point} out
  * @param direction {L5.Vector} out
  */
-L5.Renderer.prototype.getPickRay = function(
-    x, y, origin, direction
-){
+L5.Renderer.prototype.getPickRay = function (x, y, origin, direction) {
 
 };
 
@@ -188,8 +201,8 @@ L5.Renderer.prototype.getPickRay = function(
  * allowAlpha: 0x8
  * return
  */
-L5.Renderer.prototype.getColorMask = function(){
-    return (0x1 | 0x2 |0x4 | 0x8);
+L5.Renderer.prototype.getColorMask = function () {
+    return (0x1 | 0x2 | 0x4 | 0x8);
 };
 
 // Override the global state.  If overridden, this state is used instead
@@ -198,45 +211,70 @@ L5.Renderer.prototype.getColorMask = function(){
 
 Object.defineProperties(L5.Renderer.prototype, {
     overrideAlphaState: {
-        get : function(){},
-        set : function(val) {
+        get: function () {
+            return this._overrideAlphaState;
+        },
+        set: function (val) {
             this._overrideAlphaState = val;
-            if (val) {
-
-            }
         }
     },
     overrideCullState: {
-        get : function(){},
-        set : function(val) {this._overrideCullState = val;}
+        get: function () {
+            return this._overrideCullState;
+        },
+        set: function (val) {
+            this._overrideCullState = val;
+        }
     },
     overrideDepthState: {
-        get : function(){},
-        set : function(val) {this._overrideDepthState = val;}
+        get: function () {
+            return this._overrideDepthState;
+        },
+        set: function (val) {
+            this._overrideDepthState = val;
+        }
     },
     overrideOffsetState: {
-        get : function(){},
-        set : function(val) {this._overrideOffsetState = val;}
+        get: function () {
+            return this._overrideOffsetState;
+        },
+        set: function (val) {
+            this._overrideOffsetState = val;
+        }
     },
     overrideStencilState: {
-        get : function(){},
-        set : function(val) {this._overrideStencilState = val;}
-    },
-    overrideWireState: {
-        get : function(){},
-        set : function(val) {this._overrideWireState = val;}
+        get: function () {
+            return this._overrideStencilState;
+        },
+        set: function (val) {
+            this._overrideStencilState = val;
+        }
     }
 });
 
-// The entry point to drawing the visible set of a scene tree.
 /**
+ * The entry point to drawing the visible set of a scene tree.
  * @param visibleSet {L5.VisibleSet}
  * @param globalEffect {*}
  */
-L5.Renderer.prototype.draw = function(
-    visibleSet, globalEffect
-) {
+L5.Renderer.prototype.drawVisibleSet = function (visibleSet, globalEffect) {
+    if (!globalEffect) {
+        var numVisible = visibleSet.getNumVisible();
+        for (var i = 0; i < numVisible; ++i) {
+            var visual = visibleSet.getVisible(i);
+            this.drawInstance(visual, visual.effect);
+        }
+    }
+    else {
+        globalEffect.draw(this, visibleSet);
+    }
+};
 
+/**
+ * @param visual {L5.Visual}
+ */
+L5.Renderer.prototype.drawVisible = function (visual) {
+    this.drawInstance(visual, visual.effect);
 };
 
 /**
@@ -244,10 +282,61 @@ L5.Renderer.prototype.draw = function(
  * @param visual {L5.Visual}
  * @param instance {L5.VisualEffectInstance}
  */
-L5.Renderer.prototype.draw = function(
-    visual, instance
-) {
+L5.Renderer.prototype.drawInstance = function (visual, instance) {
+    if (!visual) {
+        L5.assert(false, 'The visual object must exist.');
+        return;
+    }
 
+    if (!instance) {
+        L5.assert(false, 'The visual object must have an effect instance.');
+        return;
+    }
+
+    var vformat = visual.format;
+    var vbuffer = visual.vertexBuffer;
+    var ibuffer = visual.indexBuffer;
+
+    var numPasses = instance.getNumPasses();
+    for (var i = 0; i < numPasses; ++i) {
+        var pass = instance.getPass(i);
+        var vparams = instance.getVertexParameters(i);
+        var fparams = instance.getFragParameters(i);
+        var program = pass.program;
+
+        // Update any shader constants that vary during runtime.
+        vparams.updateConstants(visual, this.camera);
+        fparams.updateConstants(visual, this.camera);
+
+        // Set visual state.
+        this.setAlphaState(pass.alphaState);
+        this.setCullState(pass.cullState);
+        this.setDepthState(pass.depthState);
+        this.setOffsetState(pass.offsetState);
+        this.setStencilState(pass.stencilState);
+        //this.setWireState(pass.wireState);
+
+        // enable data
+        this._enableProgram(program, vparams, fparams);
+        this._enableVertexBuffer(vbuffer);
+        this._enableVertexFormat(vformat, program);
+        if (ibuffer) {
+            this._enableIndexBuffer(ibuffer);
+        }
+
+        // Draw the primitive.
+        this.drawPrimitive(visual);
+
+        // disable data
+        if (ibuffer) {
+            this._disableIndexBuffer(ibuffer);
+        }
+        this._disableVertexFormat(vformat);
+        this._disableVertexBuffer(vbuffer);
+
+        // Disable the shaders.
+        this._disableProgram(program, vparams, fparams);
+    }
 };
 
 // The entry point for drawing 3D objects, called by the single-object
@@ -255,90 +344,89 @@ L5.Renderer.prototype.draw = function(
 /**
  * @param visual {L5.Visual}
  */
-L5.Renderer.prototype._drawPrimitive = function (
-    visual
-) {};
+L5.Renderer.prototype._drawPrimitive = function (visual) {
+};
 
 //============================================================================
-
-
-// Viewport management.  The viewport is specified in right-handed screen
-// coordinates.  The origin is the lower-left corner of the screen, the
-// y-axis points upward, and the x-axis points rightward.
-L5.Renderer.prototype.setViewport = function (
-    x, y, width, height
-) {};
-L5.Renderer.prototype.getViewport = function(){
-    return {x:0,y:0,width:300,height:150};
+/**
+ * 设置渲染视口
+ * @param x {int}
+ * @param y {int}
+ * @param width {int}
+ * @param height {int}
+ */
+L5.Renderer.prototype.setViewport = function (x, y, width, height) {
+    this.gl.viewport(x, y, width, height);
+};
+/**
+ * 获取渲染视口参数
+ * @returns {Array<int>}
+ */
+L5.Renderer.prototype.getViewport = function () {
+    var gl = this.gl;
+    return gl.getParameter(gl.VIEWPORT);
+};
+/**
+ * 调整渲染视口大小
+ * @param width {int}
+ * @param height {int}
+ */
+L5.Renderer.prototype.resize = function (width, height) {
+    this.width = width;
+    this.height = height;
+    var gl = this.gl;
+    var p = gl.getParameter(gl.VIEWPORT);
+    gl.viewport(p[0], p[1], width, height);
 };
 
-L5.Renderer.prototype.setDepthRange = function (
-    min, max
-) {};
+/**
+ * 设置深度测试范围
+ * @param min {float}
+ * @param max {float}
+ */
+L5.Renderer.prototype.setDepthRange = function (min, max) {
+    this.gl.depthRange(min, max);
+};
+/**
+ * 获取当前深度测试范围
+ * @returns {Array<int>}
+ */
 L5.Renderer.prototype.getDepthRange = function () {
-    return {min:0,max:1};
+    var gl = this.gl;
+    return gl.getParameter(gl.DEPTH_RANGE);
 };
-L5.Renderer.prototype.resize = function (
-    width, height
-) {};
+
 
 // Support for clearing the color, depth, and stencil buffers.
-L5.Renderer.prototype.clearColorBuffer = function(){};
-L5.Renderer.prototype.clearDepthBuffer = function(){};
-L5.Renderer.prototype.clearStencilBuffer = function(){};
-L5.Renderer.prototype.clearBuffers = function(){};
-L5.Renderer.prototype.clearColorBuffer = function(x,y,w,h){};
-L5.Renderer.prototype.clearDepthBuffer = function(x,y,w,h){};
-L5.Renderer.prototype.clearStencilBuffer = function(x,y,w,h){};
-L5.Renderer.prototype.clearBuffers = function(x,y,w,h){};
-L5.Renderer.prototype.displayColorBuffer = function(){};
-
-// Support for masking color channels during drawing.
-L5.Renderer.prototype.setColorMask = function(
-    allowRed, allowGreen, allowBlue, allowAlpha
-){};
-
-// Support for predraw and postdraw semantics.  All Renderer abstract
-// interface functions and drawing functions must occur within a block of
-// code bounded by PreDraw() and PostDraw().  The general format is
-//   if (renderer->PreDraw())
-//   {
-//       <abstract-interface renderer calls and draw calls>;
-//       renderer->PostDraw();
-//   }
-L5.Renderer.prototype.preDraw = function () {
-    return true;
+L5.Renderer.prototype.clearColorBuffer = function () {
 };
-
-L5.Renderer.prototype.postDraw = function () {};
-
-// The entry point for drawing 2D buffers (for 2D applications).
-L5.Renderer.prototype.draw = function(
-    screenBuffer, reflectY
-) {};
+L5.Renderer.prototype.clearDepthBuffer = function () {
+};
+L5.Renderer.prototype.clearStencilBuffer = function () {
+};
+L5.Renderer.prototype.clearColorBuffer = function (x, y, w, h) {
+};
+L5.Renderer.prototype.clearDepthBuffer = function (x, y, w, h) {
+};
+L5.Renderer.prototype.clearStencilBuffer = function (x, y, w, h) {
+};
+L5.Renderer.prototype.displayColorBuffer = function () {
+};
 
 // The entry point for drawing 2D text.
-L5.Renderer.prototype.draw = function(
-    x,y, color,message
-){};
+L5.Renderer.prototype.draw = function (x, y, color, message) {
+};
 
 // For render target access to allow creation of color/depth textures.
-L5.Renderer.prototype.inTexture2DMap = function(
-    texture
-) {
+L5.Renderer.prototype.inTexture2DMap = function (texture) {
     return true;
 };
-L5.Renderer.prototype.insertInTexture2DMap = function (
-    texture, platformTexture
-) {
+L5.Renderer.prototype.insertInTexture2DMap = function (texture, platformTexture) {
 
 };
 
-L5.Renderer.updateAll = function(
-    obj /*, params... */
-) {
-    switch(obj.constructor.name)
-    {
+L5.Renderer.updateAll = function (obj /*, params... */) {
+    switch (obj.constructor.name) {
         case "Texture2D":
             this._updateAllTexture2D(obj, arguments[1]);
             break;
@@ -346,7 +434,7 @@ L5.Renderer.updateAll = function(
             this._updateAllTexture3D(obj, arguments[1], arguments[2]);
             break;
         case "TextureCube":
-            this._updateAllTextureCube(obj, arguments[1],arguments[2]);
+            this._updateAllTextureCube(obj, arguments[1], arguments[2]);
             break;
         case "VertexBuffer":
             this._updateAllVertexBuffer(obj);

@@ -46,10 +46,12 @@ L5.CameraNode.prototype = {
         {
             var pos = this.worldTransform.getTranslate();
             var rotate = this.worldTransform.getRotate();
-            var direction = rotate.getColumn(0);
-            var up = rotate.getColumn(1);
-            var right = rotate.getColumn(2);
-
+            var direction = L5.Vector.ZERO;
+            var up = L5.Vector.ZERO;
+            var right = L5.Vector.ZERO;
+            rotate.getColumn(0, direction);
+            rotate.getColumn(1, up);
+            rotate.getColumn(2, right);
             this._camera.setFrame(pos, direction, up, right);
         }
     }

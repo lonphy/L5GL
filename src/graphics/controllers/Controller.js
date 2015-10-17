@@ -3,6 +3,9 @@
  *
  * @version 1.0
  * @author lonphy
+ *
+ * @extends {L5.D3Object}
+ * @class
  */
 
 L5.Controller = function () {
@@ -75,4 +78,21 @@ L5.Controller.prototype.update = function (applicationTime) {
         return true;
     }
     return false;
+};
+
+L5.Controller.prototype.load = function (inStream) {
+    L5.D3Object.prototype.load.call(this, inStream);
+    this.repeat = inStream.readEnum();
+    this.minTime = inStream.readFloat64();
+    this.maxTime = inStream.readFloat64();
+    this.phase = inStream.readFloat64();
+    this.frequency = inStream.readFloat64();
+    this.active = inStream.readBool();
+    this.object = inStream.readPointer();
+    this.applicationTime = -L5.Math.MAX_REAL;
+};
+
+L5.Controller.prototype.link = function (inStream) {
+    L5.D3Object.prototype.link.call(this, inStream);
+    this.object = inStream.resolveLink(this.object);
 };

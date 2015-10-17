@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <title>PointSystem - Samples</title>
+    <script src="../../dist/l5.js"></script>
+    <style>
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+<canvas id="ctx" width="640" height="480"></canvas>
+<script>
+    function RandomController() {
+        L5.PointController.call(this);
+    }
+    L5.extendFix(RandomController, L5.PointController);
+
+    RandomController.prototype.updatePointMotion = function () {
+        var points = this.object;
+
+        var vba = L5.VertexBufferAccessor.fromVisual(points);
+        const numPoints = vba.getNumVertices();
+        const random = L5.Math.symmetricRandom;
+        var pos;
+        for (var i = 0; i < numPoints; ++i) {
+            pos = vba.getPosition(i);
+            for (var j = 0; j < 3; ++j) {
+                pos[j] += 0.01 * random();
+                if (pos[j] > 1) {
+                    pos[j] = 1;
+                }
+                else if (pos[j] < -1) {
+                    pos[j] = -1;
+                }
+            }
+        }
+
+        L5.Renderer.updateAll(points.vertexBuffer);
+    };
+
+</script>
+<script>
+    "use strict";
+
+    function PointSystem() {
+        L5.Application3.call(this, 'PointSystem', 640, 480, [0, 0, 0, 1], 'ctx');
+
+        this.textColor = "#fff";
+        this.updateTime = 0;
+        this.sceneCuller = null;
+        this.scene = null;
+        this.floor = null;
+        this.wall = null;
+        this.psEffect = null;
+        this.prEffect = null;
+
+        this.cube = null;
+        this.cubeCuller = null;
+
+        this.cubeAngle = 0;
+    }
+    L5.extendFix(PointSystem, L5.Application3);
+
+    PointSystem.prototype.onInitialize = function () {
+        if (!L5.Application3.prototype.onInitialize.call(this)) {
+            return false;
+        }
+
+        // Set up the camera.
+        this.camera.setPerspective(60.0, this.getAspectRatio(), 0.1, 1000);
+        this.camera.lookAt(L5.Point.ORIGIN, L5.Point.ORIGIN, L5.Vector.UNIT_Y);
+        var pos = new L5.Point(0, 0, -5);
+        this.camera.setPosition(pos);
+
+        // 禁用背面剔除
+        this.renderer.overrideCullState.enabled = false;
+
+        this.createScene();
+
+        // Initial update of objects.
+        this.scene.update();
+
+        // Initial culling of scene,
+        this.scene.culling = L5.Spatial.CULLING_NEVER;
+        this.sceneCuller = new L5.Culler(this.camera);
+        this.sceneCuller.computeVisibleSet(this.scene);
+        //
+
+        this.initializeCameraMotion(0.1, 0.05);
+        this.initializeObjectMotion(this.scene);
+        return true;
+    };
+
+    PointSystem.prototype.onIdle = function () {
+        this.measureTime();
+
+        this.moveCamera();
+        this.moveObject();
+        this.scene.update(this.applicationTime);
+        this.sceneCuller.computeVisibleSet(this.scene);
+
+        // Draw the scene.
+        if (this.renderer.preDraw()) {
+            this.renderer.clearBuffers();
+            this.renderer.drawVisibleSet(this.sceneCuller.visibleSet);
+            this.drawFrameRate();
+            this.renderer.postDraw();
+        }
+        this.updateFrameCount();
+    };
+
+    PointSystem.prototype.createScene = function () {
+        this.scene = new L5.Node();
+
+        const format = L5.VertexFormat.create(2,
+                L5.VertexFormat.AU_POSITION, L5.VertexFormat.AT_FLOAT3, 0,
+                L5.VertexFormat.AU_COLOR, L5.VertexFormat.AT_FLOAT3, 0);
+        const stride = format.stride;
+        const random = L5.Math.symmetricRandom;
+        const uRandom = L5.Math.unitRandom;
+
+        var vbo = new L5.VertexBuffer(1024, stride);
+        var vba = new L5.VertexBufferAccessor(format, vbo);
+        var i, l = vba.getNumVertices();
+
+        for (i = 0; i < l; ++i) {
+            vba.setPosition(i, [random(), random(), random()]);
+            vba.setColor(0, i, [uRandom(), uRandom(), uRandom()]);
+        }
+
+        var points = new L5.PolyPoint(format, vbo);
+        points.attachController(new RandomController());
+        points.effect = L5.VertexColor3Effect.createUniqueInstance();
+
+        points.culling = L5.Spatial.CULLING_NEVER;
+
+        this.scene.attachChild(points);
+    };
+
+    L5.runApplication(PointSystem);
+</script>
+</body>
+</html>

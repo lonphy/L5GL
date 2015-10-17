@@ -1,24 +1,21 @@
 /**
  * Visual
  *
- * @version 1.0
- * @author lonphy
- */
-
-
-/**
  * @param type {number} primitiveType
  * @param format {L5.VertexFormat}
  * @param vertexBuffer {L5.VertexBuffer}
  * @param indexBuffer {L5.IndexBuffer}
  * @class
+ *
+ * @extends {L5.Spatial}
+ *
+ * @version 1.0
+ * @author lonphy
  */
-L5.Visual = function (
-    type, format, vertexBuffer, indexBuffer
-) {
-    L5.Spatial.call (this);
+L5.Visual = function (type, format, vertexBuffer, indexBuffer) {
+    L5.Spatial.call(this);
 
-    this.primitiveType = type || L5.Spatial.PT_NONE;
+    this.primitiveType = type || L5.Visual.PT_NONE;
 
     /**
      * @type {L5.VertexFormat}
@@ -37,52 +34,52 @@ L5.Visual = function (
     /**
      * @type {L5.Bound}
      */
-    this._modelBound = null;
+    this.modelBound = new L5.Bound();
 
     /**
      * Shader effect used to draw the Visual.
      * @type {L5.VisualEffectInstance}
      * @private
      */
-    this._effect = null;
+    this.effect = null;
 
     if (format && vertexBuffer && indexBuffer) {
-        this.updateModelSpace (L5.Spatial.GU_MODEL_BOUND_ONLY);
+        this.updateModelSpace(L5.Spatial.GU_MODEL_BOUND_ONLY);
     }
 };
 
-L5.nameFix (L5.Visual, 'Visual');
-L5.extendFix (L5.Visual, L5.Spatial);
+L5.nameFix(L5.Visual, 'Visual');
+L5.extendFix(L5.Visual, L5.Spatial);
 
 L5.Visual.prototype.updateModelSpace = function (type) {
-    this.updateModelBound ();
+    this.updateModelBound();
 };
 
 L5.Visual.prototype.updateWorldBound = function () {
-    this._modelBound.transformBy (this.worldTransform, this.worldBound);
+    this.modelBound.transformBy(this.worldTransform, this.worldBound);
 };
 L5.Visual.prototype.updateModelBound = function () {
     var numVertices = this.vertexBuffer.numElements;
     const format = this.format;
-    var stride      = format.stride;
+    var stride = format.stride;
 
-    var posIndex = format.getIndex (L5.VertexFormat.AU_POSITION);
+    var posIndex = format.getIndex(L5.VertexFormat.AU_POSITION);
     if (posIndex == -1) {
-        L5.assert (false, 'Update requires vertex positions');
+        L5.assert(false, 'Update requires vertex positions');
         return;
     }
 
-    var posType = format.getAttributeType (posIndex);
+    var posType = format.getAttributeType(posIndex);
     if (posType != L5.VertexFormat.AT_FLOAT3 &&
         posType != L5.VertexFormat.AT_FLOAT4
     ) {
-        L5.assert (false, 'Positions must be 3-tuples or 4-tuples');
+        L5.assert(false, 'Positions must be 3-tuples or 4-tuples');
         return;
     }
 
-    var data      = this.vertexBuffer.getData();
-    var posOffset = format.getOffset (posIndex);
-    this._modelBound.computeFromData (numVertices, stride, data.slice (posOffset));
+    var data = this.vertexBuffer.getData();
+    var posOffset = format.getOffset(posIndex);
+    this.modelBound.computeFromData(numVertices, stride, data.slice(posOffset));
 };
 
 /**
@@ -90,22 +87,20 @@ L5.Visual.prototype.updateModelBound = function () {
  * @param culler {L5.Culler}
  * @param noCull {boolean}
  */
-L5.Visual.prototype.getVisibleSet = function (
-    culler, noCull
-) {
-    culler.insert (this);
+L5.Visual.prototype.getVisibleSet = function (culler, noCull) {
+    culler.insert(this);
 };
 
 /////////////////// 绘制类型 //////////////////////////////
-L5.Visual.PT_NONE                    = 0;  // 默认
-L5.Visual.PT_POLYPOINT               = 1;
-L5.Visual.PT_POLYSEGMENTS_DISJOINT   = 2;
+L5.Visual.PT_NONE = 0;  // 默认
+L5.Visual.PT_POLYPOINT = 1;   // 点
+L5.Visual.PT_POLYSEGMENTS_DISJOINT = 2;
 L5.Visual.PT_POLYSEGMENTS_CONTIGUOUS = 3;
-L5.Visual.PT_TRIANGLES               = 4;  // abstract
-L5.Visual.PT_TRIMESH                 = 5;
-L5.Visual.PT_TRISTRIP                = 6;
-L5.Visual.PT_TRIFAN                  = 7;
-L5.Visual.PT_MAX_QUANTITY            = 8;
+L5.Visual.PT_TRIANGLES = 4;  // abstract
+L5.Visual.PT_TRIMESH = 5;
+L5.Visual.PT_TRISTRIP = 6;
+L5.Visual.PT_TRIFAN = 7;
+L5.Visual.PT_MAX_QUANTITY = 8;
 
 // Geometric updates.  If the positions in the vertex buffer have been
 // modified, you might want to update the surface frames (normals,
@@ -144,7 +139,28 @@ L5.Visual.PT_MAX_QUANTITY            = 8;
 // shaders use normals, tangents, and bitangents, consider passing in
 // normals and tangents, and then have the shader compute the bitangent as
 //    bitangent = Cross(normal, tangent)
-L5.Visual.GU_MODEL_BOUND_ONLY   = -3;
-L5.Visual.GU_NORMALS            = -2;
-L5.Visual.GU_USE_GEOMETRY       = -1;
+L5.Visual.GU_MODEL_BOUND_ONLY = -3;
+L5.Visual.GU_NORMALS = -2;
+L5.Visual.GU_USE_GEOMETRY = -1;
 L5.Visual.GU_USE_TCOORD_CHANNEL = 0;
+
+/**
+ * @param inStream {L5.InStream}
+ */
+L5.Visual.prototype.load = function (inStream) {
+    L5.Spatial.prototype.load.call(this, inStream);
+    this.type = inStream.readEnum();
+    this.modelBound = inStream.readBound();
+    this.format = inStream.readPointer();
+    this.vertexBuffer = inStream.readPointer();
+    this.indexBuffer = inStream.readPointer();
+    this.effect = inStream.readPointer();
+};
+
+L5.Visual.prototype.link = function (inStream) {
+    L5.Spatial.prototype.link.call(this, inStream);
+    this.format = inStream.resolveLink(this.format);
+    this.vertexBuffer = inStream.resolveLink(this.vertexBuffer);
+    this.indexBuffer = inStream.resolveLink(this.indexBuffer);
+    this.effect = inStream.resolveLink(this.effect);
+};

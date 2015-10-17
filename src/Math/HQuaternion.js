@@ -2,24 +2,21 @@
  * Quaternion 四元数
  * @author lonphy
  * @version 1.0
- */
-
-
-/**
+ *
  * 四元数表示为: q = w + x*i + y*j + z*k
  * 但(w,x,y,z) 在4D空间不一定是单位向量
  * @class
  */
-L5.HQuaternion = function(
+L5.Quaternion = function (
     w, x, y, z
 ) {
     this.content = new Float32Array([w, x, y, z]);
 };
 
-L5.HQuaternion.name     = "HQuaternion";
+L5.Quaternion.name = "Quaternion";
 
-L5.HQuaternion.prototype = {
-    constructor: L5.HQuaternion,
+L5.Quaternion.prototype = {
+    constructor: L5.Quaternion,
 
     get w() { return this.content[0]; },
     get x() { return this.content[1]; },
@@ -34,10 +31,10 @@ L5.HQuaternion.prototype = {
 
 /**
  * 复制
- * @param q {L5.HQuaternion}
- * @returns {L5.HQuaternion}
+ * @param q {L5.Quaternion}
+ * @returns {L5.Quaternion}
  */
-L5.HQuaternion.prototype.copy = function(
+L5.Quaternion.prototype.copy = function (
     q
 ) {
     this.content[0] = q.content[0];
@@ -48,10 +45,10 @@ L5.HQuaternion.prototype.copy = function(
 };
 /**
  * 判断是否相等
- * @param q {L5.HQuaternion}
+ * @param q {L5.Quaternion}
  * @returns {boolean}
  */
-L5.HQuaternion.prototype.equals = function(
+L5.Quaternion.prototype.equals = function (
     q
 ) {
     return this.content[0] === q.content[0] &&
@@ -62,13 +59,13 @@ L5.HQuaternion.prototype.equals = function(
 
 /**
  * 加法
- * @param q {L5.HQuaternion}
- * @returns {L5.HQuaternion}
+ * @param q {L5.Quaternion}
+ * @returns {L5.Quaternion}
  */
-L5.HQuaternion.prototype.add = function(
+L5.Quaternion.prototype.add = function (
     q
 ) {
-    return new L5.HQuaternion
+    return new L5.Quaternion
     (
         this.content[0] + q.content[0],
         this.content[1] + q.content[1],
@@ -79,13 +76,13 @@ L5.HQuaternion.prototype.add = function(
 
 /**
  * 减法
- * @param q {L5.HQuaternion}
- * @returns {L5.HQuaternion}
+ * @param q {L5.Quaternion}
+ * @returns {L5.Quaternion}
  */
-L5.HQuaternion.prototype.sub = function(
+L5.Quaternion.prototype.sub = function (
     q
 ) {
-    return new L5.HQuaternion
+    return new L5.Quaternion
     (
         this.content[0] - q.content[0],
         this.content[1] - q.content[1],
@@ -97,12 +94,12 @@ L5.HQuaternion.prototype.sub = function(
 /**
  * 乘标量
  * @param scalar {number}
- * @returns {L5.HQuaternion}
+ * @returns {L5.Quaternion}
  */
-L5.HQuaternion.prototype.scalar = function(
+L5.Quaternion.prototype.scalar = function (
     scalar
 ) {
-    return new L5.HQuaternion
+    return new L5.Quaternion
     (
         this.content[0] * scalar,
         this.content[1] * scalar,
@@ -113,16 +110,16 @@ L5.HQuaternion.prototype.scalar = function(
 
 /**
  * 乘四元数
- * @param q {L5.HQuaternion}
- * @returns {L5.HQuaternion}
+ * @param q {L5.Quaternion}
+ * @returns {L5.Quaternion}
  */
-L5.HQuaternion.prototype.mul = function(
+L5.Quaternion.prototype.mul = function (
     q
 ) {
     var tw = this.content[0], tx = this.content[1], ty = this.content[2], tz = this.content[3];
     var qw = q.content[0], qx = q.content[1], qy = q.content[2], qz = q.content[3];
 
-    return new L5.HQuaternion
+    return new L5.Quaternion
     (
         tw*qw - tx*qx - ty*qy - tz*qz,
         tw*qx + tx*qw + ty*qz - tz*qy,
@@ -133,16 +130,16 @@ L5.HQuaternion.prototype.mul = function(
 
 /**
  * 除标量
- * @param scalar {L5.HQuaternion}
- * @returns {L5.HQuaternion}
+ * @param scalar {L5.Quaternion}
+ * @returns {L5.Quaternion}
  */
-L5.HQuaternion.prototype.div = function(
+L5.Quaternion.prototype.div = function (
     scalar
 ) {
     if ( q !== 0)
     {
         var invScalar = 1/scalar;
-        return new L5.HQuaternion
+        return new L5.Quaternion
         (
             this.content[0] * invScalar,
             this.content[1] * invScalar,
@@ -151,15 +148,15 @@ L5.HQuaternion.prototype.div = function(
         );
     }
     var max = L5.Math.MAX_REAL;
-    return new L5.HQuaternion(max, max, max, max);
+    return new L5.Quaternion(max, max, max, max);
 };
 
 /**
  * 求负
- * @returns {L5.HQuaternion}
+ * @returns {L5.Quaternion}
  */
-L5.HQuaternion.prototype.negative = function() {
-    return new L5.HQuaternion
+L5.Quaternion.prototype.negative = function () {
+    return new L5.Quaternion
     (
         -this.content[0],
         -this.content[1],
@@ -172,7 +169,7 @@ L5.HQuaternion.prototype.negative = function() {
  * 提取旋转矩阵
  * @returns {L5.Matrix}
  */
-L5.HQuaternion.prototype.toRotateMatrix = function(){
+L5.Quaternion.prototype.toRotateMatrix = function () {
     var w = this.content[0], x = this.content[1], y = this.content[2], z = this.content[3],
         x2  = 2* x, y2  = 2* y, z2  = 2* z,
         wx2 = x2* w, wy2 = y2* w, wz2 = z2* w,
@@ -192,7 +189,7 @@ L5.HQuaternion.prototype.toRotateMatrix = function(){
  * 提取旋转矩阵
  * @returns {Array} 0: axis 1: angle
  */
-L5.HQuaternion.prototype.toAxisAngle = function(){
+L5.Quaternion.prototype.toAxisAngle = function () {
     // The quaternion representing the rotation is
     //   q = cos(A/2)+sin(A/2)*(x*i+y*j+z*k)
 
@@ -226,7 +223,7 @@ L5.HQuaternion.prototype.toAxisAngle = function(){
  * 求当前四元数的模
  * @returns {number}
  */
-L5.HQuaternion.prototype.length = function(){
+L5.Quaternion.prototype.length = function () {
     return L5.Math.sqrt
     (
         this.content[0]*this.content[0] +
@@ -239,7 +236,7 @@ L5.HQuaternion.prototype.length = function(){
  * 模的平方
  * @returns {number}
  */
-L5.HQuaternion.prototype.squaredLength = function() {
+L5.Quaternion.prototype.squaredLength = function () {
     return this.content[0] * this.content[0] +
            this.content[1] * this.content[1] +
            this.content[2] * this.content[2] +
@@ -247,10 +244,10 @@ L5.HQuaternion.prototype.squaredLength = function() {
 };
 /**
  * 求2个四元素点积
- * @param q {L5.HQuaternion}
+ * @param q {L5.Quaternion}
  * @returns {number}
  */
-L5.HQuaternion.prototype.dot = function(
+L5.Quaternion.prototype.dot = function (
     q
 ){
     return this.content[0] * q.content[0] +
@@ -263,7 +260,7 @@ L5.HQuaternion.prototype.dot = function(
  * 规格化
  * @returns {number}
  */
-L5.HQuaternion.prototype.normalize = function(){
+L5.Quaternion.prototype.normalize = function () {
     var length = this.length();
 
     if (length > 0)
@@ -288,14 +285,14 @@ L5.HQuaternion.prototype.normalize = function(){
 
 /**
  * apply to non-zero quaternion
- * @returns {L5.HQuaternion}
+ * @returns {L5.Quaternion}
  */
-L5.HQuaternion.prototype.inverse = function(){
+L5.Quaternion.prototype.inverse = function () {
     var norm = this.quaredLength();
     if (norm > 0)
     {
         var invNorm = 1/norm;
-        return new L5.HQuaternion
+        return new L5.Quaternion
         (
             this.content[0]*invNorm,
             -this.content[1]*invNorm,
@@ -303,15 +300,15 @@ L5.HQuaternion.prototype.inverse = function(){
             -this.content[3]*invNorm
         );
     }
-    return L5.HQuaternion.ZERO;
+    return L5.Quaternion.ZERO;
 };
 
 /**
  * negate x, y, and z terms
- * @returns {L5.HQuaternion}
+ * @returns {L5.Quaternion}
  */
-L5.HQuaternion.prototype.conjugate = function(){
-    return new L5.HQuaternion
+L5.Quaternion.prototype.conjugate = function () {
+    return new L5.Quaternion
     (
         this.content[0],
         -this.content[1],
@@ -322,9 +319,9 @@ L5.HQuaternion.prototype.conjugate = function(){
 
 /**
  * apply to quaternion with w = 0
- * @returns {L5.HQuaternion}
+ * @returns {L5.Quaternion}
  */
-L5.HQuaternion.prototype.exp = function(){
+L5.Quaternion.prototype.exp = function () {
     // If q = A*(x*i+y*j+z*k) where (x,y,z) is unit length, then
     // exp(q) = cos(A)+sin(A)*(x*i+y*j+z*k).  If sin(A) is near zero,
     // use exp(q) = cos(A)+A*(x*i+y*j+z*k) since A/sin(A) has limit 1.
@@ -342,7 +339,7 @@ L5.HQuaternion.prototype.exp = function(){
     if (L5.Math.abs(sn) > 0)
     {
         var coeff = sn/angle;
-        return new L5.HQuaternion
+        return new L5.Quaternion
         (
             w,
             coeff * this.content[1],
@@ -350,7 +347,7 @@ L5.HQuaternion.prototype.exp = function(){
             coeff * this.content[3]
         );
     }
-    return new L5.HQuaternion
+    return new L5.Quaternion
     (
         w,
         this.content[1],
@@ -361,9 +358,9 @@ L5.HQuaternion.prototype.exp = function(){
 
 /**
  * apply to unit-length quaternion
- * @returns {L5.HQuaternion}
+ * @returns {L5.Quaternion}
  */
-L5.HQuaternion.prototype.log = function(){
+L5.Quaternion.prototype.log = function () {
     // If q = cos(A)+sin(A)*(x*i+y*j+z*k) where (x,y,z) is unit length, then
     // log(q) = A*(x*i+y*j+z*k).  If sin(A) is near zero, use log(q) =
     // sin(A)*(x*i+y*j+z*k) since sin(A)/A has limit 1.
@@ -375,7 +372,7 @@ L5.HQuaternion.prototype.log = function(){
         if (L5.Math.abs(sn) > 0)
         {
             var coeff = angle/sn;
-            return new L5.HQuaternion
+            return new L5.Quaternion
             (
                 0,
                 coeff * this.content[1],
@@ -385,7 +382,7 @@ L5.HQuaternion.prototype.log = function(){
         }
     }
 
-    return new L5.HQuaternion
+    return new L5.Quaternion
     (
         0,
         this.content[1],
@@ -400,7 +397,7 @@ L5.HQuaternion.prototype.log = function(){
  * @param vec {L5.Vector}
  * @returns {L5.Vector}
  */
-L5.HQuaternion.prototype.rotate = function(
+L5.Quaternion.prototype.rotate = function (
     vec
 ){
     // Given a vector u = (x0,y0,z0) and a unit length quaternion
@@ -415,7 +412,7 @@ L5.HQuaternion.prototype.rotate = function(
     //     = x0*(q*i*q^{-1})+y0*(q*j*q^{-1})+z0*(q*k*q^{-1})
     //
     // As 3-vectors, q*i*q^{-1}, q*j*q^{-1}, and 2*k*q^{-1} are the columns
-    // of the rotation matrix computed in HQuaternion::ToRotationMatrix.
+    // of the rotation matrix computed in Quaternion::ToRotationMatrix.
     // The vector v is obtained as the product of that rotation matrix with
     // vector u.  As such, the quaternion representation of a rotation
     // matrix requires less space than the matrix and more time to compute
@@ -427,11 +424,11 @@ L5.HQuaternion.prototype.rotate = function(
 /**
  * 球面插值
  * @param t {number}
- * @param p {L5.HQuaternion}
- * @param q {L5.HQuaternion}
- * @returns {L5.HQuaternion}
+ * @param p {L5.Quaternion}
+ * @param q {L5.Quaternion}
+ * @returns {L5.Quaternion}
  */
-L5.HQuaternion.prototype.slerp = function(
+L5.Quaternion.prototype.slerp = function (
     t, p, q
 ){
     var cs = p.dot(q);
@@ -461,12 +458,12 @@ L5.HQuaternion.prototype.slerp = function(
 /**
  * 球面插值
  * @param t {number}
- * @param p {L5.HQuaternion}
- * @param q {L5.HQuaternion}
+ * @param p {L5.Quaternion}
+ * @param q {L5.Quaternion}
  * @param extraSpins {number}
- * @returns {L5.HQuaternion}
+ * @returns {L5.Quaternion}
  */
-L5.HQuaternion.prototype.slerpExtraSpins = function(
+L5.Quaternion.prototype.slerpExtraSpins = function (
     t, p, q, extraSpins
 ) {
     var cs = p.dot(q);
@@ -495,12 +492,12 @@ L5.HQuaternion.prototype.slerpExtraSpins = function(
 
 /**
  * 球面2次插值中间项
- * @param q0 {L5.HQuaternion}
- * @param q1 {L5.HQuaternion}
- * @param q2 {L5.HQuaternion}
- * @returns {L5.HQuaternion}
+ * @param q0 {L5.Quaternion}
+ * @param q1 {L5.Quaternion}
+ * @param q2 {L5.Quaternion}
+ * @returns {L5.Quaternion}
  */
-L5.HQuaternion.prototype.intermediate = function(
+L5.Quaternion.prototype.intermediate = function (
     q0, q1, q2
 ){
     var q1Inv = q1.conjugate();
@@ -515,13 +512,13 @@ L5.HQuaternion.prototype.intermediate = function(
 /**
  * 球面2次插值
  * @param t {number}
- * @param q0 {L5.HQuaternion}
- * @param a0 {L5.HQuaternion}
- * @param a1 {L5.HQuaternion}
- * @param q1 {L5.HQuaternion}
- * @returns {L5.HQuaternion}
+ * @param q0 {L5.Quaternion}
+ * @param a0 {L5.Quaternion}
+ * @param a1 {L5.Quaternion}
+ * @param q1 {L5.Quaternion}
+ * @returns {L5.Quaternion}
  */
-L5.HQuaternion.prototype.squad = function(
+L5.Quaternion.prototype.squad = function (
     t, q0, a0, a1, q1
 ){
     var slerpT = 2*t*(1 - t);
@@ -531,19 +528,19 @@ L5.HQuaternion.prototype.squad = function(
     return this.slerp(slerpT, slerpP, slerpQ);
 };
 
-L5.HQuaternion.ZERO     = new L5.HQuaternion(0,0,0,0);
-L5.HQuaternion.IDENTIRY = new L5.HQuaternion(1,0,0,0);
+L5.Quaternion.ZERO = new L5.Quaternion(0, 0, 0, 0);
+L5.Quaternion.IDENTIRY = new L5.Quaternion(1, 0, 0, 0);
 
 /**
  * 从矩阵的旋转部分创建四元数
  * @param rot {L5.Matrix}
- * @returns {L5.HQuaternion}
+ * @returns {L5.Quaternion}
  */
-L5.HQuaternion.fromRotateMatrix = function(
+L5.Quaternion.fromRotateMatrix = function (
     rot
 ){
     // Algorithm in Ken Shoemake's article in 1987 SIGGRAPH course notes
-    // article "HQuaternion Calculus and Fast Animation".
+    // article "Quaternion Calculus and Fast Animation".
 
     var trace = rot.item(0,0) + rot.item(1,1) + rot.item(2,2);
     var root;
@@ -554,7 +551,7 @@ L5.HQuaternion.fromRotateMatrix = function(
         root = L5.Math.sqrt(trace + 1);  // 2w
         var root1 = 0.5/root;  // 1/(4w)
 
-        return new L5.HQuaternion
+        return new L5.Quaternion
         (
             0.5*root,
             (rot.item(2,1) - rot.item(1,2))*root1,
@@ -586,7 +583,7 @@ L5.HQuaternion.fromRotateMatrix = function(
     ret[j] = (rot.item(j,i) + rot.item(i,j))*root;
     ret[k] = (rot.item(k,i) + rot.item(i,k))*root;
 
-    return new L5.HQuaternion(ret[0], ret[1], ret[2], ret[3]);
+    return new L5.Quaternion(ret[0], ret[1], ret[2], ret[3]);
 };
 
 
@@ -595,9 +592,9 @@ L5.HQuaternion.fromRotateMatrix = function(
  * 使用旋转轴和旋转角度创建四元数
  * @param axis {L5.Vector}
  * @param angle {number}
- * @returns {L5.HQuaternion}
+ * @returns {L5.Quaternion}
  */
-L5.HQuaternion.fromAxisAngle = function(
+L5.Quaternion.fromAxisAngle = function (
     axis, angle
 ){
     // assert:  axis[] is unit length
@@ -607,7 +604,7 @@ L5.HQuaternion.fromAxisAngle = function(
 
     var halfAngle = 0.5*angle;
     var sn = L5.Math.sin(halfAngle);
-    return new L5.HQuaternion(
+    return new L5.Quaternion(
         L5.Math.cos(halfAngle),
         sn*axis.x,
         sn*axis.y,
@@ -618,9 +615,9 @@ L5.HQuaternion.fromAxisAngle = function(
  * 计算V1 到 V2 的旋转四元数， 旋转轴同时垂直于V1&V1
  * @param v1 {L5.Vector} 单位向量
  * @param v2 {L5.Vector} 单位向量
- * @returns {L5.HQuaternion}
+ * @returns {L5.Quaternion}
  */
-L5.HQuaternion.align = function(
+L5.Quaternion.align = function (
     v1, v2
 ) {
         // If V1 and V2 are not parallel, the axis of rotation is the unit-length
@@ -681,5 +678,5 @@ L5.HQuaternion.align = function(
             }
         }
 
-        return new L5.HQuaternion(w, x, y, z);
+    return new L5.Quaternion(w, x, y, z);
 };

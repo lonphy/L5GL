@@ -37,3 +37,14 @@ L5.GLVertexBuffer.prototype.disable = function (
     var gl = renderer.gl;
     gl.bindBuffer (gl.ARRAY_BUFFER, null);
 };
+
+/**
+ * @param renderer {L5.Renderer}
+ * @param buffer {L5.VertexBuffer}
+ */
+L5.GLVertexBuffer.prototype.update = function (renderer, buffer) {
+    var gl = renderer.gl;
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, buffer.getData(), L5.Webgl.BufferUsage[buffer.usage]);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+};

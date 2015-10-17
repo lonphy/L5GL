@@ -7,16 +7,16 @@
  * @author lonphy
  */
 
-L5.Spatial = function() {
+L5.Spatial = function () {
     L5.ControlledObject.call(this);
     /**
      * @type {L5.Transform}
      */
-    this.localTransform = null;
+    this.localTransform = new L5.Transform();
     /**
      * @type {L5.Transform}
      */
-    this.worldTransform = null;
+    this.worldTransform = new L5.Transform();
     // 在一些情况下直接更新worldTransform而跳过Spatial.update()
     // 在这种情况下必须将this.worldTransformIsCurrent设置为true
     this.worldTransformIsCurrent = false;
@@ -24,7 +24,7 @@ L5.Spatial = function() {
     /**
      * @type {L5.Bound}
      */
-    this.worldBound = null;
+    this.worldBound = new L5.Bound();
     // 在一些情况下直接更新worldBound而跳过Spatial.update()
     // 在这种情况下必须将this.worldBoundIsCurrent设置为true
     this.worldBoundIsCurrent = false;
@@ -44,7 +44,7 @@ L5.extendFix(L5.Spatial, L5.ControlledObject);
 // 通过比较世界包围盒裁剪平面确定可见状态
 L5.Spatial.CULLING_DYNAMIC = 0;
 // 强制裁剪对象, 如果节点被裁剪，那么它的整个子树也被裁剪
-L5.Spatial.CULLING_ALWAYS  = 1;
+L5.Spatial.CULLING_ALWAYS = 1;
 // 不裁剪对象， 如果一个节点是不裁剪对象，那么它的整个子树也不被裁剪。
 L5.Spatial.CULLING_NEVER = 2;
 
@@ -56,15 +56,12 @@ L5.Spatial.CULLING_NEVER = 2;
  * @param applicationTime {number}
  * @param initiator {boolean}
  */
-L5.Spatial.prototype.update = function(
-    applicationTime, initiator
-) {
+L5.Spatial.prototype.update = function (applicationTime, initiator) {
     applicationTime = applicationTime || -L5.Math.MAX_REAL;
     this.updateWorldData(applicationTime);
     this.updateWorldBound();
 
-    if (initiator === undefined || initiator === true)
-    {
+    if (initiator === undefined || initiator === true) {
         this.propagateBoundToRoot();
     }
 };
@@ -73,29 +70,23 @@ L5.Spatial.prototype.update = function(
  *
  * @param applicationTime {number}
  */
-L5.Spatial.prototype.updateWorldData = function(
-    applicationTime
-){
+L5.Spatial.prototype.updateWorldData = function (applicationTime) {
     // 更新当前空间的所有控制器
     this.updateControllers(applicationTime);
 
     // 更新世界变换
-    if (!this.worldTransformIsCurrent)
-    {
-        if (this.parent)
-        {
+    if (!this.worldTransformIsCurrent) {
+        if (this.parent) {
             this.worldTransform = this.parent.worldTransform.mul(this.localTransform);
         }
-        else
-        {
+        else {
             this.worldTransform = this.localTransform;
         }
     }
 };
 
-L5.Spatial.prototype.propagateBoundToRoot = function (){
-    if (this.parent)
-    {
+L5.Spatial.prototype.propagateBoundToRoot = function () {
+    if (this.parent) {
         this.parent.updateWorldBound();
         this.parent.propagateBoundToRoot();
     }
@@ -106,28 +97,32 @@ L5.Spatial.prototype.propagateBoundToRoot = function (){
  * @param culler {L5.Culler}
  * @param noCull {boolean}
  */
-L5.Spatial.prototype.onGetVisibleSet = function (
-        culler, noCull
-) {
-    if (this.culling === L5.Spatial.CULLING_ALWAYS)
-    {
+L5.Spatial.prototype.onGetVisibleSet = function (culler, noCull) {
+    if (this.culling === L5.Spatial.CULLING_ALWAYS) {
         return;
     }
 
-    if (this.culling == L5.Spatial.CULLING_NEVER)
-    {
+    if (this.culling == L5.Spatial.CULLING_NEVER) {
         noCull = true;
     }
 
-    var savePlaneState = culler.getPlaneState();
-    if (noCull || culler.isVisible(this.worldBound))
-    {
+    var savePlaneState = culler.planeState;
+    if (noCull || culler.isVisible(this.worldBound)) {
         this.getVisibleSet(culler, noCull);
     }
     culler.planeState = savePlaneState;
 };
 
 // 子类实现， 用于更新世界包围盒
-L5.Spatial.prototype.updateWorldBound = function() {
-    throw new Error('updateWorldBound not defined.');
+L5.Spatial.prototype.updateWorldBound = function () {
+};
+
+L5.Spatial.prototype.load = function (inStream) {
+    L5.ControlledObject.prototype.load.call(this, inStream);
+    this.localTransform = inStream.readAggregate();
+    this.worldTransform = inStream.readAggregate();
+    this.worldTransformIsCurrent = inStream.readBool();
+    this.worldBound = inStream.readBound();
+    this.worldBoundIsCurrent = inStream.readBool();
+    this.culling = inStream.readEnum();
 };

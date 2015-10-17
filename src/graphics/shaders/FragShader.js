@@ -13,21 +13,22 @@
  * @author lonphy
  * @version 1.0
  */
-L5.FragShader = function (
-    programName, numInputs, numOutputs, numConstants, numSamplers, profileOwner
-) {
-    L5.Shader.call (this, programName, numInputs, numOutputs, numConstants, numSamplers, profileOwner);
+L5.FragShader = function (programName, numInputs, numOutputs, numConstants, numSamplers) {
+    L5.Shader.call(this, programName, numInputs, numOutputs, numConstants, numSamplers);
 };
 
-// Frag shader profile information.
-L5.FragShader.VP_NONE   = 0;
-L5.FragShader.VP_FS_1_1 = 1;
-L5.FragShader.VP_FS_2_0 = 2;
-L5.FragShader.VP_FS_3_0 = 3;
-L5.FragShader.VP_ARBFP1 = 4;
+L5.nameFix(L5.FragShader, 'FragShader');
+L5.extendFix(L5.FragShader, L5.Shader);
 
-L5.FragShader.profile = L5.FragShader.VP_NONE;
-
-L5.nameFix (L5.FragShader, 'FragShader');
-L5.extendFix (L5.FragShader, L5.Shader);
+/**
+ * 文件解析工厂方法
+ * @param inStream {L5.InStream}
+ * @returns {L5.FragShader}
+ */
+L5.FragShader.factory = function (inStream) {
+    var obj = new L5.FragShader();
+    obj.load(inStream);
+    return obj;
+};
+L5.D3Object.factories.set('Wm5.PixelShader', L5.FragShader.factory);
 

@@ -13,8 +13,9 @@ L5.GLIndexBuffer = function (
 ) {
     var gl      = renderer.gl;
     this.buffer = gl.createBuffer ();
+    var dataType = buffer.elementSize == 2 ? Uint16Array : Uint32Array;
     gl.bindBuffer (gl.ELEMENT_ARRAY_BUFFER, this.buffer);
-    gl.bufferData (gl.ELEMENT_ARRAY_BUFFER, buffer.getData (), L5.Webgl.BufferUsage[ buffer.usage ]);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new dataType(buffer.getData().buffer), L5.Webgl.BufferUsage[buffer.usage]);
     gl.bindBuffer (gl.ELEMENT_ARRAY_BUFFER, null);
 };
 L5.nameFix (L5.GLIndexBuffer, 'GLIndexBuffer');

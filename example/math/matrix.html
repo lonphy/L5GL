@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title></title>
+    <script src="glMatrix-0.9.5.js"></script>
+    <script src="helper.js"></script>
+    <script src="../../dist/l5.js"></script>
+</head>
+<body>
+<script>
+    var m = mat4.lookAt([0, 10, -1], [0, 10, 0], [0, 1, 0]);
+    debug(m);
+
+
+    var move = L5.Matrix.makeTranslate(1, 2, 3);
+    var p = new L5.Point(10, 11, 12);
+    var pMoved = move.mulPoint(p);
+    console.log(p._content);
+    console.log(pMoved._content);
+</script>
+</body>
+</html>

@@ -434,7 +434,7 @@ L5.Webgl = {};
     ];
 
     // 属性尺寸
-    L5.Webgl.AttributeChannels = [
+    L5.Webgl.AttributeSize = [
         0,  // AT_NONE (unsupported)
         1,  // AT_FLOAT1
         2,  // AT_FLOAT2
@@ -470,6 +470,37 @@ L5.Webgl = {};
         NS.REPEAT,          // SC_REPEAT
         NS.MIRRORED_REPEAT, // SC_MIRRORED_REPEAT
         NS.CLAMP_TO_EDGE    // SC_CLAMP_EDGE
+    ];
+
+    L5.Webgl.DepthCompare = [
+        NS.NEVER,       // CM_NEVER
+        NS.LESS,        // CM_LESS
+        NS.EQUAL,       // CM_EQUAL
+        NS.LEQUAL,      // CM_LEQUAL
+        NS.GREATER,     // CM_GREATER
+        NS.NOTEQUAL,    // CM_NOTEQUAL
+        NS.GEQUAL,      // CM_GEQUAL
+        NS.ALWAYS       // CM_ALWAYS
+    ];
+
+    L5.Webgl.StencilCompare = [
+        NS.NEVER,       // CM_NEVER
+        NS.LESS,        // CM_LESS
+        NS.EQUAL,       // CM_EQUAL
+        NS.LEQUAL,      // CM_LEQUAL
+        NS.GREATER,     // CM_GREATER
+        NS.NOTEQUAL,    // CM_NOTEQUAL
+        NS.GEQUAL,      // CM_GEQUAL
+        NS.ALWAYS       // CM_ALWAYS
+    ];
+
+    L5.Webgl.StencilOperation = [
+        NS.KEEP,    // OT_KEEP
+        NS.ZERO,    // OT_ZERO
+        NS.REPLACE, // OT_REPLACE
+        NS.INCR,    // OT_INCREMENT
+        NS.DECR,    // OT_DECREMENT
+        NS.INVERT   // OT_INVERT
     ];
 
     // 透明通道混合
@@ -551,6 +582,17 @@ L5.Webgl = {};
         NS.NONE,                        // TF_DXT3 (not needed)
         NS.NONE,                        // TF_DXT5 (not needed)
         NS.UNSIGNED_INT_24_8_WEBGL      // TF_D24S8
+    ];
+
+    L5.Webgl.PrimitiveType = [
+        0,                  // PT_NONE (not used)
+        NS.POINTS,          // PT_POLYPOINT
+        NS.LINES,           // PT_POLYSEGMENTS_DISJOINT
+        NS.LINE_STRIP,      // PT_POLYSEGMENTS_CONTIGUOUS
+        0,                  // PT_TRIANGLES (not used)
+        NS.TRIANGLES,       // PT_TRIMESH
+        NS.TRIANGLE_STRIP,  // PT_TRISTRIP
+        NS.TRIANGLE_FAN     // PT_TRIFAN
     ];
 
 }) ();

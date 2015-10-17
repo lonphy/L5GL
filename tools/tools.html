@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>L5GL IDE</title>
+    <link rel="stylesheet" href="css/css.css">
+</head>
+<body>
+<ul class="menu-bar">
+    <li class="menu-item">
+        L5GL IDE
+        <ol class="sub-menu">
+            <li>设置</li>
+            <li>退出</li>
+        </ol>
+    </li>
+    <li class="menu-item">
+        文件
+        <ol class="sub-menu">
+            <li data-command="open-file">打开</li>
+            <li>保存</li>
+            <li>关闭</li>
+        </ol>
+    </li>
+    <li class="menu-item">
+        编辑
+        <ol class="sub-menu">
+            <li>nothing</li>
+        </ol>
+    </li>
+    <li class="menu-item">
+        视图
+        <ol class="sub-menu">
+            <li>nothing</li>
+        </ol>
+    </li>
+    <li class="menu-item">
+        资源
+        <ol class="sub-menu">
+            <li>nothing</li>
+        </ol>
+    </li>
+    <li class="menu-item">
+        项目
+        <ol class="sub-menu">
+            <li>nothing</li>
+        </ol>
+    </li>
+    <li class="menu-item">
+        工具
+        <ol class="sub-menu">
+            <li>nothing</li>
+        </ol>
+    </li>
+    <li class="menu-item">
+        帮助
+        <ol class="sub-menu">
+            <li>nothing</li>
+        </ol>
+    </li>
+</ul>
+
+<aside class="side-nav">
+    <h4>文件</h4>
+    <ul>
+        <li>xxx.jpg</li>
+    </ul>
+</aside>
+<section id="main-frame"></section>
+
+<input type="file" id="ioStream" hidden>
+<script src="js/common.js"></script>
+<script src="js/File.js"></script>
+<script src="js/ImagePreview.js"></script>
+<script>
+    // dom ready
+    document.addEventListener ('DOMContentLoaded', function () {
+        ns.Menu.init ('.menu-bar');
+        ns.IO.init('#ioStream');
+        ns.Env.mainFrame = $('#main-frame');
+    }, false);
+
+</script>
+</body>
+</html>

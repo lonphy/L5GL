@@ -1,27 +1,45 @@
 /**
  * 灯光 - 光源位置
- *
- * LightModelPositionConstant
- * @param light {L5.Light} 灯光
- * @class
- *
- * @extends {L5.ShaderFloat}
  */
-L5.LightModelPositionConstant = function (light) {
-    L5.ShaderFloat.call(this, 1);
-    this.allowUpdater = true;
-    this.light = light;
-};
-L5.nameFix(L5.LightModelPositionConstant, 'LightModelPositionConstant');
-L5.extendFix(L5.LightModelPositionConstant, L5.ShaderFloat);
+import {ShaderFloat} from './ShaderFloat'
+import {D3Object} from '../../core/D3Object'
 
-/**
- * 更新材质环境光系数
- * @param visual {L5.Visual}
- * @param camera {L5.Camera}
- */
-L5.LightModelPositionConstant.prototype.update = function (visual, camera) {
-    var worldInvMatrix = visual.worldTransform.inverse();
-    var modelPosition = worldInvMatrix.mulPoint(this.light.position);
-    this.copy(modelPosition._content);
+export class LightModelPositionConstant extends ShaderFloat {
+
+    /**
+     * @param light {Light} 灯光
+     */
+    constructor(light) {
+        super(1);
+        this.allowUpdater = true;
+        this.light = light;
+    }
+
+    /**
+     * 更新材质环境光系数
+     * @param visual {Visual}
+     * @param camera {Camera}
+     */
+    update(visual, camera) {
+        var worldInvMatrix = visual.worldTransform.inverse();
+        var modelPosition = worldInvMatrix.mulPoint(this.light.position);
+        this.copy(modelPosition);
+    }
+
+    load(inStream) {
+        super.load(inStream);
+        this.light = inStream.readPointer();
+    }
+
+    link(inStream) {
+        super.link(inStream);
+        this.light = inStream.resolveLink(this.light);
+    }
+
+    save(outStream) {
+        super.save(outStream);
+        outStream.writePointer(this.light);
+    }
 };
+
+D3Object.Register('L5.LightModelPositionConstant', LightModelPositionConstant.factory);

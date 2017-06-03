@@ -1,128 +1,124 @@
-/**
- * Texture2DEffect 2D纹理效果
- * @param filter {number} 纹理格式， 参考L5.Shader.SF_XXX
- * @param coordinate0 {number} 相当于宽度 参考L5.Shader.SC_XXX
- * @param coordinate1 {number} 相当于高度 参考L5.Shader.SC_XXX
- * @class
- * @extends {L5.VisualEffect}
- *
- * @author lonphy
- * @version 1.0
- */
-L5.Texture2DEffect = function (filter, coordinate0, coordinate1) {
+import { DECLARE_ENUM } from '../../util/util'
+import {
+    VisualEffect, VisualEffectInstance, VisualTechnique, VisualPass,
+    Program, Shader, VertexShader, FragShader,
+    AlphaState, CullState, DepthState, OffsetState, StencilState
+} from '../shaders/namespace'
+import { PVWMatrixConstant } from '../shaderFloat/namespace'
 
-    if (!filter) {
-        filter = L5.Shader.SF_NEAREST;
-    }
-    if (!coordinate0) {
-        coordinate0 = L5.Shader.SC_CLAMP_EDGE;
-    }
-    if (!coordinate1) {
-        coordinate1 = L5.Shader.SC_CLAMP_EDGE;
-    }
+export class Texture2DEffect extends VisualEffect {
+    /**
+     * @param {number} filter 纹理格式， 参考Shader.SF_XXX
+     * @param {number} coordinate0 相当于宽度 参考Shader.SC_XXX
+     * @param {number} coordinate1 相当于高度 参考Shader.SC_XXX
+     */
+    constructor(filter, coordinate0, coordinate1) {
+        super();
+        if (!filter) {
+            filter = Shader.SF_NEAREST;
+        }
+        if (!coordinate0) {
+            coordinate0 = Shader.SC_CLAMP_EDGE;
+        }
+        if (!coordinate1) {
+            coordinate1 = Shader.SC_CLAMP_EDGE;
+        }
 
-    L5.VisualEffect.call(this);
+        var vshader = new VertexShader('Texture2DVS', 2, 1, 0);
+        vshader.setInput(0, 'modelPosition', Shader.VT_VEC3, Shader.VS_POSITION);
+        vshader.setInput(1, 'modelTCoord0', Shader.VT_VEC2, Shader.VS_TEXCOORD0);
+        vshader.setConstant(0, 'PVWMatrix', Shader.VT_MAT4);
+        vshader.setProgram(Texture2DEffect.VS);
 
-    var vshader = new L5.VertexShader("L5.Texture2D", 2, 2, 1, 0, false);
-    vshader.setInput(0, "modelPosition", L5.Shader.VT_VEC3, L5.Shader.VS_POSITION);
-    vshader.setInput(1, "modelTCoord0", L5.Shader.VT_VEC2, L5.Shader.VS_TEXCOORD0);
-    vshader.setOutput(0, "gl_Position", L5.Shader.VT_VEC4, L5.Shader.VS_POSITION);
-    vshader.setOutput(1, "vertexTCoord", L5.Shader.VT_VEC2, L5.Shader.VS_TEXCOORD0);
-    vshader.setConstant(0, "PVWMatrix", L5.Shader.VT_MAT4);
-    vshader.setProgram(L5.Texture2DEffect.VertextSource);
+        var fshader = new FragShader('Texture2DFS', 0, 0, 1);
+        fshader.setSampler(0, 'BaseSampler', Shader.ST_2D);
+        fshader.setFilter(0, filter);
+        fshader.setCoordinate(0, 0, coordinate0);
+        fshader.setCoordinate(0, 1, coordinate1);
+        fshader.setTextureUnit(0, Texture2DEffect.FragTextureUnit);
+        fshader.setProgram(Texture2DEffect.FS);
 
-    var fshader = new L5.FragShader("L5.Texture2D", 1, 1, 0, 1, false);
-    fshader.setInput(0, "vertexTCoord", L5.Shader.VT_VEC2, L5.Shader.VS_TEXCOORD0);
-    fshader.setOutput(0, "gl_FragColor", L5.Shader.VT_VEC4, L5.Shader.VS_COLOR0);
-    fshader.setSampler(0, "BaseSampler", L5.Shader.ST_2D);
-    fshader.setFilter(0, filter);
-    fshader.setCoordinate(0, 0, coordinate0);
-    fshader.setCoordinate(0, 1, coordinate1);
-    fshader.setTextureUnit(0, L5.Texture2DEffect.FragTextureUnit);
-    fshader.setProgram(L5.Texture2DEffect.FragSource);
+        var program = new Program('Texture2DProgram', vshader, fshader);
 
-    var program = new L5.Program("L5.Program", vshader, fshader);
+        var pass = new VisualPass();
+        pass.program = program;
+        pass.alphaState = new AlphaState();
+        pass.cullState = new CullState();
+        pass.depthState = new DepthState();
+        pass.offsetState = new OffsetState();
+        pass.stencilState = new StencilState();
 
-    var pass = new L5.VisualPass();
-    pass.program = program;
-    pass.alphaState = new L5.AlphaState();
-    pass.cullState = new L5.CullState();
-    pass.depthState = new L5.DepthState();
-    pass.offsetState = new L5.OffsetState();
-    pass.stencilState = new L5.StencilState();
-
-    var technique = new L5.VisualTechnique();
-    technique.insertPass(pass);
-    this.insertTechnique(technique);
-
-};
-
-L5.nameFix(L5.Texture2DEffect, 'Texture2DEffect');
-L5.extendFix(L5.Texture2DEffect, L5.VisualEffect);
-
-/**
- * Any change in sampler state is made via the frag shader.
- * @returns {L5.FragShader}
- */
-L5.Texture2DEffect.prototype.getFragShader = function () {
-    return L5.VisualEffect.prototype.getFragShader.call(this, 0, 0);
-};
-
-/**
- * Create an instance of the effect with unique parameters.
- * If the sampler filter mode is set to a value corresponding to mipmapping,
- * then the mipmaps will be generated if necessary.
- *
- * @params texture {L5.Texture2D}
- * @returns {L5.VisualEffectInstance}
- */
-L5.Texture2DEffect.prototype.createInstance = function (texture) {
-    var instance = new L5.VisualEffectInstance(this, 0);
-    instance.setVertexConstant(0, 0, new L5.PVWMatrixConstant());
-    instance.setFragTexture(0, 0, texture);
-
-    var filter = this.getFragShader().getFilter(0);
-    if (filter !== L5.Shader.SF_NEAREST && filter != L5.Shader.SF_LINEAR && !texture.hasMipmaps) {
-        texture.generateMipmaps();
+        var technique = new VisualTechnique();
+        technique.insertPass(pass);
+        this.insertTechnique(technique);
     }
 
-    return instance;
+    /**
+     * Any change in sampler state is made via the frag shader.
+     * @returns {FragShader}
+     */
+    getFragShader() {
+        return super.getFragShader(0, 0);
+    }
+
+    /**
+     * Create an instance of the effect with unique parameters.
+     * If the sampler filter mode is set to a value corresponding to mipmapping,
+     * then the mipmaps will be generated if necessary.
+     *
+     * @param {Texture2D} texture
+     * @return {VisualEffectInstance}
+     */
+    createInstance(texture) {
+        var instance = new VisualEffectInstance(this, 0);
+        instance.setVertexConstant(0, 0, new PVWMatrixConstant());
+        instance.setFragTexture(0, 0, texture);
+
+        var filter = this.getFragShader().getFilter(0);
+        if (filter !== Shader.SF_NEAREST && filter != Shader.SF_LINEAR && !texture.hasMipmaps) {
+            texture.upload();
+        }
+
+        return instance;
+    }
+
+    /**
+     * Convenience for creating an instance.  The application does not have to
+     * create the effect explicitly in order to create an instance from it.
+     * @param texture {Texture2D}
+     * @param filter {number}
+     * @param coordinate0 {number}
+     * @param coordinate1 {number}
+     * @returns {VisualEffectInstance}
+     */
+    static createUniqueInstance(texture, filter, coordinate0, coordinate1) {
+        var effect = new Texture2DEffect();
+        var fshader = effect.getFragShader();
+        fshader.setFilter(0, filter);
+        fshader.setCoordinate(0, 0, coordinate0);
+        fshader.setCoordinate(0, 1, coordinate1);
+        return effect.createInstance(texture);
+    }
 };
 
-/**
- * Convenience for creating an instance.  The application does not have to
- * create the effect explicitly in order to create an instance from it.
- * @param texture {L5.Texture2D}
- * @param filter {number}
- * @param coordinate0 {number}
- * @param coordinate1 {number}
- * @returns {L5.VisualEffectInstance}
- */
-L5.Texture2DEffect.createUniqueInstance = function (texture, filter, coordinate0, coordinate1) {
-    var effect = new L5.Texture2DEffect();
-    var fshader = effect.getFragShader();
-    fshader.setFilter(0, filter);
-    fshader.setCoordinate(0, 0, coordinate0);
-    fshader.setCoordinate(0, 1, coordinate1);
-    return effect.createInstance(texture);
-};
-
-L5.Texture2DEffect.VertextSource = [
-    'attribute vec3 modelPosition;',
-    'attribute vec2 modelTCoord0;',
-    'uniform mat4 PVWMatrix;',
-    'varying vec2 vertexTCoord;',
-    'void main (void) {',
-    'gl_Position = PVWMatrix * vec4(modelPosition, 1.0);',
-    'vertexTCoord = modelTCoord0;',
-    '}'
-].join("\n");
-L5.Texture2DEffect.FragTextureUnit = 0;
-L5.Texture2DEffect.FragSource = [
-    'precision highp float;',
-    'uniform sampler2D BaseSampler;',
-    'varying vec2 vertexTCoord;',
-    'void main (void) {',
-    'gl_FragColor = texture2D(BaseSampler, vertexTCoord);',
-    '}'
-].join("\n");
+DECLARE_ENUM(Texture2DEffect, {
+    FragTextureUnit: 0,
+    VS: `#version 300 es
+uniform mat4 PVWMatrix;
+layout(location=0) in vec3 modelPosition;
+layout(location=8) in vec2 modelTCoord0;
+out vec2 vTCoord;
+void main () {
+    gl_Position = PVWMatrix * vec4(modelPosition, 1.0);
+    vTCoord = modelTCoord0;
+}
+`,
+    FS: `#version 300 es
+precision highp float;
+uniform sampler2D BaseSampler;
+in vec2 vTCoord;
+out vec4 fragColor;
+void main (void) {
+    fragColor = texture(BaseSampler, vTCoord);
+}
+`});

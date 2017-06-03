@@ -1,146 +1,145 @@
 /**
  * Shader 底层包装
- *
- * @class
- *
  * @author lonphy
- * @version 1.0
+ * @version 2.0
  */
-L5.GLShader = function () {
-};
-L5.nameFix(L5.GLShader, 'GLShader');
+import { default as webgl } from './GLMapping'
+import { Shader } from '../../shaders/Shader'
 
-/**
- * @param shader {L5.Shader}
- * @param parameters {L5.ShaderParameters}
- * @param maxSamplers {number}
- * @param renderer {L5.Renderer}
- * @param currentSS {number} RendererData::SamplerState
- */
-L5.GLShader.prototype.setSamplerState = function (renderer, shader, parameters, maxSamplers, currentSS) {
-    var gl = renderer.gl;
+export class GLShader {
+    /**
+     * @param {Shader} shader
+     * @param {ShaderParameters} parameters
+     * @param {number} maxSamplers
+     * @param {Renderer} renderer
+     * @param {number} currentSS RendererData::SamplerState
+     */
+    setSamplerState(renderer, shader, parameters, maxSamplers, currentSS) {
+        let gl = renderer.gl;
 
-    var numSamplers = shader.numSamplers;
-    if (numSamplers > maxSamplers) {
-        numSamplers = maxSamplers;
+        let numSamplers = shader.numSamplers;
+        if (numSamplers > maxSamplers) {
+            numSamplers = maxSamplers;
+        }
+
+        for (let i = 0; i < numSamplers; ++i) {
+            let type = shader.getSamplerType(i);
+            let target = webgl.TextureTarget[type];
+            let textureUnit = shader.getTextureUnit(i);
+            const texture = parameters.getTexture(i);
+            let current = currentSS[textureUnit];
+            let wrap0, wrap1;
+
+            switch (type) {
+                case Shader.ST_2D:
+                    {
+                        renderer._enableTexture2D(texture, textureUnit);
+                        current.getCurrent(renderer, target);
+
+                        wrap0 = webgl.WrapMode[shader.getCoordinate(i, 0)];
+                        if (wrap0 != current.wrap[0]) {
+                            current.wrap[0] = wrap0;
+                            gl.texParameteri(target, gl.TEXTURE_WRAP_S, wrap0);
+                        }
+
+                        wrap1 = webgl.WrapMode[shader.getCoordinate(i, 1)];
+                        if (wrap1 != current.wrap[1]) {
+                            current.wrap[1] = wrap1;
+                            gl.texParameteri(target, gl.TEXTURE_WRAP_T, wrap1);
+                        }
+                        break;
+                    }
+                case Shader.ST_CUBE:
+                    {
+                        renderer._enableTextureCube(texture, textureUnit);
+                        current.getCurrent(renderer, target);
+
+                        wrap0 = webgl.WrapMode[shader.getCoordinate(i, 0)];
+                        if (wrap0 != current.wrap[0]) {
+                            current.wrap[0] = wrap0;
+                            gl.texParameteri(target, gl.TEXTURE_WRAP_S, wrap0);
+                        }
+
+                        wrap1 = webgl.WrapMode[shader.getCoordinate(i, 1)];
+                        if (wrap1 != current.wrap[1]) {
+                            current.wrap[1] = wrap1;
+                            gl.texParameteri(target, gl.TEXTURE_WRAP_T, wrap1);
+                        }
+                        break;
+                    }
+                default:
+                    console.assert(false, 'Invalid sampler type');
+                    break;
+            }
+
+            // Set the anisotropic filtering value.
+            const maxAnisotropy = Shader.MAX_ANISOTROPY;
+            let anisotropy = shader.getAnisotropy(i);
+            if (anisotropy < 1 || anisotropy > maxAnisotropy) {
+                anisotropy = 1;
+            }
+            if (anisotropy != current.anisotropy) {
+                current.anisotropy = anisotropy;
+                gl.texParameterf(target, webgl.TEXTURE_MAX_ANISOTROPY_EXT, anisotropy);
+            }
+
+            // Set the magfilter mode.
+            let filter = shader.getFilter(i);
+            if (filter === Shader.SF_NEAREST) {
+                if (gl.NEAREST !== current.magFilter) {
+                    current.magFilter = gl.NEAREST;
+                    gl.texParameteri(target, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+                }
+            } else {
+                if (gl.LINEAR != current.magFilter) {
+                    current.magFilter = gl.LINEAR;
+                    gl.texParameteri(target, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+                }
+            }
+
+            // Set the minfilter mode.
+            let minFilter = webgl.TextureFilter[filter];
+            if (minFilter != current.minFilter) {
+                current.minFilter = minFilter;
+                gl.texParameteri(target, gl.TEXTURE_MIN_FILTER, minFilter);
+            }
+        }
     }
 
-    for (var i = 0; i < numSamplers; ++i) {
-        var type = shader.getSamplerType(i);
-        var target = L5.Webgl.TextureTarget[type];
-        var textureUnit = shader.getTextureUnit(i);
-        const texture = parameters.getTexture(i);
-        var current = currentSS[textureUnit];
-        var wrap0, wrap1;
-
-        switch (type) {
-            case L5.Shader.ST_2D:
-            {
-                renderer._enableTexture2D(texture, textureUnit);
-                current.getCurrent(renderer, target);
-
-                wrap0 = L5.Webgl.WrapMode[shader.getCoordinate(i, 0)];
-                if (wrap0 != current.wrap[0]) {
-                    current.wrap[0] = wrap0;
-                    gl.texParameteri(target, gl.TEXTURE_WRAP_S, wrap0);
-                }
-
-                wrap1 = L5.Webgl.WrapMode[shader.getCoordinate(i, 1)];
-                if (wrap1 != current.wrap[1]) {
-                    current.wrap[1] = wrap1;
-                    gl.texParameteri(target, gl.TEXTURE_WRAP_T, wrap1);
-                }
-                break;
-            }
-            case L5.Shader.ST_CUBE:
-            {
-                renderer._enableTextureCube(texture, textureUnit);
-                current.getCurrent(renderer, target);
-
-                wrap0 = L5.Webgl.WrapMode[shader.getCoordinate(i, 0)];
-                if (wrap0 != current.wrap[0]) {
-                    current.wrap[0] = wrap0;
-                    gl.texParameteri(target, gl.TEXTURE_WRAP_S, wrap0);
-                }
-
-                wrap1 = L5.Webgl.WrapMode[shader.getCoordinate(i, 1)];
-                if (wrap1 != current.wrap[1]) {
-                    current.wrap[1] = wrap1;
-                    gl.texParameteri(target, gl.TEXTURE_WRAP_T, wrap1);
-                }
-                break;
-            }
-            default:
-                L5.assert(false, 'Invalid sampler type');
-                break;
+    /**
+     * @param {Shader} shader
+     * @param {ShaderParameters} parameters
+     * @param {Renderer} renderer
+     * @param {number} maxSamplers
+     */
+    disableTexture(renderer, shader, parameters, maxSamplers) {
+        let numSamplers = shader.numSamplers;
+        if (numSamplers > maxSamplers) {
+            numSamplers = maxSamplers;
         }
 
-        // Set the anisotropic filtering value.
-        const maxAnisotropy = L5.Shader.MAX_ANISOTROPY;
-        var anisotropy = shader.getAnisotropy(i);
-        if (anisotropy < 1 || anisotropy > maxAnisotropy) {
-            anisotropy = 1;
-        }
-        if (anisotropy != current.anisotropy) {
-            current.anisotropy = anisotropy;
-            gl.texParameterf(target, L5.Webgl.TEXTURE_MAX_ANISOTROPY_EXT, anisotropy);
-        }
+        let type, textureUnit, texture;
 
-        // Set the magfilter mode.
-        var filter = shader.getFilter(i);
-        if (filter === L5.Shader.SF_NEAREST) {
-            if (gl.NEAREST !== current.magFilter) {
-                current.magFilter = gl.NEAREST;
-                gl.texParameteri(target, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-            }
-        } else {
-            if (gl.LINEAR != current.magFilter) {
-                current.magFilter = gl.LINEAR;
-                gl.texParameteri(target, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-            }
-        }
+        for (let i = 0; i < numSamplers; ++i) {
+            type = shader.getSamplerType(i);
+            textureUnit = shader.getTextureUnit(i);
+            texture = parameters.getTexture(i);
 
-        // Set the minfilter mode.
-        var minFilter = L5.Webgl.TextureFilter[filter];
-        if (minFilter != current.minFilter) {
-            current.minFilter = minFilter;
-            gl.texParameteri(target, gl.TEXTURE_MIN_FILTER, minFilter);
+            switch (type) {
+                case Shader.ST_2D:
+                    {
+                        renderer._disableTexture2D(texture, textureUnit);
+                        break;
+                    }
+                case Shader.ST_CUBE:
+                    {
+                        renderer._disableTextureCube(texture, textureUnit);
+                        break;
+                    }
+                default:
+                    console.assert(false, "Invalid sampler type\n");
+                    break;
+            }
         }
     }
-};
-/**
- * @param shader {L5.Shader}
- * @param parameters {L5.ShaderParameters}
- * @param renderer {L5.Renderer}
- * @param maxSamplers {number}
- */
-L5.GLShader.prototype.disableTexture = function (renderer, shader, parameters, maxSamplers) {
-    var numSamplers = shader.numSamplers;
-    if (numSamplers > maxSamplers) {
-        numSamplers = maxSamplers;
-    }
-
-    var type, textureUnit, texture;
-
-    for (var i = 0; i < numSamplers; ++i) {
-        type = shader.getSamplerType(i);
-        textureUnit = shader.getTextureUnit(i);
-        texture = parameters.getTexture(i);
-
-        switch (type) {
-            case L5.Shader.ST_2D:
-            {
-                renderer._disableTexture2D(texture, textureUnit);
-                break;
-            }
-            case L5.Shader.ST_CUBE:
-            {
-                renderer._disableTextureCube(texture, textureUnit);
-                break;
-            }
-            default:
-                L5.assert(false, "Invalid sampler type\n");
-                break;
-        }
-    }
-};
+}

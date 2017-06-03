@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <title>地形 Terrains - Samples</title>
+    <link href="css/css.css" rel="stylesheet">
+    <script src="../../test/res/l5.js"></script>
+    <meta auhtor="lonphy">
+    <meta keywords="webgl l5gl">
+</head>
+<body>
+<canvas id="ctx" width="640" height="480"></canvas>
+
+<script>
+    function TerrainEffect () {
+        L5.VisualEffect.call(this);
+
+        var vshader = new L5.VertexShader("L5.Terrain", 3, 4, 3, 0);
+        vshader.setInput(0, "modelPosition", L5.Shader.VT_VEC3, L5.Shader.VS_POSITION);
+        vshader.setInput(1, "modelBaseTCoord", L5.Shader.VT_VEC2, L5.Shader.VS_TEXCOORD0);
+        vshader.setInput(2, "modelDetailTCoord", L5.Shader.VT_VEC2, L5.Shader.VS_TEXCOORD1);
+        vshader.setOutput(0, "gl_Position", L5.Shader.VT_VEC4, L5.Shader.VS_POSITION);
+        vshader.setOutput(1, "modelBaseTCoord", L5.Shader.VT_VEC2, L5.Shader.VS_TEXCOORD0);
+        vshader.setOutput(2, "modelDetailTCoord", L5.Shader.VT_VEC2, L5.Shader.VS_TEXCOORD1);
+        vshader.setOutput(3, "vertexFogInfo", L5.Shader.VT_VEC4, L5.Shader.VS_TEXCOORD2);
+        vshader.setConstant(0, "PVWMatrix", L5.Shader.VT_MAT4);
+        vshader.setConstant(1, "VWMatrix", L5.Shader.VT_MAT4);
+        vshader.setConstant(2, "fogColorDensity", L5.Shader.VT_VEC4);
+        vshader.setProgram(TerrainEffect.VertextSource);
+
+        var fshader = new L5.FragShader("L5.Terrain", 3, 1, 0, 2);
+        fshader.setInput(0, "modelBaseTCoord", L5.Shader.VT_VEC2, L5.Shader.VS_TEXCOORD0);
+        fshader.setInput(1, "modelDetailTCoord", L5.Shader.VT_VEC2, L5.Shader.VS_TEXCOORD1);
+        fshader.setInput(2, "vertexFogInfo", L5.Shader.VT_VEC4, L5.Shader.VS_TEXCOORD2);
+        fshader.setOutput(0, "gl_FragColor", L5.Shader.VT_VEC4, L5.Shader.VS_COLOR0);
+
+        fshader.setSampler(0, "BaseSampler", L5.Shader.ST_2D);
+        fshader.setTextureUnit(0, L5.Texture2DEffect.FragTextureUnit);
+        fshader.setFilter(0, L5.Shader.SF_LINEAR_LINEAR);
+        fshader.setCoordinate(0, 0, L5.Shader.SC_CLAMP_EDGE);
+        fshader.setCoordinate(0, 1, L5.Shader.SC_CLAMP_EDGE);
+
+        fshader.setSampler(1, "DetailSampler", L5.Shader.ST_2D);
+        fshader.setTextureUnit(1, L5.Texture2DEffect.FragTextureUnit+1);
+        fshader.setFilter(1, L5.Shader.SF_LINEAR_LINEAR);
+        fshader.setCoordinate(1, 0, L5.Shader.SC_CLAMP_EDGE);
+        fshader.setCoordinate(1, 1, L5.Shader.SC_CLAMP_EDGE);
+
+        var program = new L5.Program("L5.TerrainProgram", vshader, fshader);
+
+        var pass = new L5.VisualPass();
+        pass.program = program;
+        pass.alphaState = new L5.AlphaState();
+        pass.cullState = new L5.CullState();
+        pass.depthState = new L5.DepthState();
+        pass.offsetState = new L5.OffsetState();
+        pass.stencilState = new L5.StencilState();
+
+        var technique = new L5.VisualTechnique();
+        technique.insertPass(pass);
+        this.insertTechnique(technique);
+    }
+    L5.extendFix(TerrainEffect, L5.VisualEffect);
+    TerrainEffect.prototype.createInstance = function(baseTexture, detailTexture, fogColorDensity) {
+        var instance = new L5.VisualEffectInstance(this, 0);
+        instance.setVertexConstant(0, 0, new L5.PVWMatrixConstant());
+        instance.setVertexConstant(0, 1, new L5.VWMatrixConstant());
+        instance.setVertexConstant(0, 2, fogColorDensity);
+
+        instance.setFragTexture(0, 0, baseTexture);
+        instance.setFragTexture(0, 1, detailTexture);
+        return instance;
+    };
+    TerrainEffect.VertextSource = [
+        'attribute vec3 modelPosition;',
+        'attribute vec2 modelBaseTCoord;',
+        'attribute vec2 modelDetailTCoord;',
+        'uniform mat4 PVWMatrix;',
+        'uniform mat4 VWMatrix;',
+        'uniform vec4 FogColorDensity;',
+        'varying vec2 vertexBaseTCoord;',
+        'varying vec2 vertexDetailTCoord;',
+        'varying vec4 vertexFogInfo;',
+        'void main (void) {',
+        '    vec4 pos = vec4(modelPosition, 1.0);',
+        '    gl_Position = PVWMatrix * pos;',
+        '    vec3 viewPos = (VWMatrix * pos).xyz;',
+        '    float fogSqrDistance = dot(viewPos, viewPos);',
+        '    float fogExpArg = -FogColorDensity.w*FogColorDensity.w*fogSqrDistance;',
+        '    vertexFogInfo = vec4( FogColorDensity.rgb, exp(fogExpArg));',
+        '    vertexBaseTCoord = modelBaseTCoord;',
+        '    vertexDetailTCoord = modelDetailTCoord;',
+        '}'
+    ].join('\n');
+    TerrainEffect.FragSource = [
+        'precision highp float;',
+        'uniform sampler2D BaseSampler;',
+        'uniform sampler2D DetailSampler;',
+        'varying vec2 vertexBaseTCoord;',
+        'varying vec2 vertexDetailTCoord;',
+        'varying vec4 vertexFogInfo;',
+        'void main (void) {',
+        '    vec3 baseColor = texture2D(BaseSampler, vertexBaseTCoord).rgb;',
+        '    vec3 detailColor = texture2D(DetailSampler, vertexDetailTCoord).rgb;',
+        '    vec3 product = baseColor*detailColor;',
+        '    gl_FragColor = vec4(lerp(vertexFogInfo.rgb, product, vertexFogInfo.a), 1.0);',
+        '}'
+    ].join('\n');
+</script>
+
+<script>
+    "use strict";
+
+    function Terrains() {
+        L5.Application3.call(this, 'Terrains', 640, 480, [0.5, 0, 1, 1], 'ctx');
+
+        this.textColor = "#fff";
+        this.sceneCuller = null;
+        this.scene = null;
+
+        this.heightAboveTerrain = 20;
+    }
+    L5.extendFix(Terrains, L5.Application3);
+
+    Terrains.prototype.onInitialize = function () {
+        if (!L5.Application3.prototype.onInitialize.call(this)) {
+            return false;
+        }
+
+        // Set up the camera.
+        this.camera.setPerspective(60.0, this.getAspectRatio(), 1, 1500);
+
+
+        this.camera.lookAt(L5.Point.ORIGIN, L5.Point.ORIGIN, L5.Vector.UNIT_Y);
+        this.camera.setPosition(new L5.Point(0, 2, -30));
+//        var pos = new L5.Point(64, 64, 20);
+//        var dir = new L5.Vector(L5.Math.INV_SQRT_2, L5.Math.INV_SQRT_2, 0);
+//        var up = L5.Vector.UNIT_Z;
+//        this.camera.setFrame(pos, dir, up);
+
+        // 禁用背面剔除
+        this.renderer.overrideCullState.enabled = false;
+
+        this.createScene();
+        this.scene.culling = L5.Spatial.CULLING_NEVER;
+        this.scene.update();
+
+        // Initial culling of scene,
+        this.culler = new L5.Culler(this.camera);
+        this.culler.computeVisibleSet(this.scene);
+
+        this.initializeCameraMotion(1, 0.01);
+        //this.moveForward();
+        return true;
+    };
+
+    Terrains.prototype.onIdle = function () {
+        this.measureTime();
+
+        var camPosition = this.camera.position;
+        var x = camPosition.x, y = camPosition.y;
+
+        if ( this.moveCamera() ) {
+            // The sky dome moves with the camera so that it is always in view.
+            var skyPosition = new L5.Point(x, y, 0);
+
+            //this.skyDome.localTransform.setTranslate(skyPosition);
+            //this.skyDome.update();
+
+//            this.terrain.onCameraMotion();
+        }
+        this.scene.update();
+        this.culler.computeVisibleSet(this.scene);
+
+//        var height = this.terrain.getHeight(x, y);
+//        var normal = this.terrain.getNormal(x, y);
+
+        // Draw the scene.
+        if (this.renderer.preDraw()) {
+            this.renderer.clearBuffers();
+            this.renderer.drawVisibleSet(this.culler.visibleSet);
+            this.drawFrameRate();
+//            this.drawMessage('height='+height+', normal=('+ normal.join(',') +')');
+            this.renderer.postDraw();
+        }
+        this.updateFrameCount();
+    };
+
+    Terrains.prototype.createScene = function () {
+        this.scene = new L5.Node();
+        var $this = this;
+
+
+//        var zf = L5.VertexFormat.create(2,
+//                L5.VertexFormat.AU_POSITION, L5.VertexFormat.AT_FLOAT3, 0,
+//                L5.VertexFormat.AU_TEXCOORD, L5.VertexFormat.AT_FLOAT2, 0
+//        );
+//        var std = new L5.StandardMesh(zf);
+//
+//        var r = std.rectangle(2,2, 10, 10);
+//
+//
+//
+//        ++this.loadWait;
+//        L5.Visual.loadWMVF('data/terrains/SkyDomePNT2.wmvf').then(function(mesh){
+//            $this.skyDome = new L5.TriMesh(mesh.format, mesh.vertexBuffer, mesh.indexBuffer);
+//            $this.skyDome.name = 'skyDome';
+//            $this.scene.attachChild($this.skyDome);
+//            var skyPosition = L5.Point.ORIGIN.copy($this.camera.position);
+//            skyPosition.z = 0;
+//
+//            $this.skyDome.localTransform.setTranslate(skyPosition);
+//            // $this.skyDome.localTransform.setUniformScale($this.camera.frustum[L5.Camera.VF_FAR]);
+//            $this.skyDome.localTransform.setUniformScale(0.001);
+//            $this.skyDome.culling = L5.Spatial.CULLING_NEVER;
+//
+//        }).then(function(){
+//            L5.Texture2D.loadWMTF('SkyDome.wmtf').then(function(texture){
+//                texture.generateMipmaps();
+//                var skyEffect = new L5.Texture2DEffect(
+//                        L5.Shader.SF_LINEAR_LINEAR,
+//                        L5.Shader.SC_REPEAT,
+//                        L5.Shader.SC_REPEAT);
+//                $this.skyDome.effect = skyEffect.createInstance(texture);
+//
+//                r.effect = skyEffect.createInstance(texture);
+//                $this.scene.attachChild(r);
+//                --$this.loadWait;
+//            });
+//        });
+//
+//
+//
+//        return;
+        // Load the height field and create the terrain.
+        var format = L5.VertexFormat.create(3,
+                L5.VertexFormat.AU_POSITION, L5.VertexFormat.AT_FLOAT3, 0,
+                L5.VertexFormat.AU_TEXCOORD, L5.VertexFormat.AT_FLOAT2, 0,
+                L5.VertexFormat.AU_TEXCOORD, L5.VertexFormat.AT_FLOAT2, 1);
+
+        // For lower-resolution terrain, change the paths to Height64/Color64 or
+        // Height32/Color32.
+
+        const height128 = {
+            numRows: 8,
+            numCols: 8,
+            size: 129,
+            minElevation: 0,
+            maxElevation: 200,
+            spacing: 4,
+            pagePath: 'data/terrains/Height128/',
+            pageFilePrefix: 'height'
+        };
+        const colorName = "data/terrains/Color128/color";
+
+        this.terrain = new L5.Terrain(height128, format, this.camera);
+        this.terrain.onloadend = function(terrain){
+            $this.scene.attachChild(terrain);
+
+            var terrainEffect = new TerrainEffect();
+
+            L5.Texture2D.loadWMTF('Detail.wmtf').then(function(detailTexture){
+                detailTexture.generateMipmaps();
+                var fogColorDensity = new L5.ShaderFloat(1);
+                fogColorDensity.copy([0.5686, 0.7255, 0.8353, 0.0015]);
+
+                // Attach an effect to each page.  Preload all resources to video memory.
+                // This will avoid frame rate stalls when new terrain pages are
+                // encountered as the camera moves.
+                const numRows = $this.terrain.numRows;
+                const numCols = $this.terrain.numCols;
+                for (var r = 0; r < numRows; ++r) {
+                    for (var c = 0; c < numCols; ++c) {
+                        (function(r, c) {
+                            var page = $this.terrain.getPage(r, c);
+                            var colorTextureName = colorName + '.' + r + '.' + c + '.wmtf';
+                            L5.Texture2D.loadWMTF(colorTextureName).then(function (colorTexture) {
+                                colorTexture.generateMipmaps();
+                                page.effect = terrainEffect.createInstance(colorTexture, detailTexture, fogColorDensity);
+                                $this.renderer.bind(page.vertexBuffer);
+                                $this.renderer.bind(page.format);
+                                $this.renderer.bind(page.indexBuffer);
+                                $this.renderer.bind(colorTexture);
+                            });
+                        })(r,c);
+
+                    }
+                }
+            });
+        };
+    };
+
+    Terrains.prototype.moveForward = function() {
+        L5.Application3.prototype.moveForward.call(this);
+
+        var camPosition = this.camera.position;
+        //var height = this.terrain.getHeight(camPosition.x, camPosition.y);
+        //camPosition.z = height + this.heightAboveTerrain;
+        //this.camera.setPosition(camPosition);
+    };
+    Terrains.prototype.moveBackward  = function() {
+        L5.Application3.prototype.moveBackward.call(this);
+        var camPosition = this.camera.position;
+        //var height = this.terrain.getHeight(camPosition.x, camPosition.y);
+        //camPosition.z = height + this.heightAboveTerrain;
+        //this.camera.setPosition(camPosition);
+    };
+    Terrains.prototype.moveDown = function() {
+//        if (this.heightAboveTerrain >= this.trnSpeed) {
+//            this.heightAboveTerrain -= this.trnSpeed;
+//        }
+//        var camPosition = this.camera.position;
+//        var height = this.terrain.getHeight(camPosition.x, camPosition.y);
+//        camPosition.z = height + this.heightAboveTerrain;
+//        this.camera.setPosition(camPosition);
+    };
+    Terrains.prototype.moveUp = function() {
+//        this.heightAboveTerrain += this.trnSpeed;
+//        var camPosition = this.camera.position;
+//        var height = this.terrain.getHeight(camPosition.x, camPosition.y);
+//        camPosition.z = height + this.heightAboveTerrain;
+//        this.camera.setPosition(camPosition);
+    };
+
+    L5.runApplication(Terrains);
+
+</script>
+</body>
+</html>

@@ -1,21 +1,23 @@
 /**
  * Program GPU程序
  *
- * @param programName {string} 程序名称
- * @param vertextShader {L5.VertexShader}
- * @param fragShader {L5.FragShader}
- * @class
- *
  * @author lonphy
- * @version 1.0
+ * @version 2.0
  */
-L5.Program = function (programName, vertexShader, fragShader) {
-    L5.D3Object.call(this, programName);
-    this.vertexShader = vertexShader;
-    this.fragShader = fragShader;
-    this.inputMap = new Map();
-};
+import { D3Object } from '../../core/D3Object'
 
-L5.nameFix(L5.Program, 'Program');
-L5.extendFix(L5.Program, L5.D3Object);
+export class Program extends D3Object {
+
+    /**
+     * @param name {string} 程序名称
+     * @param vs {L5.VertexShader}
+     * @param fs {L5.FragShader}
+     */
+    constructor(name, vs, fs) {
+        super(name);
+        this.vertexShader = vs;
+        this.fragShader = fs;
+        this.inputMap = new Map();
+    }
+}
 

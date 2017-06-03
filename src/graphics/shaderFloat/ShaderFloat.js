@@ -1,96 +1,94 @@
-/**
- * ShaderFloat - 着色器浮点数
- * @param numRegisters {number}
- * @constructor
- *
- * @extends {L5.D3Object}
- */
-L5.ShaderFloat = function (numRegisters) {
-    L5.D3Object.call(this);
-    this.numElements = 0;
-    this.data = null;
-    this.allowUpdater = false;
-    this.setNumRegisters(numRegisters);
-};
-L5.nameFix(L5.ShaderFloat, 'ShaderFloat');
-L5.extendFix(L5.ShaderFloat, L5.D3Object);
-
+import { D3Object } from '../../core/D3Object'
 
 /**
- * @param numRegisters {number}
+ * @extends {D3Object}
  */
-L5.ShaderFloat.prototype.setNumRegisters = function (numRegisters) {
-    L5.assert(numRegisters > 0, 'Number of registers must be positive');
-    this.numElements = 4 * numRegisters;
-    this.data = new Float32Array(this.numElements);
-}
-;
-L5.ShaderFloat.prototype.getNumRegisters = function () {
-    return this.numElements / 4;
-};
-
-L5.ShaderFloat.prototype.item = function (index, val) {
-    L5.assert(0 <= index && index < this.numElements, 'Invalid index');
-    if (val === undefined) {
-        return this.data[index];
+class ShaderFloat extends D3Object {
+    /**
+     * @param {number} numRegisters
+     */
+    constructor(numRegisters) {
+        super();
+        this.numElements = 0;
+        this.data = null;
+        this.allowUpdater = false;
+        this.setNumRegisters(numRegisters);
     }
-    this.data[index] = val;
-};
+    /**
+     * @param {number} numRegisters
+     */
+    setNumRegisters(numRegisters) {
+        console.assert(numRegisters > 0, 'Number of registers must be positive');
+        this.numElements = 4 * numRegisters;
+        this.data = new Float32Array(this.numElements);
+    }
 
-/**
- * @param i {number} location of elements
- * @param data {Float32Array} 4-tuple float
- */
-L5.ShaderFloat.prototype.setOneRegister = function (i, data) {
-    L5.assert(0 <= i && i < this.numElements / 4, 'Invalid register');
-    this.data.set(data.subarray(0, 4), 4 * i);
-};
-/**
- * @param data {Float32Array}
- */
-L5.ShaderFloat.prototype.setRegister = function (data) {
-    this.data.set(data.subarray(0, this.numElements));
-};
-/**
- * @param i {number}
- * @returns {Float32Array}
- */
-L5.ShaderFloat.prototype.getOneRegister = function (i) {
-    L5.assert(0 <= i && i < this.numElements / 4, 'Invalid register');
-    return new Float32Array(this.data.subarray(4 * i, 4 * i + 4));
-};
-/**
- * @returns {Float32Array}
- */
-L5.ShaderFloat.prototype.getRegisters = function () {
-    return new Float32Array(this.data);
-};
+    getNumRegisters() {
+        return this.numElements / 4;
+    }
 
-/**
- * @param data {Float32Array}
- */
-L5.ShaderFloat.prototype.copy = function (data) {
-    this.data.set(data.subarray(0, this.numElements));
-    return this;
-};
+    item(index, val) {
+        console.assert(0 <= index && index < this.numElements, 'Invalid index');
+        if (val === undefined) {
+            return this.data[index];
+        }
+        this.data[index] = val;
+    }
 
-/**
- * @param visual {L5.Visual}
- * @param camera {L5.Camera}
- */
-L5.ShaderFloat.prototype.update = function (visual, camera) {
-    // 占位函数,子类实现
-};
+    /**
+     * @param {number} i - location of elements
+     * @param {Float32Array} data 4-tuple float
+     */
+    setOneRegister(i, data) {
+        console.assert(0 <= i && i < this.numElements / 4, 'Invalid register');
+        this.data.set(data.subarray(0, 4), 4 * i);
+    }
+    /**
+     * @param {Float32Array} data
+     */
+    setRegister(data) {
+        this.data.set(data.subarray(0, this.numElements));
+    }
+    /**
+     * @param {number} i
+     * @returns {Float32Array}
+     */
+    getOneRegister(i) {
+        console.assert(0 <= i && i < this.numElements / 4, 'Invalid register');
+        return new Float32Array(this.data.subarray(4 * i, 4 * i + 4));
+    }
+    getRegisters() {
+        return new Float32Array(this.data);
+    }
+    /**
+     * @param {Float32Array} data
+     */
+    copy(data) {
+        //this.data.set(data.subarray(0, this.numElements));
+        this.data.set(data);
+        return this;
+    }
+    /**
+     * @param {Visual} visual
+     * @param {Camera} camera
+     */
+    update(visual, camera) {
+        // 占位函数,子类实现
+    }
+    /**
+     * @param {Instream} inStream 
+     */
+    load(inStream) {
+        super.load(inStream);
+        this.data = new Float32Array(inStream.readFloatArray());
+        this.numElements = this.data.length;
+        this.allowUpdater = inStream.readBool();
+    }
+    save(outStream) {
+        super.save(outStream);
+        outStream.writeFloat32Array(this.numElements, this.data);
+        outStream.writeBool(this.allowUpdater);
+    }
+}
 
-L5.ShaderFloat.prototype.load = function (inStream) {
-    L5.D3Object.prototype.load.call(this, inStream);
-    this.data = new Float32Array(inStream.readFloatArray());
-    this.numElements = this.data.length;
-    this.allowUpdater = inStream.readBool();
-};
-
-L5.ShaderFloat.prototype.save = function (outStream) {
-    L5.D3Object.prototype.save.call(this, outStream);
-    outStream.writeFloat32Array(this.numElements, this.data);
-    outStream.writeBool(this.allowUpdater);
-};
+export { ShaderFloat }

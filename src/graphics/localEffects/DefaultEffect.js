@@ -1,56 +1,61 @@
 /**
  * 默认效果着色器
- * @constructor
- * @extends {L5.VisualEffect}
  */
-L5.DefaultEffect = function () {
-    L5.VisualEffect.call(this);
+import { DECLARE_ENUM } from '../../util/util'
 
-    var vs = new L5.VertexShader("L5.Default", 1, 1, 1, 0, false);
-    vs.setInput(0, "modelPosition", L5.Shader.VT_VEC3, L5.Shader.VS_POSITION);
-    vs.setOutput(0, "gl_Position", L5.Shader.VT_VEC4, L5.Shader.VS_POSITION);
-    vs.setConstant(0, "PVWMatrix", L5.Shader.VT_MAT4);
-    vs.setProgram(L5.DefaultEffect.VertextSource);
+import {
+    VisualEffect, VisualEffectInstance, VisualTechnique, VisualPass,
+    Program, Shader, VertexShader, FragShader,
+    AlphaState, CullState, DepthState, OffsetState, StencilState
+} from '../shaders/namespace'
+import { PVWMatrixConstant } from '../shaderFloat/namespace'
 
-    var fs = new L5.FragShader("L5.Default", 0, 1, 0, 0, false);
-    fs.setOutput(0, "gl_FragColor", L5.Shader.VT_VEC4, L5.Shader.VS_COLOR0);
-    fs.setProgram(L5.DefaultEffect.FragSource);
+export class DefaultEffect extends VisualEffect {
+    constructor() {
+        super();
 
-    var program = new L5.Program("L5.DefaultProgram", vs, fs);
+        let vs = new VertexShader('DefaultVS', 1, 1, 0);
+        vs.setInput(0, 'modelPosition', Shader.VT_VEC3, Shader.VS_POSITION);
+        vs.setConstant(0, 'PVWMatrix', Shader.VT_MAT4);
+        vs.setProgram(DefaultEffect.VS);
 
-    var pass = new L5.VisualPass();
-    pass.program = program;
-    pass.alphaState = new L5.AlphaState();
-    pass.cullState = new L5.CullState();
-    pass.depthState = new L5.DepthState();
-    pass.offsetState = new L5.OffsetState();
-    pass.stencilState = new L5.StencilState();
+        let fs = new FragShader('DefaultFS');
+        fs.setProgram(DefaultEffect.FS);
 
-    var technique = new L5.VisualTechnique();
-    technique.insertPass(pass);
-    this.insertTechnique(technique);
-};
+        let program = new Program('DefaultProgram', vs, fs);
+        let pass = new VisualPass();
+        pass.program = program;
+        pass.alphaState = new AlphaState();
+        pass.cullState = new CullState();
+        pass.depthState = new DepthState();
+        pass.offsetState = new OffsetState();
+        pass.stencilState = new StencilState();
 
-L5.nameFix(L5.DefaultEffect, 'DefaultEffect');
-L5.extendFix(L5.DefaultEffect, L5.VisualEffect);
+        let technique = new VisualTechnique();
+        technique.insertPass(pass);
+        this.insertTechnique(technique);
+    }
 
-L5.DefaultEffect.prototype.createInstance = function () {
-    var instance = new L5.VisualEffectInstance(this, 0);
-    instance.setVertexConstant(0, 0, new L5.PVWMatrixConstant());
-    return instance;
-};
+    createInstance() {
+        var instance = new VisualEffectInstance(this, 0);
+        instance.setVertexConstant(0, 0, new PVWMatrixConstant());
+        return instance;
+    }
+}
 
-L5.DefaultEffect.VertextSource = [
-    'attribute vec3 modelPosition;',
-    'uniform mat4 PVWMatrix;',
-    'void main(){',
-    '\t gl_Position = PVWMatrix * vec4(modelPosition, 1.0);',
-    '}'
-].join("\n");
-
-L5.DefaultEffect.FragSource = [
-    'precision highp float;',
-    'void main (void) {',
-    '\t gl_FragColor = vec4(1.0, 0.0, 1.0, 1.0);',
-    '}'
-].join("\n");
+DECLARE_ENUM(DefaultEffect, {
+    VS: `#version 300 es
+uniform mat4 PVWMatrix;
+layout(location=0) in vec3 modelPosition;
+void main(){
+    gl_Position = uPVWMatrix * vec4(modelPosition, 1.0);
+}
+`,
+    FS: `#version 300 es
+precision highp float;
+out vec4 fragColor;
+void main (void) {
+    fragColor = vec4(1.0, 0.0, 1.0, 1.0);
+}
+`
+});

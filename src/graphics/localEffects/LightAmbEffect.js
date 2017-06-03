@@ -1,79 +1,100 @@
 /**
  * 只有环境光和发射光的着色器
- * @constructor
- * @extends {L5.VisualEffect}
+ *
+ * @author lonphy
+ * @version 2.0
+ *
+ * @type {LightAmbEffect}
+ * @extends {VisualEffect}
  */
-L5.LightAmbEffect = function () {
-    L5.VisualEffect.call(this);
+import {DECLARE_ENUM} from '../../util/util'
+import {VisualEffect} from '../shaders/VisualEffect'
+import {VisualEffectInstance} from '../shaders/VisualEffectInstance'
+import {VisualTechnique} from '../shaders/VisualTechnique'
+import {VisualPass} from '../shaders/VisualPass'
+import {Program} from '../shaders/Program'
+import {Shader} from '../shaders/Shader'
+import {VertexShader} from '../shaders/VertexShader'
+import {FragShader} from '../shaders/FragShader'
+import {AlphaState} from '../shaders/AlphaState'
+import {CullState} from '../shaders/CullState'
+import {DepthState} from '../shaders/DepthState'
+import {OffsetState} from '../shaders/OffsetState'
+import {StencilState} from '../shaders/StencilState'
+import {PVWMatrixConstant} from '../shaderFloat/PVWMatrixConstant'
+import {MaterialEmissiveConstant} from '../shaderFloat/MaterialEmissiveConstant'
+import {MaterialAmbientConstant} from '../shaderFloat/MaterialAmbientConstant'
+import {LightAmbientConstant} from '../shaderFloat/LightAmbientConstant'
+import {LightAttenuationConstant} from '../shaderFloat/LightAttenuationConstant'
 
-    var vs = new L5.VertexShader("L5.Default", 1, 2, 5, 0, false);
-    vs.setInput(0, "modelPosition", L5.Shader.VT_VEC3, L5.Shader.VS_POSITION);
-    vs.setOutput(0, "gl_Position", L5.Shader.VT_VEC4, L5.Shader.VS_POSITION);
-    vs.setOutput(1, "vertexColor", L5.Shader.VT_VEC4, L5.Shader.VS_COLOR0);
-    vs.setConstant(0, "PVWMatrix", L5.Shader.VT_MAT4);
-    vs.setConstant(1, "MaterialEmissive", L5.Shader.VT_VEC4);
-    vs.setConstant(2, "MaterialAmbient", L5.Shader.VT_VEC4);
-    vs.setConstant(3, "LightAmbient", L5.Shader.VT_VEC4);
-    vs.setConstant(4, "LightAttenuation", L5.Shader.VT_VEC4);
-    vs.setProgram(L5.LightAmbEffect.VertextSource);
+export class LightAmbEffect extends VisualEffect {
 
-    var fs = new L5.FragShader("L5.Default", 1, 1, 0, 0, false);
-    fs.setInput(0, "vertexColor", L5.Shader.VT_VEC4, L5.Shader.VS_COLOR0);
-    fs.setOutput(0, "gl_FragColor", L5.Shader.VT_VEC4, L5.Shader.VS_COLOR0);
-    fs.setProgram(L5.LightAmbEffect.FragSource);
+    constructor() {
+        super();
+        var vs = new VertexShader('LightAmbEffectVS', 1, 5);
+        vs.setInput(0, 'modelPosition', Shader.VT_VEC3, Shader.VS_POSITION);
+        vs.setConstant(0, 'PVWMatrix', Shader.VT_MAT4);
+        vs.setConstant(1, 'MaterialEmissive', Shader.VT_VEC4);
+        vs.setConstant(2, 'MaterialAmbient', Shader.VT_VEC4);
+        vs.setConstant(3, 'LightAmbient', Shader.VT_VEC4);
+        vs.setConstant(4, 'LightAttenuation', Shader.VT_VEC4);
+        vs.setProgram(LightAmbEffect.VS);
 
-    var program = new L5.Program("L5.DefaultProgram", vs, fs);
+        var fs = new FragShader('LightAmbEffectFS', 1);
+        fs.setProgram(LightAmbEffect.FS);
 
-    var pass = new L5.VisualPass();
-    pass.program = program;
-    pass.alphaState = new L5.AlphaState();
-    pass.cullState = new L5.CullState();
-    pass.depthState = new L5.DepthState();
-    pass.offsetState = new L5.OffsetState();
-    pass.stencilState = new L5.StencilState();
+        var program = new Program('LightAmbProgram', vs, fs);
 
-    var technique = new L5.VisualTechnique();
-    technique.insertPass(pass);
-    this.insertTechnique(technique);
-};
+        var pass = new VisualPass();
+        pass.program = program;
+        pass.alphaState = new AlphaState();
+        pass.cullState = new CullState();
+        pass.depthState = new DepthState();
+        pass.offsetState = new OffsetState();
+        pass.stencilState = new StencilState();
 
-L5.nameFix(L5.LightAmbEffect, 'LightAmbEffect');
-L5.extendFix(L5.LightAmbEffect, L5.VisualEffect);
+        var technique = new VisualTechnique();
+        technique.insertPass(pass);
+        this.insertTechnique(technique);
+    }
 
-L5.LightAmbEffect.prototype.createInstance = function (light, material) {
-    var instance = new L5.VisualEffectInstance(this, 0);
-    instance.setVertexConstant(0, 0, new L5.PVWMatrixConstant());
-    instance.setVertexConstant(0, 1, new L5.MaterialEmissiveConstant(material));
-    instance.setVertexConstant(0, 2, new L5.MaterialAmbientConstant(material));
-    instance.setVertexConstant(0, 3, new L5.LightAmbientConstant(light));
-    instance.setVertexConstant(0, 4, new L5.LightAttenuationConstant(light));
-    return instance;
-};
-L5.LightAmbEffect.createUniqueInstance = function (light, material) {
-    var effect = new L5.LightAmbEffect();
-    return effect.createInstance(light, material);
-};
+    createInstance(light, material) {
+        var instance = new VisualEffectInstance(this, 0);
+        instance.setVertexConstant(0, 0, new PVWMatrixConstant());
+        instance.setVertexConstant(0, 1, new MaterialEmissiveConstant(material));
+        instance.setVertexConstant(0, 2, new MaterialAmbientConstant(material));
+        instance.setVertexConstant(0, 3, new LightAmbientConstant(light));
+        instance.setVertexConstant(0, 4, new LightAttenuationConstant(light));
+        return instance;
+    }
 
-L5.LightAmbEffect.VertextSource = [
-    'attribute vec3 modelPosition;',
-    'uniform mat4 PVWMatrix;',
-    'uniform vec4 MaterialEmissive;',
-    'uniform vec4 MaterialAmbient;',
-    'uniform vec4 LightAmbient;',        // c[7]
-    'uniform vec4 LightAttenuation;',    // c[8], [constant, linear, quadratic, intensity]
-    'varying vec4 vertexColor;',
-    'void main(){',
-    '\t vec3 la = LightAmbient.rgb * LightAttenuation.w;',
-    '\t la = la * MaterialAmbient.rgb + MaterialEmissive.rgb;',
-    '\t vertexColor = vec4(la, 1.0);',
-    '\t gl_Position = PVWMatrix * vec4(modelPosition, 1.0);',
-    '}'
-].join("\n");
+    static createUniqueInstance(light, material) {
+        var effect = new LightAmbEffect();
+        return effect.createInstance(light, material);
+    }
+}
 
-L5.LightAmbEffect.FragSource = [
-    'precision highp float;',
-    'varying vec4 vertexColor;',
-    'void main (void) {',
-    '\t gl_FragColor = vertexColor;',
-    '}'
-].join("\n");
+DECLARE_ENUM(LightAmbEffect, {
+    VS: `#version 300 es
+uniform mat4 PVWMatrix;
+uniform vec3 MaterialEmissive;
+uniform vec3 MaterialAmbient;
+uniform vec3 LightAmbient;
+uniform vec4 LightAttenuation;    // [constant, linear, quadratic, intensity]
+layout(location=0) in vec3 modelPosition;
+out vec3 vColor;
+void main(){
+    gl_Position = PVWMatrix * vec4(modelPosition, 1.0);
+    vec3 ambient = LightAttenuation.w * LightAmbient;
+    vColor = MaterialEmissive + MaterialAmbient * ambient;
+}
+`,
+    FS: `#version 300 es
+precision highp float;
+in vec3 vColor;
+out vec4 fragColor;
+void main(){
+    fragColor = vec4(vColor, 1.0);
+}
+`
+});

@@ -1,56 +1,52 @@
-/**
- * 灯光 - 环境光分量
- *
- * LightAmbientConstant
- * @param light {L5.Light} 灯光
- * @class
- *
- * @extends {L5.ShaderFloat}
- */
-L5.LightAmbientConstant = function (light) {
-    L5.ShaderFloat.call (this, 1);
-    this.allowUpdater = true;
-    this.light = light;
-};
-L5.nameFix (L5.LightAmbientConstant, 'LightAmbientConstant');
-L5.extendFix (L5.LightAmbientConstant, L5.ShaderFloat);
-
-L5.LightAmbientConstant.prototype.getLight = function() {
-    return this.light;
-};
+import { ShaderFloat } from './ShaderFloat'
+import { D3Object } from '../../core/D3Object'
 
 /**
- * 更新环境光分量
- * @param visual {L5.Visual}
- * @param camera {L5.Camera}
+ * 着色器常量 - 灯光环境光
  */
-L5.LightAmbientConstant.prototype.update = function(visual, camera) {
-    this.copy(this.light.ambient);
-};
+class LightAmbientConstant extends ShaderFloat {
+    /**
+     * @param {Light} light - 灯光实例
+     */
+    constructor(light) {
+        super(1);
 
-L5.LightAmbientConstant.prototype.load = function (inStream) {
-    L5.ShaderFloat.prototype.load.call(this, inStream);
-    this.light = inStream.readPointer();
-};
+        /** @type {Light} */
+        this.light = light;
+        this.allowUpdater = true;
+    }
+    /**
+     * 更新环境光分量
+     * @param {Visual} visual - 可视体
+     * @param {Camera} camera - 相机
+     */
+    update(visual, camera) {
+        this.copy(this.light.ambient);
+    }
 
-L5.LightAmbientConstant.prototype.link = function (inStream) {
-    L5.ShaderFloat.prototype.link.call(this, inStream);
-    this.light = inStream.resolveLink(this.light);
-};
+    /**
+     * @param {InStream} inStream 
+     */
+    load(inStream) {
+        super.load(inStream);
+        this.light = inStream.readPointer();
+    }
+    /**
+     * @param {InStream} inStream 
+     */
+    link(inStream) {
+        super.link(inStream);
+        this.light = inStream.resolveLink(this.light);
+    }
+    /**
+     * @param {OutStream} outStream 
+     */
+    save(outStream) {
+        super.save(outStream);
+        outStream.writePointer(this.light);
+    }
+}
 
-L5.LightAmbientConstant.prototype.save = function (outStream) {
-    L5.ShaderFloat.prototype.save.call(this, outStream);
-    outStream.writePointer(this.light);
-};
+D3Object.Register('LightAmbientConstant', LightAmbientConstant.factory);
 
-/**
- * 文件解析工厂方法
- * @param inStream {L5.InStream}
- * @returns {L5.LightAmbientConstant}
- */
-L5.LightAmbientConstant.factory = function (inStream) {
-    var obj = new L5.LightAmbientConstant();
-    obj.load(inStream);
-    return obj;
-};
-L5.D3Object.factories.set('Wm5.LightAmbientConstant', L5.LightAmbientConstant.factory);
+export { LightAmbientConstant }

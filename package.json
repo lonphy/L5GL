@@ -1,18 +1,19 @@
 {
   "name": "l5",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": {
     "name": "lonphy",
     "url": "http://lonphy.com/"
   },
-  "homepage": "http://webgl.lonphy.com/",
-  "devDependencies": {
-    "grunt": "*",
-    "grunt-contrib-concat": "^0.5.1",
-    "grunt-contrib-jshint": "^0.11.2",
-    "grunt-contrib-uglify": "0.2.0",
-    "grunt-contrib-watch": "^0.6.1",
-    "grunt-contrib-copy": "^0.8.1"
+  "homepage": "http://l5gl.lonphy.com/",
+  "scripts": {
+    "build": "rollup --no-conflict -c -w",
+    "doc": "rm -fr out && node_modules/.bin/jsdoc -r src/*"
   },
-  "description": "WebGL 1.0 framework"
+  "devDependencies": {
+    "rollup": "^0.41.6",
+    "rollup-watch": "^3.2.2"
+  },
+  "description": "WebGL 2.0 framework",
+  "typings": "src/types/L5.d.ts"
 }

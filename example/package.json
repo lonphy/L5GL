@@ -1,0 +1,13 @@
+{
+  "name": "l5gl-example",
+  "version": "0.2.0",
+  "author": {
+    "name": "lonphy",
+    "url": "http://lonphy.com/"
+  },
+  "homepage": "http://l5gl.lonphy.com/",
+  "dependencies": {
+     "L5GL": "0.2.0"
+  },
+  "description": "L5GL WebGL2.0 example"
+}

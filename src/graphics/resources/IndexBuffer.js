@@ -1,45 +1,34 @@
 /**
  * IndexBuffer 索引缓冲
  *
- * @param numElements {number}
- * @param elementSize {number}
- * @param usage {number} 缓冲用途， 参照L5.BU_XXX
- *
- * @extends {L5.Buffer}
- *
  * @author lonphy
- * @version 1.0
- * @class
- */
-L5.IndexBuffer = function (
-    numElements, elementSize, usage
-) {
-    usage = usage || L5.Buffer.BU_STATIC;
-    L5.Buffer.call (this, numElements, elementSize, usage);
-
-    this.offset = 0;
-};
-
-L5.nameFix (L5.IndexBuffer, 'IndexBuffer');
-L5.extendFix (L5.IndexBuffer, L5.Buffer);
-
-/**
+ * @version 2.0
  *
- * @param inStream {L5.InStream}
+ * @type {IndexBuffer}
+ * @extends {Buffer}
  */
-L5.IndexBuffer.prototype.load = function (inStream) {
-    L5.Buffer.prototype.load.call(this, inStream);
-    this.offset = inStream.readUint32();
-};
-/**
- * 文件解析工厂方法
- * @param inStream {L5.inStream}
- * @returns {L5.IndexBuffer}
- */
-L5.IndexBuffer.factory = function (inStream) {
-    var obj = new L5.IndexBuffer(0, 0);
-    obj.load(inStream);
-    return obj;
-};
+import {Buffer} from './Buffer'
+import {D3Object} from '../../core/D3Object'
+import * as util from '../../util/util'
 
-L5.D3Object.factories.set('Wm5.IndexBuffer', L5.IndexBuffer.factory);
+export class IndexBuffer extends Buffer {
+
+    /**
+     * @param numElements {number}
+     * @param elementSize {number}
+     * @param usage {number} 缓冲用途， 参照L5.BU_XXX
+     */
+    constructor(numElements = 0, elementSize = 0, usage = Buffer.BU_STATIC) {
+        super(numElements, elementSize, usage);
+        this.offset = 0;
+    }
+
+    /**
+     * @param inStream {InStream}
+     */
+    load(inStream) {
+        super.load(inStream);
+        this.offset = inStream.readUint32();
+    }
+}
+D3Object.Register('L5.IndexBuffer', IndexBuffer.factory);

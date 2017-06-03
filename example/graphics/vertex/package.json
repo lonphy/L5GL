@@ -1,0 +1,15 @@
+{
+  "name": "vertex",
+  "version": "0.2.0",
+  "author": {
+    "name": "lonphy",
+    "url": "http://lonphy.com/"
+  },
+  "homepage": "http://l5gl.lonphy.com/",
+  "scripts": {
+    "build": "rollup -c"
+  },
+  "devDependencies": {
+  },
+  "description": "L5GL WebGL2.0 example - vertex"
+}

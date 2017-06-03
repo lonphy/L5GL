@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <title>Shadow (阴影) - Samples</title>
+    <link href="css/css.css" rel="stylesheet">
+    <script src="../../test/res/l5.js"></script>
+</head>
+<body>
+<canvas id="ctx" width="640" height="480"></canvas>
+
+<script>
+    "use strict";
+
+    class Shadow extends L5.Application3D {
+        constructor() {
+            super('Shadow', 640, 480, [0.75, 0.75, 0.75, 1], 'ctx');
+            this.textColor = "#fff";
+            this.sceneCuller = null;
+            this.scene = null;
+            this.rect = null;
+            this.ground = null;
+            this.count = 0;
+            this.shadowEffect = null;
+        }
+
+        onInitialize() {
+            if (!super.onInitialize()) {
+                return false;
+            }
+
+            // 设置相机
+            this.camera.setPerspective(60.0, this.getAspectRatio(), 0.1, 2000);
+            this.camera.lookAt(L5.Point.ORIGIN, L5.Point.ORIGIN, L5.Vector.UNIT_Y);
+            this.camera.setPosition(new L5.Point(0, 2, -8));
+
+            this.effect = new L5.Texture2DEffect(
+                    L5.Shader.SF_LINEAR_LINEAR,
+                    L5.Shader.SC_REPEAT,
+                    L5.Shader.SC_REPEAT);
+
+            // 禁用背面剔除
+            this.renderer.overrideCullState.enabled = false;
+
+            this.createScene();
+
+            // Initial update of objects.
+            this.scene.update();
+
+            // Initial culling of scene,
+            this.sceneCuller = new L5.Culler(this.camera);
+            this.sceneCuller.computeVisibleSet(this.scene);
+
+            this.rectCuller = new L5.Culler(this.camera);
+            this.rectCuller.computeVisibleSet(this.rect);
+
+            this.initializeCameraMotion(0.1, 0.05);
+            this.initializeObjectMotion(this.scene);
+            return true;
+        }
+
+
+        onIdle() {
+            this.measureTime();
+
+            if (this.moveCamera()) {
+                this.sceneCuller.computeVisibleSet(this.scene);
+                this.rectCuller.computeVisibleSet(this.rect);
+            }
+            if (this.moveObject()) {
+                this.scene.update(this.applicationTime);
+                this.sceneCuller.computeVisibleSet(this.scene);
+                this.rectCuller.computeVisibleSet(this.rect);
+            }
+
+            if (this.renderer.preDraw()) {
+                this.renderer.clearBuffers();
+                this.renderer.drawVisibleSet(this.sceneCuller.visibleSet);
+                this.renderer.drawVisibleSet(this.rectCuller.visibleSet, this.shadowEffect);
+                this.drawFrameRate();
+                this.renderer.postDraw();
+            }
+            this.updateFrameCount();
+        }
+
+        createScene() {
+            this.scene = new L5.Node();
+            this.scene.culling = L5.Spatial.CULLING_NEVER;
+
+
+            this.light = new L5.Light(L5.Light.LT_DIRECTIONAL);
+            this.light.ambient.set([0.2, 0.2, 0.2, 1]);
+            this.light.diffuse.set([0.5, 0.5, 0.5, 1]);
+            this.light.specular.set([0.8, 0.8, 0.8, 1]);
+            this.light.direction = new L5.Vector(0, -1, 2);
+
+            var format = L5.VertexFormat.create(2,
+                    L5.VertexFormat.AU_POSITION, L5.VertexFormat.AT_FLOAT3, 0,
+                    L5.VertexFormat.AU_NORMAL, L5.VertexFormat.AT_FLOAT3, 0
+            );
+
+            this.rect = new L5.Node();
+            this.rect.culling = L5.Spatial.CULLING_NEVER;
+
+            var m = new L5.Material({
+                // ambient:  [0.2, 0.2, 0.2],
+                diffuse:  [0.6, 0.5, 0.7],
+                specular: [1, 1, 1],
+                exponent: 128
+            });
+
+            var effect = L5.LightDirPerFragEffect.createUniqueInstance(this.light, m);
+            var std = new L5.StandardMesh(format, 0, 0);
+
+
+            var boll = std.sphere(4, 4, 1, 1);
+            boll.localTransform.setTranslate(new L5.Point(-2, 0, 0));
+            boll.culling = L5.Spatial.CULLING_NEVER;
+            boll.effect = effect;
+            this.rect.attachChild(boll);
+
+            var tours = std.torus(3, 3, 1, 0.3);
+            tours.localTransform.setTranslate(new L5.Point(2, 0, 0));
+            tours.culling = L5.Spatial.CULLING_NEVER;
+            tours.effect = effect;
+            this.rect.attachChild(tours);
+
+            var box = std.box(1, 1, 1);
+            box.localTransform.setTranslate(new L5.Point(6, 0, 0));
+            box.culling = L5.Spatial.CULLING_NEVER;
+            box.effect = effect;
+            this.rect.attachChild(box);
+
+            var s = std.cylinder(4, 4, 1, 2, false);
+            s.localTransform.setTranslate(new L5.Point(-6, 0, 0));
+            s.culling = L5.Spatial.CULLING_NEVER;
+            s.effect = effect;
+            this.rect.attachChild(s);
+
+            this.rect.localTransform.setTranslate(new L5.Point(0, 2, 0));
+            this.scene.attachChild(this.rect);
+
+            this.createGround();
+            this.createPlanarShadow();
+        }
+
+        // 创建地板
+        createGround() {
+            var format = L5.VertexFormat.create(2,
+                    L5.VertexFormat.AU_POSITION, L5.VertexFormat.AT_FLOAT3, 0,
+                    L5.VertexFormat.AU_TEXCOORD, L5.VertexFormat.AT_FLOAT2, 0
+            );
+            this.ground = new L5.StandardMesh(format).rectangle(32, 32, 10, 10);
+            this.ground.localTransform.setRotate(L5.Matrix.makeRotateX(-Math.PI / 2)); // 逆时针旋转90度, 做为底面
+
+            var $this = this;
+            ++this.loadWait;
+            L5.Texture2D.loadFile('gird.l5tf').then((texture) => {
+                this.ground.effect = L5.Texture2DEffect.createUniqueInstance(texture,
+                    L5.Shader.SF_LINEAR_LINEAR,
+                    L5.Shader.SC_REPEAT,
+                    L5.Shader.SC_REPEAT);
+                --this.loadWait;
+            });
+
+            this.scene.attachChild(this.ground);
+        }
+
+        // 创建投影
+        createPlanarShadow() {
+            this.shadowEffect = new L5.PlanarShadowEffect(1, this.rect);
+            this.shadowEffect.setPlane(0, this.ground);
+            this.shadowEffect.setProjector(0, this.light);
+            this.shadowEffect.setShadowColor(0, new Float32Array([0, 0, 0, 0.64]));
+        }
+    }
+
+    L5.runApplication(Shadow);
+</script>
+</body>
+</html>

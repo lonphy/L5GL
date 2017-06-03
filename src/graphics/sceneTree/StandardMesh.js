@@ -1,252 +1,322 @@
 /**
  * 标准网格 - StandardMesh
  *
- * @param format {L5.VertexFormat} 网格顶点格式
+ * @param format {VertexFormat} 网格顶点格式
  * @param isStatic {boolean} 是否使用静态缓冲, 默认true;
  * @param inside {boolean} 是否反向卷绕, 默认false
- * @param transform {L5.Transform} 默认为单位变换
+ * @param transform {Transform} 默认为单位变换
  */
-L5.StandardMesh = function (format, isStatic, inside, transform) {
-    isStatic = isStatic === undefined ? true : isStatic;
-    this.format = format;
-    this.transform = transform || L5.Transform.IDENTIRY;
-    this.isStatic = true;
-    this.inside = !!inside;
-    this.hasNormals = false;
+import { _Math, Point, Vector } from '../../math/index'
+import { Transform } from '../dataTypes/Transform'
+import { VertexFormat } from '../resources/VertexFormat'
+import { Buffer } from '../resources/Buffer'
+import { IndexBuffer } from '../resources/IndexBuffer'
+import { VertexBuffer } from '../resources/VertexBuffer'
+import { VertexBufferAccessor } from '../resources/VertexBufferAccessor'
+import { TriMesh } from './TriMesh'
+import { Visual } from './Visual'
 
-    this.usage = isStatic ? L5.Buffer.BU_STATIC : L5.Buffer.BU_DYNAMIC;
+export class StandardMesh {
+    constructor(format, isStatic, inside, transform) {
+        isStatic = isStatic === undefined ? true : isStatic;
+        this.format = format;
+        this.transform = transform || Transform.IDENTITY;
+        this.isStatic = true;
+        this.inside = !!inside;
+        this.hasNormals = false;
 
-    // 检查顶点坐标
-    var posIndex = format.getIndex(L5.VertexFormat.AU_POSITION);
-    L5.assert(posIndex >= 0, 'Vertex format must have positions');
-    var posType = format.getAttributeType(posIndex);
-    L5.assert(posType === L5.VertexFormat.AT_FLOAT3, 'Positions must be 3-element of floats');
+        this.usage = isStatic ? Buffer.BU_STATIC : Buffer.BU_DYNAMIC;
 
-    // 检查法线
-    var norIndex = format.getIndex(L5.VertexFormat.AU_NORMAL);
-    if (norIndex >= 0) {
-        var norType = format.getAttributeType(norIndex);
-        this.hasNormals = (norType === L5.VertexFormat.AT_FLOAT3);
-    }
+        // 检查顶点坐标
+        var posIndex = format.getIndex(VertexFormat.AU_POSITION);
+        console.assert(posIndex >= 0, 'Vertex format must have positions');
+        var posType = format.getAttributeType(posIndex);
+        console.assert(posType === VertexFormat.AT_FLOAT3, 'Positions must be 3-element of floats');
 
-    const MAX_UNITS = L5.StandardMesh.MAX_UNITS;
-    const AU_TEXCOORD = L5.VertexFormat.AU_TEXCOORD;
-    const AT_FLOAT2 = L5.VertexFormat.AT_FLOAT2;
-
-    this.hasTCoords = new Array(MAX_UNITS);
-    for (var unit = 0; unit < MAX_UNITS; ++unit) {
-        this.hasTCoords[unit] = false;
-        var tcdIndex = format.getIndex(AU_TEXCOORD, unit);
-        if (tcdIndex >= 0) {
-            var tcdType = format.getAttributeType(tcdIndex);
-            if (tcdType === AT_FLOAT2) {
-                this.hasTCoords[unit] = true;
-            }
+        // 检查法线
+        var norIndex = format.getIndex(VertexFormat.AU_NORMAL);
+        if (norIndex >= 0) {
+            var norType = format.getAttributeType(norIndex);
+            this.hasNormals = (norType === VertexFormat.AT_FLOAT3);
         }
-    }
-};
-L5.nameFix(L5.StandardMesh, 'StandardMesh');
-L5.StandardMesh.MAX_UNITS = L5.VertexFormat.MAX_TCOORD_UNITS;
 
-/**
- * 长方形
- * @param xSamples {number} x方向点数量
- * @param ySamples {number} y方向点数量
- * @param xExtent {number} x 方向长度
- * @param yExtent {number} y 方向长度
- * @returns {L5.TriMesh}
- */
-L5.StandardMesh.prototype.rectangle = function (xSamples, ySamples, xExtent, yExtent) {
-    const format = this.format;
-    const stride = format.stride;
-    const usage = this.usage;
-    const hasNormals = this.hasNormals;
+        const MAX_UNITS = StandardMesh.MAX_UNITS;
+        const AU_TEXCOORD = VertexFormat.AU_TEXCOORD;
+        const AT_FLOAT2 = VertexFormat.AT_FLOAT2;
 
-    const MAX_UNITS = L5.StandardMesh.MAX_UNITS;
-    var numVertices = xSamples * ySamples;
-    var numTriangles = 2 * (xSamples - 1) * (ySamples - 1);
-    var numIndices = 3 * numTriangles;
-
-    // 创建顶点缓冲
-    var vertexBuffer = new L5.VertexBuffer(numVertices, stride, usage);
-    var vba = new L5.VertexBufferAccessor(format, vertexBuffer);
-
-    // 生成几何体
-    var stepX = 1 / (xSamples - 1); // x 方向每2个顶点间的距离
-    var stepY = 1 / (ySamples - 1); // y 方向每2个顶点间的距离
-    var u, v, x, y, p;
-    var i, i0, i1, unit;
-    for (i1 = 0, i = 0; i1 < ySamples; ++i1) {
-        v = i1 * stepY;
-        y = (2 * v - 1) * yExtent;
-        for (i0 = 0; i0 < xSamples; ++i0, ++i) {
-            u = i0 * stepX;
-            x = (2 * u - 1) * xExtent;
-
-            p = vba.setPosition(i, [x, y, 0]);
-
-            if (hasNormals) {
-                p = vba.setNormal(i, [0, 0, 1]);
-            }
-
-            for (unit = 0; unit < MAX_UNITS; ++unit) {
-                if (this.hasTCoords[unit]) {
-                    p = vba.setTCoord(unit, i, [u, v]);
+        this.hasTCoords = new Array(MAX_UNITS);
+        for (var unit = 0; unit < MAX_UNITS; ++unit) {
+            this.hasTCoords[unit] = false;
+            var tcdIndex = format.getIndex(AU_TEXCOORD, unit);
+            if (tcdIndex >= 0) {
+                var tcdType = format.getAttributeType(tcdIndex);
+                if (tcdType === AT_FLOAT2) {
+                    this.hasTCoords[unit] = true;
                 }
             }
         }
     }
-    this.transformData(vba);
 
-    // 生成顶点索引
-    var indexBuffer = new L5.IndexBuffer(numIndices, 4, usage);
-    var indices = new Uint32Array(indexBuffer.getData().buffer);
-    var v0, v1, v2, v3, idx = 0;
-    for (i1 = 0; i1 < ySamples - 1; ++i1) {
-        for (i0 = 0; i0 < xSamples - 1; ++i0) {
-            v0 = i0 + xSamples * i1;
-            v1 = v0 + 1;
-            v2 = v1 + xSamples;
-            v3 = v0 + xSamples;
-            indices[idx++] = v0;
-            indices[idx++] = v1;
-            indices[idx++] = v2;
-            indices[idx++] = v0;
-            indices[idx++] = v2;
-            indices[idx++] = v3;
+    /**
+     * 更改三角形卷绕顺序
+     * @param numTriangles {number} 三角形数量
+     * @param indices {Uint32Array} 顶点索引数组
+     */
+    reverseTriangleOrder(numTriangles, indices) {
+        var i, j1, j2, save;
+        for (i = 0; i < numTriangles; ++i) {
+            j1 = 3 * i + 1;
+            j2 = j1 + 1;
+            save = indices[j1];
+            indices[j1] = indices[j2];
+            indices[j2] = save;
         }
     }
-
-    return new L5.TriMesh(format, vertexBuffer, indexBuffer);
-};
-
-/**
- * 圆盘
- * todo error
- * @param shellSamples {number}
- * @param radialSamples {number}
- * @param radius {number}
- * @returns {L5.TriMesh}
- */
-L5.StandardMesh.prototype.disk = function (shellSamples, radialSamples, radius) {
-    const MAX_UNITS = L5.StandardMesh.MAX_UNITS;
-    const usage = this.usage;
-    const format = this.format;
-    const hasNormals = this.hasNormals;
-    const cos = L5.Math.cos;
-    const sin = L5.Math.sin;
-
-    var rsm1 = radialSamples - 1,
-        ssm1 = shellSamples - 1;
-    var numVertices = 1 + radialSamples * ssm1;
-    var numTriangles = radialSamples * (2 * ssm1 - 1);
-    var numIndices = 3 * numTriangles;
-
-    var vertexBuffer = new L5.VertexBuffer(numVertices, format.stride, usage);
-    var vba = new L5.VertexBufferAccessor(format, vertexBuffer);
-
-    var t;
-
-    // Center of disk.
-    vba.setPosition(0, [0, 0, 0]);
-
-    if (hasNormals) {
-        vba.setNormal(0, [0, 0, 1]);
-    }
-
-    var unit;
-    for (unit = 0; unit < MAX_UNITS; ++unit) {
-        if (this.hasTCoords[unit]) {
-            vba.setTCoord(unit, 0, [0.5, 0.5]);
-        }
-    }
-
-    var invSSm1 = 1 / ssm1;
-    var invRS = 1 / radialSamples;
-    var rsPI = L5.Math.TWO_PI * invRS;
-    var tcoord = [0.5, 0.5];
-
-    var angle, cs, sn, s, fraction, fracRadial, fracRadial1, i;
-
-    for (var r = 0; r < radialSamples; ++r) {
-        angle = rsPI * r;
-        cs = cos(angle);
-        sn = sin(angle);
-
-        var radial = new L5.Vector(cs, sn, 0);
-
-        for (s = 1; s < shellSamples; ++s) {
-            fraction = invSSm1 * s;  // in (0,R]
-            fracRadial = radial.scalar(fraction);
-            i = s + ssm1 * r;
-
-            fracRadial1 = fracRadial.scalar(radius);
-            vba.setPosition(i, [fracRadial1.x, fracRadial1.y, fracRadial1.z]);
-
-            if (hasNormals) {
-                vba.setNormal(i, [0, 0, 1]);
+    /**
+     *
+     * @param vba {VertexBufferAccessor}
+     */
+    createPlatonicNormals(vba) {
+        if (this.hasNormals) {
+            const numVertices = vba.numVertices;
+            var t;
+            for (var i = 0; i < numVertices; ++i) {
+                t = Array.from(vba.getPosition(i));
+                vba.setNormal(i, t);
             }
-
-            tcoord[0] = 0.5 + 0.5 * fracRadial[0];
-            tcoord[1] = 0.5 + 0.5 * fracRadial[1];
-            for (unit = 0; unit < MAX_UNITS; ++unit) {
-                if (this.hasTCoords[unit]) {
-                    vba.setTCoord(unit, i, tcoord);
+        }
+    }
+    /**
+     *
+     * @param vba {VertexBufferAccessor}
+     */
+    createPlatonicUVs(vba) {
+        const MAX_UNITS = StandardMesh.MAX_UNITS;
+        const numVertices = vba.numVertices;
+        const INV_PI = _Math.INV_PI;
+        var unit, i, pos, t;
+        for (unit = 0; unit < MAX_UNITS; ++unit) {
+            if (this.hasTCoords[unit]) {
+                for (i = 0; i < numVertices; ++i) {
+                    pos = vba.getPosition(i);
+                    t = 0.5;
+                    if (_Math.abs(pos[2]) < 1) {
+                        t *= 1 + _Math.atan2(pos[1], pos[0]) * INV_PI;
+                    }
+                    vba.setTCoord(unit, i, [t, _Math.acos(pos[2]) * INV_PI]);
                 }
             }
         }
     }
-    this.transformData(vba);
 
-    // Generate indices.
-    var indexBuffer = new L5.IndexBuffer(numIndices, 4, usage);
-    var indices = new Uint32Array(indexBuffer.getData().buffer);
-    var r0, r1;
-    for (r0 = rsm1, r1 = 0, t = 0; r1 < radialSamples; r0 = r1++) {
-        indices[0] = 0;
-        indices[1] = 1 + ssm1 * r0;
-        indices[2] = 1 + ssm1 * r1;
-        indices += 3;
-        ++t;
-        for (s = 1; s < ssm1; ++s, indices += 6) {
-            var i00 = s + ssm1 * r0;
-            var i01 = s + ssm1 * r1;
-            var i10 = i00 + 1;
-            var i11 = i01 + 1;
-            indices[0] = i00;
-            indices[1] = i10;
-            indices[2] = i11;
-            indices[3] = i00;
-            indices[4] = i11;
-            indices[5] = i01;
-            t += 2;
+
+    /**
+     * 长方形
+     * @param {number} xSamples x方向点数量
+     * @param {number} ySamples y方向点数量
+     * @param {number} width x 方向长度
+     * @param {number} height y 方向长度
+     * @returns {TriMesh}
+     */
+    rectangle(xSamples, ySamples, width, height) {
+        const format = this.format;
+        const stride = format.stride;
+        const usage = this.usage;
+        const hasNormals = this.hasNormals;
+
+        const MAX_UNITS = StandardMesh.MAX_UNITS;
+        var numVertices = xSamples * ySamples;
+        var numTriangles = 2 * (xSamples - 1) * (ySamples - 1);
+        var numIndices = 3 * numTriangles;
+
+        // 创建顶点缓冲
+        var vertexBuffer = new VertexBuffer(numVertices, stride, usage);
+        var vba = new VertexBufferAccessor(format, vertexBuffer);
+
+        // 生成几何体
+        var stepX = 1 / (xSamples - 1); // x 方向每2个顶点间的距离
+        var stepY = 1 / (ySamples - 1); // y 方向每2个顶点间的距离
+        var u, v, x, y, p;
+        var i, i0, i1, unit;
+        for (i1 = 0, i = 0; i1 < ySamples; ++i1) {
+            v = i1 * stepY;
+            y = (2 * v - 1) * height;
+            for (i0 = 0; i0 < xSamples; ++i0, ++i) {
+                u = i0 * stepX;
+                x = (2 * u - 1) * width;
+
+                p = vba.setPosition(i, [x, 0, y]);
+
+                if (hasNormals) {
+                    p = vba.setNormal(i, [0, 1, 0]);
+                }
+
+                for (unit = 0; unit < MAX_UNITS; ++unit) {
+                    if (this.hasTCoords[unit]) {
+                        p = vba.setTCoord(unit, i, [u, v]);
+                    }
+                }
+            }
         }
+        this.transformData(vba);
+
+        // 生成顶点索引
+        var indexBuffer = new IndexBuffer(numIndices, 4, usage);
+        var indices = new Uint32Array(indexBuffer.getData().buffer);
+        var v0, v1, v2, v3, idx = 0;
+        for (i1 = 0; i1 < ySamples - 1; ++i1) {
+            for (i0 = 0; i0 < xSamples - 1; ++i0) {
+                v0 = i0 + xSamples * i1;
+                v1 = v0 + 1;
+                v2 = v1 + xSamples;
+                v3 = v0 + xSamples;
+                indices[idx++] = v0;
+                indices[idx++] = v1;
+                indices[idx++] = v2;
+                indices[idx++] = v0;
+                indices[idx++] = v2;
+                indices[idx++] = v3;
+            }
+        }
+
+        return new TriMesh(format, vertexBuffer, indexBuffer);
     }
 
-    return new L5.TriMesh(format, vertexBuffer, indexBuffer);
-};
+    /**
+     * 圆盘
+     * todo error
+     * @param shellSamples {number}
+     * @param radialSamples {number}
+     * @param radius {number}
+     * @returns {TriMesh}
+     */
+    disk(shellSamples, radialSamples, radius) {
+        const MAX_UNITS = StandardMesh.MAX_UNITS;
+        const usage = this.usage;
+        const format = this.format;
+        const hasNormals = this.hasNormals;
+        const cos = _Math.cos;
+        const sin = _Math.sin;
+
+        var rsm1 = radialSamples - 1,
+            ssm1 = shellSamples - 1;
+        var numVertices = 1 + radialSamples * ssm1;
+        var numTriangles = radialSamples * (2 * ssm1 - 1);
+        var numIndices = 3 * numTriangles;
+
+        var vertexBuffer = new VertexBuffer(numVertices, format.stride, usage);
+        var vba = new VertexBufferAccessor(format, vertexBuffer);
+
+        var t;
+
+        // Center of disk.
+        vba.setPosition(0, [0, 0, 0]);
+
+        if (hasNormals) {
+            vba.setNormal(0, [0, 0, 1]);
+        }
+
+        var unit;
+        for (unit = 0; unit < MAX_UNITS; ++unit) {
+            if (this.hasTCoords[unit]) {
+                vba.setTCoord(unit, 0, [0.5, 0.5]);
+            }
+        }
+
+        var invSSm1 = 1 / ssm1;
+        var invRS = 1 / radialSamples;
+        var rsPI = _Math.TWO_PI * invRS;
+        var tcoord = [0.5, 0.5];
+
+        var angle, cs, sn, s, fraction, fracRadial, fracRadial1, i;
+
+        for (var r = 0; r < radialSamples; ++r) {
+            angle = rsPI * r;
+            cs = cos(angle);
+            sn = sin(angle);
+
+            var radial = new Vector(cs, sn, 0);
+
+            for (s = 1; s < shellSamples; ++s) {
+                fraction = invSSm1 * s;  // in (0,R]
+                fracRadial = radial.scalar(fraction);
+                i = s + ssm1 * r;
+
+                fracRadial1 = fracRadial.scalar(radius);
+                vba.setPosition(i, [fracRadial1.x, fracRadial1.y, fracRadial1.z]);
+
+                if (hasNormals) {
+                    vba.setNormal(i, [0, 0, 1]);
+                }
+
+                tcoord[0] = 0.5 + 0.5 * fracRadial[0];
+                tcoord[1] = 0.5 + 0.5 * fracRadial[1];
+                for (unit = 0; unit < MAX_UNITS; ++unit) {
+                    if (this.hasTCoords[unit]) {
+                        vba.setTCoord(unit, i, tcoord);
+                    }
+                }
+            }
+        }
+        this.transformData(vba);
+
+        // Generate indices.
+        var indexBuffer = new IndexBuffer(numIndices, 4, usage);
+        var indices = new Uint32Array(indexBuffer.getData().buffer);
+        var r0, r1;
+        for (r0 = rsm1, r1 = 0, t = 0; r1 < radialSamples; r0 = r1++) {
+            indices[0] = 0;
+            indices[1] = 1 + ssm1 * r0;
+            indices[2] = 1 + ssm1 * r1;
+            indices += 3;
+            ++t;
+            for (s = 1; s < ssm1; ++s, indices += 6) {
+                var i00 = s + ssm1 * r0;
+                var i01 = s + ssm1 * r1;
+                var i10 = i00 + 1;
+                var i11 = i01 + 1;
+                indices[0] = i00;
+                indices[1] = i10;
+                indices[2] = i11;
+                indices[3] = i00;
+                indices[4] = i11;
+                indices[5] = i01;
+                t += 2;
+            }
+        }
+
+        return new TriMesh(format, vertexBuffer, indexBuffer);
+    }
+
+
+}
+// todo
+// StandardMesh.MAX_UNITS = VertexFormat.MAX_TCOORD_UNITS;
+
+
+
 
 /**
- * 长方体
+ * 长方体, 面朝内
  * 中心点 [0,0,0]
- * @param xExtent {number}
- * @param yExtent {number}
- * @param zExtent {number}
- * @returns {L5.TriMesh}
+ * @param {number} xExtent
+ * @param {number} yExtent
+ * @param {number} zExtent
+ * @returns {TriMesh}
  */
-L5.StandardMesh.prototype.box = function (xExtent, yExtent, zExtent) {
+StandardMesh.prototype.box = function (xExtent, yExtent, zExtent) {
     const format = this.format;
     const stride = format.stride;
     const usage = this.usage;
-    const MAX_UNITS = L5.StandardMesh.MAX_UNITS;
+    const MAX_UNITS = StandardMesh.MAX_UNITS;
 
     var numVertices = 8;
     var numTriangles = 12;
     var numIndices = 3 * numTriangles;
 
     // Create a vertex buffer.
-    var vbuffer = new L5.VertexBuffer(numVertices, stride, usage);
-    var vba = new L5.VertexBufferAccessor(format, vbuffer);
+    var vbuffer = new VertexBuffer(numVertices, stride, usage);
+    var vba = new VertexBufferAccessor(format, vbuffer);
 
     // Generate geometry.
     vba.setPosition(0, [-xExtent, -yExtent, -zExtent]);
@@ -273,7 +343,7 @@ L5.StandardMesh.prototype.box = function (xExtent, yExtent, zExtent) {
     this.transformData(vba);
 
     // Generate indices (outside view).
-    var ibuffer = new L5.IndexBuffer(numIndices, 4, usage);
+    var ibuffer = new IndexBuffer(numIndices, 4, usage);
     var indices = new Uint32Array(ibuffer.getData().buffer);
     indices[0] = 0;
     indices[1] = 1;
@@ -321,32 +391,32 @@ L5.StandardMesh.prototype.box = function (xExtent, yExtent, zExtent) {
         this.reverseTriangleOrder(numTriangles, indices);
     }
 
-    var mesh = new L5.TriMesh(format, vbuffer, ibuffer);
+    var mesh = new TriMesh(format, vbuffer, ibuffer);
     if (this.hasNormals) {
-        mesh.updateModelSpace(L5.Visual.GU_NORMALS);
+        mesh.updateModelSpace(Visual.GU_NORMALS);
     }
     return mesh;
 };
 
-// 圆通
-// The cylinder has center (0,0,0), the specified 'radius', and the
-// specified 'height'.  The cylinder axis is a line segment of the
-// form (0,0,0) + t*(0,0,1) for |t| <= height/2.  The cylinder wall
-// is implicitly defined by x^2+y^2 = radius^2.  If 'open' is 'true',
-// the cylinder end-disks are omitted; you have an open tube.  If
-// 'open' is 'false', the end-disks are included.  Each end-disk is
-// a regular polygon that is tessellated by including a vertex at
-// the center of the polygon and decomposing the polygon into triangles
-// that all share the center vertex and each triangle containing an
-// edge of the polygon.
-L5.StandardMesh.prototype.cylinder = function (axisSamples, radialSamples, radius, height, open) {
+/**
+ * 圆柱体
+ *
+ * 中心(0,0,0)
+ * @param {number} axisSamples 轴细分
+ * @param {number} radialSamples 半径细分
+ * @param {number} radius 圆柱体圆面半径
+ * @param {number} height 圆柱体高度
+ * @param {boolean} open 是否上下开口的
+ * @returns {TriMesh}
+ */
+StandardMesh.prototype.cylinder = function (axisSamples, radialSamples, radius, height, open) {
     const format = this.format;
     const stride = format.stride;
     const usage = this.usage;
-    const TWO_PI = L5.Math.TWO_PI;
-    const MAX_UNITS = L5.StandardMesh.MAX_UNITS;
-    const cos = L5.Math.cos;
-    const sin = L5.Math.sin;
+    const TWO_PI = _Math.TWO_PI;
+    const MAX_UNITS = StandardMesh.MAX_UNITS;
+    const cos = _Math.cos;
+    const sin = _Math.sin;
     const hasNormals = this.hasNormals;
     const inside = this.inside;
 
@@ -362,8 +432,8 @@ L5.StandardMesh.prototype.cylinder = function (axisSamples, radialSamples, radiu
         var numIndices = 3 * numTriangles;
 
         // Create a vertex buffer.
-        vertexBuffer = new L5.VertexBuffer(numVertices, stride, usage);
-        vba = new L5.VertexBufferAccessor(format, vertexBuffer);
+        vertexBuffer = new VertexBuffer(numVertices, stride, usage);
+        vba = new VertexBufferAccessor(format, vertexBuffer);
 
         // Generate geometry.
         var invRS = 1 / radialSamples;
@@ -389,13 +459,13 @@ L5.StandardMesh.prototype.cylinder = function (axisSamples, radialSamples, radiu
             var z = -halfHeight + height * axisFraction;
 
             // Compute center of slice.
-            var sliceCenter = new L5.Point(0, 0, z);
+            var sliceCenter = new Point(0, 0, z);
 
             // Compute slice vertices with duplication at endpoint.
             var save = i;
             for (r = 0; r < radialSamples; ++r) {
                 var radialFraction = r * invRS;  // in [0,1)
-                var normal = new L5.Vector(cs[r], sn[r], 0);
+                var normal = new Vector(cs[r], sn[r], 0);
                 t = sliceCenter.add(normal.scalar(radius));
                 vba.setPosition(i, [t.x, t.y, t.z]);
 
@@ -433,7 +503,7 @@ L5.StandardMesh.prototype.cylinder = function (axisSamples, radialSamples, radiu
         this.transformData(vba);
 
         // Generate indices.
-        ibuffer = new L5.IndexBuffer(numIndices, 4, usage);
+        ibuffer = new IndexBuffer(numIndices, 4, usage);
         var indices = new Uint32Array(ibuffer.getData().buffer);
         var j = 0;
         for (a = 0, aStart = 0; a < axisSamples - 1; ++a) {
@@ -461,13 +531,13 @@ L5.StandardMesh.prototype.cylinder = function (axisSamples, radialSamples, radiu
                 }
             }
         }
-        mesh = new L5.TriMesh(format, vertexBuffer, ibuffer);
+        mesh = new TriMesh(format, vertexBuffer, ibuffer);
     }
     else {
         mesh = this.sphere(axisSamples, radialSamples, radius);
         vertexBuffer = mesh.vertexBuffer;
         numVertices = vertexBuffer.numElements;
-        vba = new L5.VertexBufferAccessor(format, vertexBuffer);
+        vba = new VertexBufferAccessor(format, vertexBuffer);
 
         // Flatten sphere at poles.
         var hDiv2 = 0.5 * height;
@@ -481,23 +551,19 @@ L5.StandardMesh.prototype.cylinder = function (axisSamples, radialSamples, radiu
         for (i = 0; i < numVertices - 2; ++i) {
             var pos = vba.getPosition(i);
             pos[2] = hDiv2 * (-1 + tmp1 * (pos[2] - tmp0));
-            var adjust = radius * L5.Math.invSqrt(pos[0] * pos[0] + pos[1] * pos[1]);
+            var adjust = radius * _Math.invSqrt(pos[0] * pos[0] + pos[1] * pos[1]);
             pos[0] *= adjust;
             pos[1] *= adjust;
         }
         this.transformData(vba);
 
         if (hasNormals) {
-            mesh.updateModelSpace(L5.Visual.GU_NORMALS);
+            mesh.updateModelSpace(Visual.GU_NORMALS);
         }
     }
 
-    // The duplication of vertices at the seam causes the automatically
-    // generated bounding volume to be slightly off center.  Reset the bound
-    // to use the true information.
-
-    mesh.modelBound.center = L5.Point.ORIGIN;
-    mesh.modelBound.radius = L5.Math.sqrt(radius * radius + height * height);
+    mesh.modelBound.center = Point.ORIGIN;
+    mesh.modelBound.radius = _Math.sqrt(radius * radius + height * height);
     return mesh;
 };
 
@@ -509,9 +575,9 @@ L5.StandardMesh.prototype.cylinder = function (axisSamples, radialSamples, radiu
  * @param zSamples {int}
  * @param radialSamples {int}
  */
-L5.StandardMesh.prototype.sphere = function (zSamples, radialSamples, radius) {
-    const MAX_UNITS = L5.StandardMesh.MAX_UNITS;
-    const TWO_PI = L5.Math.TWO_PI;
+StandardMesh.prototype.sphere = function (zSamples, radialSamples, radius) {
+    const MAX_UNITS = StandardMesh.MAX_UNITS;
+    const TWO_PI = _Math.TWO_PI;
     const format = this.format;
     const stride = format.stride;
     const usage = this.usage;
@@ -527,8 +593,8 @@ L5.StandardMesh.prototype.sphere = function (zSamples, radialSamples, radius) {
     var numIndices = 3 * numTriangles;
 
     // Create a vertex buffer.
-    var vbuffer = new L5.VertexBuffer(numVertices, stride, usage);
-    var vba = new L5.VertexBufferAccessor(format, vbuffer);
+    var vbuffer = new VertexBuffer(numVertices, stride, usage);
+    var vba = new VertexBufferAccessor(format, vbuffer);
 
     // Generate geometry.
     var invRS = 1 / radialSamples;
@@ -541,8 +607,8 @@ L5.StandardMesh.prototype.sphere = function (zSamples, radialSamples, radius) {
     var cs = new Float32Array(rsp1);
     for (r = 0; r < radialSamples; ++r) {
         angle = TWO_PI * invRS * r;
-        cs[r] = L5.Math.cos(angle);
-        sn[r] = L5.Math.sin(angle);
+        cs[r] = _Math.cos(angle);
+        sn[r] = _Math.sin(angle);
     }
     sn[radialSamples] = sn[0];
     cs[radialSamples] = cs[0];
@@ -555,16 +621,16 @@ L5.StandardMesh.prototype.sphere = function (zSamples, radialSamples, radius) {
         var zValue = radius * zFraction;
 
         // Compute center of slice.
-        var sliceCenter = new L5.Point(0, 0, zValue);
+        var sliceCenter = new Point(0, 0, zValue);
 
         // Compute radius of slice.
-        var sliceRadius = L5.Math.sqrt(L5.Math.abs(radius * radius - zValue * zValue));
+        var sliceRadius = _Math.sqrt(_Math.abs(radius * radius - zValue * zValue));
 
         // Compute slice vertices with duplication at endpoint.
         var save = i;
         for (r = 0; r < radialSamples; ++r) {
             var radialFraction = r * invRS;  // in [0,1)
-            var radial = new L5.Vector(cs[r], sn[r], 0);
+            var radial = new Vector(cs[r], sn[r], 0);
             t = radial.scalar(sliceRadius).add(sliceCenter);
             vba.setPosition(i, [t.x, t.y, t.z]);
 
@@ -630,7 +696,7 @@ L5.StandardMesh.prototype.sphere = function (zSamples, radialSamples, radius) {
     this.transformData(vba);
 
     // Generate indices.
-    var ibuffer = new L5.IndexBuffer(numIndices, 4, usage);
+    var ibuffer = new IndexBuffer(numIndices, 4, usage);
     var indices = new Uint32Array(ibuffer.getData().buffer);
     var j;
     for (z = 0, j = 0, zStart = 0; z < zsm3; ++z) {
@@ -694,8 +760,8 @@ L5.StandardMesh.prototype.sphere = function (zSamples, radialSamples, radius) {
     // The duplication of vertices at the seam cause the automatically
     // generated bounding volume to be slightly off center.  Reset the bound
     // to use the true information.
-    var mesh = new L5.TriMesh(this.format, vbuffer, ibuffer);
-    mesh.modelBound.center = L5.Point.ORIGIN;
+    var mesh = new TriMesh(this.format, vbuffer, ibuffer);
+    mesh.modelBound.center = Point.ORIGIN;
     mesh.modelBound.radius = radius;
     return mesh;
 };
@@ -706,27 +772,27 @@ L5.StandardMesh.prototype.sphere = function (zSamples, radialSamples, radius) {
  * @param radialSamples {int} 小圆细分
  * @param outerRadius {float} 大圆半径
  * @param innerRadius {float} 小圆半径
- * @returns {L5.TriMesh}
+ * @returns {TriMesh}
  */
-L5.StandardMesh.prototype.torus = function (circleSamples, radialSamples, outerRadius, innerRadius) {
+StandardMesh.prototype.torus = function (circleSamples, radialSamples, outerRadius, innerRadius) {
     const format = this.format;
     const stride = format.stride;
     const usage = this.usage;
     const hasNormals = this.hasNormals;
     const inside = this.inside;
-    const MAX_UNITS = L5.StandardMesh.MAX_UNITS;
+    const MAX_UNITS = StandardMesh.MAX_UNITS;
 
-    const TWO_PI = L5.Math.TWO_PI;
-    const cos = L5.Math.cos;
-    const sin = L5.Math.sin;
+    const TWO_PI = _Math.TWO_PI;
+    const cos = _Math.cos;
+    const sin = _Math.sin;
 
     var numVertices = (circleSamples + 1) * (radialSamples + 1);
     var numTriangles = 2 * circleSamples * radialSamples;
     var numIndices = 3 * numTriangles;
 
     // Create a vertex buffer.
-    var vbuffer = new L5.VertexBuffer(numVertices, stride, usage);
-    var vba = new L5.VertexBufferAccessor(format, vbuffer);
+    var vbuffer = new VertexBuffer(numVertices, stride, usage);
+    var vba = new VertexBufferAccessor(format, vbuffer);
 
     // Generate geometry.
     var invCS = 1 / circleSamples;
@@ -734,9 +800,9 @@ L5.StandardMesh.prototype.torus = function (circleSamples, radialSamples, outerR
     var c, r, i, save, unit, tcoord;
     var circleFraction, theta, cosTheta, sinTheta;
     var radialFraction, phi, cosPhi, sinPhi;
-    var radial = L5.Vector.ZERO;
-    var torusMiddle = L5.Vector.ZERO;
-    var normal = L5.Vector.ZERO;
+    var radial = Vector.ZERO;
+    var torusMiddle = Vector.ZERO;
+    var normal = Vector.ZERO;
 
     // Generate the cylinder itself.
     for (c = 0, i = 0; c < circleSamples; ++c) {
@@ -745,8 +811,8 @@ L5.StandardMesh.prototype.torus = function (circleSamples, radialSamples, outerR
         theta = TWO_PI * circleFraction;
         cosTheta = cos(theta);
         sinTheta = sin(theta);
-        radial.set(cosTheta, sinTheta, 0);
-        torusMiddle.set(cosTheta * outerRadius, sinTheta * outerRadius, 0);
+        radial.assign(cosTheta, sinTheta, 0);
+        torusMiddle.assign(cosTheta * outerRadius, sinTheta * outerRadius, 0);
 
         // Compute slice vertices with duplication at endpoint.
         save = i;
@@ -756,11 +822,11 @@ L5.StandardMesh.prototype.torus = function (circleSamples, radialSamples, outerR
             cosPhi = cos(phi);
             sinPhi = sin(phi);
 
-            normal.set(innerRadius * cosTheta * cosPhi, innerRadius * sinTheta * cosPhi, innerRadius * sinPhi);
+            normal.assign(innerRadius * cosTheta * cosPhi, innerRadius * sinTheta * cosPhi, innerRadius * sinPhi);
             vba.setPosition(i, torusMiddle.add(normal));
             if (hasNormals) {
                 if (inside) {
-                    normal.set(-normal.x, -normal.y, -normal.z);
+                    normal.assign(-normal.x, -normal.y, -normal.z);
                 }
                 vba.setNormal(i, normal);
             }
@@ -807,7 +873,7 @@ L5.StandardMesh.prototype.torus = function (circleSamples, radialSamples, outerR
     this.transformData(vba);
 
     // Generate indices.
-    var ibuffer = new L5.IndexBuffer(numIndices, 4, usage);
+    var ibuffer = new IndexBuffer(numIndices, 4, usage);
     var indices = new Uint32Array(ibuffer.getData().buffer);
     var i0, i1, i2, i3, offset = 0;
     var cStart = 0;
@@ -840,8 +906,8 @@ L5.StandardMesh.prototype.torus = function (circleSamples, radialSamples, outerR
     // The duplication of vertices at the seam cause the automatically
     // generated bounding volume to be slightly off center.  Reset the bound
     // to use the true information.
-    var mesh = new L5.TriMesh(format, vbuffer, ibuffer);
-    mesh.modelBound.center.set(0, 0, 0);
+    var mesh = new TriMesh(format, vbuffer, ibuffer);
+    mesh.modelBound.center.assign(0, 0, 0);
     mesh.modelBound.radius = outerRadius;
     return mesh;
 };
@@ -849,9 +915,9 @@ L5.StandardMesh.prototype.torus = function (circleSamples, radialSamples, outerR
 /**
  * 四面体
  */
-L5.StandardMesh.prototype.tetrahedron = function () {
-    const fSqrt2Div3 = L5.Math.sqrt(2) / 3;
-    const fSqrt6Div3 = L5.Math.sqrt(6) / 3;
+StandardMesh.prototype.tetrahedron = function () {
+    const fSqrt2Div3 = _Math.sqrt(2) / 3;
+    const fSqrt6Div3 = _Math.sqrt(6) / 3;
     const fOneThird = 1 / 3;
 
     const numVertices = 4;
@@ -860,8 +926,8 @@ L5.StandardMesh.prototype.tetrahedron = function () {
     const stride = this.format.stride;
 
     // Create a vertex buffer.
-    var vbuffer = new L5.VertexBuffer(numVertices, stride, this.usage);
-    var vba = new L5.VertexBufferAccessor(this.format, vbuffer);
+    var vbuffer = new VertexBuffer(numVertices, stride, this.usage);
+    var vba = new VertexBufferAccessor(this.format, vbuffer);
 
     // Generate geometry.
     vba.setPosition(0, [0, 0, 1]);
@@ -873,7 +939,7 @@ L5.StandardMesh.prototype.tetrahedron = function () {
     this.transformData(vba);
 
     // Generate indices.
-    var ibuffer = new L5.IndexBuffer(numIndices, 4, this.usage);
+    var ibuffer = new IndexBuffer(numIndices, 4, this.usage);
     var indices = new Uint32Array(ibuffer.getData().buffer);
     indices[0] = 0;
     indices[1] = 1;
@@ -892,13 +958,13 @@ L5.StandardMesh.prototype.tetrahedron = function () {
         this.reverseTriangleOrder(numTriangles, indices);
     }
 
-    return new L5.TriMesh(this.format, vbuffer, ibuffer);
+    return new TriMesh(this.format, vbuffer, ibuffer);
 };
 /**
  * 六面体
  */
-L5.StandardMesh.prototype.hexahedron = function () {
-    const fSqrtThird = L5.Math.sqrt(1 / 3);
+StandardMesh.prototype.hexahedron = function () {
+    const fSqrtThird = _Math.sqrt(1 / 3);
 
     const numVertices = 8;
     const numTriangles = 12;
@@ -908,8 +974,8 @@ L5.StandardMesh.prototype.hexahedron = function () {
     const usage = this.usage;
 
     // Create a vertex buffer.
-    var vbuffer = new L5.VertexBuffer(numVertices, stride, usage);
-    var vba = new L5.VertexBufferAccessor(format, vbuffer);
+    var vbuffer = new VertexBuffer(numVertices, stride, usage);
+    var vba = new VertexBufferAccessor(format, vbuffer);
 
     // Generate geometry.
     vba.setPosition(0, [-fSqrtThird, -fSqrtThird, -fSqrtThird]);
@@ -925,7 +991,7 @@ L5.StandardMesh.prototype.hexahedron = function () {
     this.transformData(vba);
 
     // Generate indices.
-    var ibuffer = new L5.IndexBuffer(numIndices, 4, usage);
+    var ibuffer = new IndexBuffer(numIndices, 4, usage);
     var indices = new Uint32Array(ibuffer.getData().buffer);
     indices[0] = 0;
     indices[1] = 3;
@@ -968,12 +1034,12 @@ L5.StandardMesh.prototype.hexahedron = function () {
         this.reverseTriangleOrder(numTriangles, indices);
     }
 
-    return new L5.TriMesh(this.format, vbuffer, ibuffer);
+    return new TriMesh(this.format, vbuffer, ibuffer);
 };
 /**
  * 八面体
  */
-L5.StandardMesh.prototype.octahedron = function () {
+StandardMesh.prototype.octahedron = function () {
     const numVertices = 6;
     const numTriangles = 8;
     const numIndices = 24;
@@ -982,8 +1048,8 @@ L5.StandardMesh.prototype.octahedron = function () {
     const usage = this.usage;
 
     // Create a vertex buffer.
-    var vbuffer = new L5.VertexBuffer(numVertices, stride, usage);
-    var vba = new L5.VertexBufferAccessor(format, vbuffer);
+    var vbuffer = new VertexBuffer(numVertices, stride, usage);
+    var vba = new VertexBufferAccessor(format, vbuffer);
 
     // Generate geometry.
     vba.setPosition(0, [1, 0, 0]);
@@ -997,7 +1063,7 @@ L5.StandardMesh.prototype.octahedron = function () {
     this.transformData(vba);
 
     // Generate indices.
-    var ibuffer = new L5.IndexBuffer(numIndices, 4, usage);
+    var ibuffer = new IndexBuffer(numIndices, 4, usage);
     var indices = new Uint32Array(ibuffer.getData().buffer);
     indices[0] = 4;
     indices[1] = 0;
@@ -1028,15 +1094,15 @@ L5.StandardMesh.prototype.octahedron = function () {
         this.reverseTriangleOrder(numTriangles, indices);
     }
 
-    return new L5.TriMesh(this.format, vbuffer, ibuffer);
+    return new TriMesh(this.format, vbuffer, ibuffer);
 };
 /**
  * 十二面体
  */
-L5.StandardMesh.prototype.dodecahedron = function () {
-    const a = 1 / L5.Math.sqrt(3);
-    const b = L5.Math.sqrt((3 - L5.Math.sqrt(5)) / 6);
-    const c = L5.Math.sqrt((3 + L5.Math.sqrt(5)) / 6);
+StandardMesh.prototype.dodecahedron = function () {
+    const a = 1 / _Math.sqrt(3);
+    const b = _Math.sqrt((3 - _Math.sqrt(5)) / 6);
+    const c = _Math.sqrt((3 + _Math.sqrt(5)) / 6);
 
     const numVertices = 20;
     const numTriangles = 36;
@@ -1046,8 +1112,8 @@ L5.StandardMesh.prototype.dodecahedron = function () {
     const usage = this.usage;
 
     // Create a vertex buffer.
-    var vbuffer = new L5.VertexBuffer(numVertices, stride, usage);
-    var vba = new L5.VertexBufferAccessor(this.format, vbuffer);
+    var vbuffer = new VertexBuffer(numVertices, stride, usage);
+    var vba = new VertexBufferAccessor(this.format, vbuffer);
 
     // Generate geometry.
     vba.setPosition(0, [a, a, a]);
@@ -1075,7 +1141,7 @@ L5.StandardMesh.prototype.dodecahedron = function () {
     this.transformData(vba);
 
     // Generate indices.
-    var ibuffer = new L5.IndexBuffer(numIndices, 4, usage);
+    var ibuffer = new IndexBuffer(numIndices, 4, usage);
     var indices = new Uint32Array(ibuffer.getData().buffer);
     indices[0] = 0;
     indices[1] = 8;
@@ -1190,14 +1256,14 @@ L5.StandardMesh.prototype.dodecahedron = function () {
         this.reverseTriangleOrder(numTriangles, indices);
     }
 
-    return new L5.TriMesh(format, vbuffer, ibuffer);
+    return new TriMesh(format, vbuffer, ibuffer);
 };
 /**
  * 二十面体
  */
-L5.StandardMesh.prototype.icosahedron = function () {
-    const goldenRatio = 0.5 * (1 + L5.Math.sqrt(5));
-    const invRoot = 1 / L5.Math.sqrt(1 + goldenRatio * goldenRatio);
+StandardMesh.prototype.icosahedron = function () {
+    const goldenRatio = 0.5 * (1 + _Math.sqrt(5));
+    const invRoot = 1 / _Math.sqrt(1 + goldenRatio * goldenRatio);
     const u = goldenRatio * invRoot;
     const v = invRoot;
 
@@ -1209,8 +1275,8 @@ L5.StandardMesh.prototype.icosahedron = function () {
     const usage = this.usage;
 
     // Create a vertex buffer.
-    var vbuffer = new L5.VertexBuffer(numVertices, stride, usage);
-    var vba = new L5.VertexBufferAccessor(this.format, vbuffer);
+    var vbuffer = new VertexBuffer(numVertices, stride, usage);
+    var vba = new VertexBufferAccessor(this.format, vbuffer);
 
     // Generate geometry.
     vba.setPosition(0, [u, v, 0]);
@@ -1231,7 +1297,7 @@ L5.StandardMesh.prototype.icosahedron = function () {
     this.transformData(vba);
 
     // Generate indices.
-    var ibuffer = new L5.IndexBuffer(numIndices, 4, usage);
+    var ibuffer = new IndexBuffer(numIndices, 4, usage);
     var indices = new Uint32Array(ibuffer.getData().buffer);
     indices[0] = 0;
     indices[1] = 8;
@@ -1298,22 +1364,22 @@ L5.StandardMesh.prototype.icosahedron = function () {
         this.reverseTriangleOrder(numTriangles, indices);
     }
 
-    return new L5.TriMesh(format, vbuffer, ibuffer);
+    return new TriMesh(format, vbuffer, ibuffer);
 };
 
 /**
- * @param vba {L5.VertexBufferAccessor}
+ * @param vba {VertexBufferAccessor}
  */
-L5.StandardMesh.prototype.transformData = function (vba) {
+StandardMesh.prototype.transformData = function (vba) {
     if (this.transform.isIdentity()) {
         return;
     }
 
-    const numVertices = vba.getNumVertices();
+    const numVertices = vba.numVertices;
     var i, f3, t;
     for (i = 0; i < numVertices; ++i) {
         t = vba.getPosition(i);
-        f3 = new L5.Point(t);
+        f3 = new Point(t);
         f3 = this.transform.mulPoint(f3);
         t[0] = f3.x;
         t[1] = f3.y;
@@ -1323,62 +1389,10 @@ L5.StandardMesh.prototype.transformData = function (vba) {
     if (this.hasNormals) {
         for (i = 0; i < numVertices; ++i) {
             t = vba.getNormal(i);
-            f3 = (new L5.Vector(t)).normalize();
+            f3 = (new Vector(t)).normalize();
             t[0] = f3.x;
             t[1] = f3.y;
             t[2] = f3.z;
-        }
-    }
-};
-
-/**
- * 更改三角形卷绕顺序
- * @param numTriangles {number} 三角形数量
- * @param indices {Uint32Array} 顶点索引数组
- */
-L5.StandardMesh.prototype.reverseTriangleOrder = function (numTriangles, indices) {
-    var i, j1, j2, save;
-    for (i = 0; i < numTriangles; ++i) {
-        j1 = 3 * i + 1;
-        j2 = j1 + 1;
-        save = indices[j1];
-        indices[j1] = indices[j2];
-        indices[j2] = save;
-    }
-};
-/**
- *
- * @param vba {L5.VertexBufferAccessor}
- */
-L5.StandardMesh.prototype.createPlatonicNormals = function (vba) {
-    if (this.hasNormals) {
-        const numVertices = vba.getNumVertices();
-        var t;
-        for (var i = 0; i < numVertices; ++i) {
-            t = Array.from(vba.getPosition(i));
-            vba.setNormal(i, t);
-        }
-    }
-};
-/**
- *
- * @param vba {L5.VertexBufferAccessor}
- */
-L5.StandardMesh.prototype.createPlatonicUVs = function (vba) {
-    const MAX_UNITS = L5.StandardMesh.MAX_UNITS;
-    const numVertices = vba.getNumVertices();
-    const INV_PI = L5.Math.INV_PI;
-    var unit, i, pos, t;
-    for (unit = 0; unit < MAX_UNITS; ++unit) {
-        if (this.hasTCoords[unit]) {
-            for (i = 0; i < numVertices; ++i) {
-                pos = vba.getPosition(i);
-                t = 0.5;
-                if (L5.Math.abs(pos[2]) < 1) {
-                    t *= 1 + L5.Math.atan2(pos[1], pos[0]) * INV_PI;
-                }
-                vba.setTCoord(unit, i, [t, L5.Math.acos(pos[2]) * INV_PI]);
-            }
         }
     }
 };

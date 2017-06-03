@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <title>VertexTextures (顶点纹理) - Samples</title>
+    <link href="css/css.css" rel="stylesheet">
+    <script src="../../test/res/l5.js"></script>
+</head>
+<body>
+<canvas id="ctx" width="640" height="480"></canvas>
+
+
+<script>
+    function DisplacementEffect(){
+        L5.VisualEffect.call(this);
+
+        var vshader = new L5.VertexShader("Displacement", 2, 2, 1, 1, false);
+        vshader.setInput(0, "modelPosition", L5.Shader.VT_VEC3, L5.Shader.VS_POSITION);
+        vshader.setInput(1, "modelTCoord0", L5.Shader.VT_VEC2, L5.Shader.VS_TEXCOORD0);
+        vshader.setOutput(0, "gl_Position", L5.Shader.VT_VEC4, L5.Shader.VS_POSITION);
+        vshader.setOutput(1, "vertexHeight", L5.Shader.VT_FLOAT, L5.Shader.VS_DEPTH0);
+
+        vshader.setConstant(0, "PVWMatrix", L5.Shader.VT_MAT4);
+        vshader.setSampler(0, "BaseSampler", L5.Shader.ST_2D);
+
+        vshader.setFilter(0, L5.Shader.SF_LINEAR);
+        vshader.setCoordinate(0, 0, L5.Shader.SC_CLAMP_EDGE);
+        vshader.setCoordinate(0, 1, L5.Shader.SC_CLAMP_EDGE);
+        vshader.setTextureUnit(0, 0);
+
+        vshader.setProgram(DisplacementEffect.VertextSource);
+
+        var fshader = new L5.FragShader("Displacement", 1, 1, 0, 0, false);
+        fshader.setInput(0, "vertexHeight", L5.Shader.VT_FLOAT, L5.Shader.VS_DEPTH0);
+        fshader.setOutput(0, "gl_FragColor", L5.Shader.VT_VEC4, L5.Shader.VS_COLOR0);
+        fshader.setProgram(DisplacementEffect.FragSource);
+
+        var program = new L5.Program("Displacement", vshader, fshader);
+
+        var pass = new L5.VisualPass();
+        pass.program = program;
+        pass.alphaState = new L5.AlphaState();
+        pass.cullState = new L5.CullState();
+        pass.depthState = new L5.DepthState();
+        pass.offsetState = new L5.OffsetState();
+        pass.stencilState = new L5.StencilState();
+
+        var technique = new L5.VisualTechnique();
+        technique.insertPass(pass);
+        this.insertTechnique(technique);
+
+    }
+    L5.extendFix(DisplacementEffect, L5.VisualEffect);
+
+    DisplacementEffect.prototype.createInstance = function(texture) {
+        var instance = new L5.VisualEffectInstance(this, 0);
+        instance.setVertexConstant(0, 0, new L5.PVWMatrixConstant());
+        instance.setVertexTexture(0, 0, texture);
+        return instance;
+    };
+
+    DisplacementEffect.VertextSource = [
+        'attribute vec3 modelPosition;',
+        'attribute vec2 modelTCoord0;',
+        'uniform mat4 PVWMatrix;',
+        'uniform sampler2D BaseSampler;',
+        'varying float vertexHeight;',
+        'void main (void) {',
+        '    vec4 pos;',
+        '    pos.xz = modelPosition.xy;',
+        '    pos.y = texture2D(BaseSampler, modelTCoord0).r;',
+        '    pos.w = 1.0;',
+        '    gl_Position = PVWMatrix * pos;',
+        '    vertexHeight = pos.y;',
+        '}'
+    ].join('\n');
+    DisplacementEffect.FragSource = [
+        'precision highp float;',
+        'varying float vertexHeight;',
+        'void main (void) {',
+        '   gl_FragColor = vec4(vertexHeight, vertexHeight, vertexHeight, 1.0);',
+        '}'
+    ].join('\n');
+
+</script>
+
+<script>
+    "use strict";
+
+    function VertexTextures() {
+        L5.Application3.call(this, 'VertexTextures', 640, 480, [0.75, 0.75, 0.75, 1], 'ctx');
+
+        this.textColor = "#fff";
+        this.sceneCuller = null;
+        this.scene = null;
+    }
+    L5.extendFix(VertexTextures, L5.Application3);
+
+    VertexTextures.prototype.onInitialize = function () {
+        if (!L5.Application3.prototype.onInitialize.call(this)) {
+            return false;
+        }
+
+        // 设置相机
+        this.camera.setPerspective(60.0, this.getAspectRatio(), 0.1, 2000);
+        this.camera.lookAt(L5.Point.ORIGIN, L5.Point.ORIGIN, L5.Vector.UNIT_Y);
+        this.camera.setPosition(new L5.Point(0, 2, -4));
+
+        this.effect = new L5.Texture2DEffect(
+                L5.Shader.SF_LINEAR_LINEAR,
+                L5.Shader.SC_REPEAT,
+                L5.Shader.SC_REPEAT);
+
+        // 禁用背面剔除
+        this.renderer.overrideCullState.enabled = false;
+
+        this.createScene();
+
+        // Initial update of objects.
+        this.scene.update();
+
+        // Initial culling of scene,
+        this.sceneCuller = new L5.Culler(this.camera);
+        this.sceneCuller.computeVisibleSet(this.scene);
+
+        this.initializeCameraMotion(0.1, 0.05);
+        this.initializeObjectMotion(this.scene);
+        return true;
+    };
+    VertexTextures.prototype.onIdle = function () {
+        this.measureTime();
+
+        if (this.moveCamera()) {
+            this.sceneCuller.computeVisibleSet(this.scene);
+        }
+        if (this.moveObject()) {
+            this.scene.update(this.applicationTime);
+            this.sceneCuller.computeVisibleSet(this.scene);
+        }
+
+        if (this.renderer.preDraw()) {
+            this.renderer.clearBuffers();
+            this.renderer.drawVisibleSet(this.sceneCuller.visibleSet);
+            this.drawFrameRate();
+            this.renderer.postDraw();
+        }
+        this.updateFrameCount();
+    };
+
+    VertexTextures.prototype.createScene = function () {
+        this.scene = new L5.Node();
+
+        // 创建场景光源
+
+        var format = L5.VertexFormat.create(2,
+                L5.VertexFormat.AU_POSITION, L5.VertexFormat.AT_FLOAT3, 0,
+                L5.VertexFormat.AU_TEXCOORD, L5.VertexFormat.AT_FLOAT2, 0);
+
+        var mesh = new L5.StandardMesh(format).rectangle(32, 32, 1, 1);
+        this.scene.attachChild(mesh);
+
+        var $this = this;
+        ++this.loadWait;
+        // HeightField.wmtf
+        L5.Texture2D.loadFile('HeightField.wmtf').then(function(texture){
+            var effect = new DisplacementEffect();
+            mesh.effect = effect.createInstance(texture);
+            --$this.loadWait;
+        });
+
+    };
+
+    L5.runApplication(VertexTextures);
+</script>
+</body>
+</html>

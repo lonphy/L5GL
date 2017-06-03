@@ -7,17 +7,15 @@
  * @author lonphy
  * @version 1.0
  */
-L5.CameraNode = function(camera) {
-    L5.Node.call(this);
+import {Node} from './Node'
+import {Vector} from '../../math/Vector'
+import {Matrix} from '../../math/Matrix'
 
-    this.camera = camera;
-};
-
-L5.nameFix(L5.CameraNode, 'CameraNode');
-L5.extendFix(L5.CameraNode, L5.Node);
-
-L5.CameraNode.prototype = {
-    constructor: L5.CameraNode,
+export class CameraNode extends Node {
+    constructor(camera) {
+        super();
+        this._camera = camera;
+    }
 
     set camera (val) {
         this._camera = val;
@@ -25,7 +23,7 @@ L5.CameraNode.prototype = {
         {
             this.localTransform.setTranslate(val.position);
 
-            var rotate = new L5.Matrix.IPMake(
+            var rotate = new Matrix.IPMake(
                 val.direction,
                 val.up,
                 val.right,
@@ -34,25 +32,22 @@ L5.CameraNode.prototype = {
             this.localTransform.setRotate(rotate);
             this.update();
         }
-    },
-    get camera () {
-        return this._camera;
-    },
+    }
 
-    updateWorldData: function(applicationTime) {
-        L5.Node.prototype.updateWorldData(applicationTime);
+    updateWorldData(applicationTime) {
+        super.updateWorldData(applicationTime);
 
         if (this._camera)
         {
             var pos = this.worldTransform.getTranslate();
             var rotate = this.worldTransform.getRotate();
-            var direction = L5.Vector.ZERO;
-            var up = L5.Vector.ZERO;
-            var right = L5.Vector.ZERO;
+            var direction = Vector.ZERO;
+            var up = Vector.ZERO;
+            var right = Vector.ZERO;
             rotate.getColumn(0, direction);
             rotate.getColumn(1, up);
             rotate.getColumn(2, right);
             this._camera.setFrame(pos, direction, up, right);
         }
     }
-};
+ }

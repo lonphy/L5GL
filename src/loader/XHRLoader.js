@@ -17,7 +17,7 @@
      * @constructor
      * @todo 同地址， 不同请求类型处理
      */
-    L5.XhrTask = function (url, type) {
+    L5.XhrTask = function (url, type='arraybuffer') {
         var fullPath = url[0] === '/' ? url : (APP_PATH + url);
 
         // 1. 查看请求队列,有则直接返回承诺对象

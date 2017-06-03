@@ -1,3 +1,8 @@
+import { Controller } from './Controller'
+
 /**
- * Created by lonphy on 15/10/8.
+ * 变体控制器
  */
+export class MorphController extends Controller {
+
+}

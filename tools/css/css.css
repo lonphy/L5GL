@@ -14,13 +14,19 @@ ul {
 li {
     list-style: none
 }
-
+input {
+    outline: none;
+}
+input:focus {
+    border-color:#366097;
+}
 body {
     background-color: rgb(39, 40, 34);
     margin: 0;
     display: flex;
     flex-direction: row;
     margin-top: 26px;
+    font-size: 12px;
 }
 
 /*------------ menu -------------- */
@@ -88,11 +94,39 @@ body {
     border-top: solid 1px rgb(62, 64, 65);
     background-color: rgb(60, 63, 65);
 }
-
+.panel {
+    color: #879096;
+}
+.panel h4 {
+    height: 23px;
+    color: #9EA7AD;
+    line-height: 23px;
+    text-indent: 1em;
+    margin: 0;
+    font-size: 12px;
+    border-bottom: solid 1px #2A2B2B;
+}
+.panel .attr {
+    height: 1.5em;
+    line-height: 1.5em;
+    padding-left: 2em;
+    margin: 1em 0;
+}
+.panel input[type=number] {
+    width: 38px;
+    border: solid 1px #35383A;
+    background-color: #515658;
+    border-radius: 3px;
+    margin: 0 3px;
+    color: #fff;
+}
+.panel input[type=number]:focus {
+    border-color: #366097;
+    box-shadow: 0 0 3px #366097;
+}
 /* ---------- #main-frame ------------ */
 #main-frame {
     outline: 1px solid rgb(81, 83, 85);
-    border-top: solid 1px rgb(62, 64, 65);
     flex: 1;
     position: relative;
     background: #373738 url("../images/main-bg.png") repeat;
@@ -102,6 +136,36 @@ body {
 
 .image-preview {
     position: absolute;
-    box-shadow: 0 0 5px #000;
-    border: solid 2px #BFBFBF;
+    box-shadow: 2px 2px 5px #000;
+    border: solid 2px rgba(54, 169, 204, 0.77);
+    background-color: rgba(47, 139, 167, 0.2);
+}
+
+#frame-title {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 23px;
+    color: #fff;
+    box-shadow: 0 2px 3px #2B2B2B;
+    background-color: #35383A;
+}
+#frame-title li {
+    flex: 1;
+    max-width: 200px;
+    line-height: 23px;
+    list-style: none;
+    text-indent: 3px;
+    border-left: solid 1px rgb(47, 47, 47);
+    border-right: solid 1px rgb(144, 144, 144);
+    background-color: #2A2B2B;
+}
+
+#frame-content {
+    position:absolute;
+    top: 24px;
+    left:0;
+    bottom:0;
+    right:0;
 }

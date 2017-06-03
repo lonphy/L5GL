@@ -1,326 +1,306 @@
 /**
  * VertexFormat 底层包装
  *
- * @param renderer {L5.Renderer}
- * @param format {L5.VertexFormat}
- * @param format {L5.Program}
- * @class
- *
  * @author lonphy
- * @version 1.0
+ * @version 2.0
+ *
+ * @type {GLVertexFormat}
  */
-L5.GLVertexFormat = function (renderer, format, p) {
-    this.stride = format.stride;
+import {default as webgl} from './GLMapping'
+import {VertexFormat} from '../../resources/VertexFormat'
 
-    var type;
+export class GLVertexFormat {
+    /**
+     * @param {Renderer} renderer
+     * @param {VertexFormat} format
+     */
+    constructor(renderer, format) {
+        this.stride = format.stride;
 
-    var i = format.getIndex(L5.VertexFormat.AU_POSITION);
-    if (i >= 0) {
-        this.hasPosition = 1;
-        type = format.getAttributeType(i);
-        this.positionSize = L5.Webgl.AttributeSize[type];
-        this.positionChannels = p.inputMap.get('modelPosition');
-        this.positionType = L5.Webgl.AttributeType[type];
-        this.positionOffset = format.getOffset(i);
-    } else {
-        this.hasPosition = 0;
-        this.positionSize = 0;
-        this.positionChannels = 0;  // 属性大小
-        this.positionType = 0;  // 属性类型
-        this.positionOffset = 0;  // 属性偏移量
-    }
+        let type;
 
-    i = format.getIndex(L5.VertexFormat.AU_NORMAL);
-    if (i >= 0) {
-        this.hasNormal = 1;
-        type = format.getAttributeType(i);
-        this.normalSize = L5.Webgl.AttributeSize[type];
-        this.normalChannels = p.inputMap.get('modelNormal');
-        this.normalType = L5.Webgl.AttributeType[type];
-        this.normalOffset = format.getOffset(i);
-    } else {
-        this.hasNormal = 0;
-        this.normalSize = 0;
-        this.normalChannels = 0;
-        this.normalType = 0;
-        this.normalOffset = 0;
-    }
-
-    i = format.getIndex(L5.VertexFormat.AU_TANGENT);
-    if (i >= 0) {
-        this.hasTangent = 1;
-        type = format.getAttributeType(i);
-        this.tangentSize = L5.Webgl.AttributeSize[type];
-        this.tangentChannels = p.inputMap.get('modelTangent');
-        this.tangentType = L5.Webgl.AttributeType[type];
-        this.tangentOffset = format.getOffset(i);
-    } else {
-        this.hasTangent = 0;
-        this.tangentChannels = 0;
-        this.tangentType = 0;
-        this.tangentOffset = 0;
-    }
-
-    i = format.getIndex(L5.VertexFormat.AU_BINORMAL);
-    if (i >= 0) {
-        this.hasBinormal = 1;
-        type = format.getAttributeType(i);
-        this.binormalSize = L5.Webgl.AttributeSize[type];
-        this.binormalChannels = p.inputMap.get('modelBinormal');
-        this.binormalType = L5.Webgl.AttributeType[type];
-        this.binormalOffset = format.getOffset(i);
-    }
-    else {
-        this.hasBinormal = 0;
-        this.binormalSize = 0;
-        this.binormalChannels = 0;
-        this.binormalType = 0;
-        this.binormalOffset = 0;
-    }
-
-    var unit;
-    const AM_MAX_TCOORD_UNITS = L5.VertexFormat.MAX_TCOORD_UNITS;
-
-    this.hasTCoord = new Array(AM_MAX_TCOORD_UNITS);
-    this.tCoordsSize = new Array(AM_MAX_TCOORD_UNITS);
-    this.tCoordChannels = new Array(AM_MAX_TCOORD_UNITS);
-    this.tCoordType = new Array(AM_MAX_TCOORD_UNITS);
-    this.tCoordOffset = new Array(AM_MAX_TCOORD_UNITS);
-
-    for (unit = 0; unit < AM_MAX_TCOORD_UNITS; ++unit) {
-        i = format.getIndex(L5.VertexFormat.AU_TEXCOORD, unit);
+        var i = format.getIndex(VertexFormat.AU_POSITION);
         if (i >= 0) {
-            this.hasTCoord[unit] = 1;
+            this.hasPosition = 1;
             type = format.getAttributeType(i);
-            this.tCoordsSize[unit] = L5.Webgl.AttributeSize[type];
-            this.tCoordChannels[unit] = p.inputMap.get('modelTCoord' + unit);
-            this.tCoordType[unit] = L5.Webgl.AttributeType[type];
-            this.tCoordOffset[unit] = format.getOffset(i);
+            this.positionType = webgl.AttributeType[type]; // 属性元素类型
+            this.positionChannels = webgl.AttributeChannels[type]; // 属性元素数量
+            this.positionOffset = format.getOffset(i);
         } else {
-            this.hasTCoord[unit] = 0;
-            this.tCoordsSize[unit] = 0;
-            this.tCoordChannels[unit] = 0;
-            this.tCoordType[unit] = 0;
-            this.tCoordOffset[unit] = 0;
+            this.hasPosition = 0;
+            this.positionChannels = 0;  // 属性元素数量
+            this.positionType = 0;  // 属性类型
+            this.positionOffset = 0;  // 属性偏移量
         }
-    }
 
-    const AM_MAX_COLOR_UNITS = L5.VertexFormat.MAX_COLOR_UNITS;
-    this.hasColor = new Array(AM_MAX_COLOR_UNITS);
-    this.colorSize = new Array(AM_MAX_COLOR_UNITS);
-    this.colorChannels = new Array(AM_MAX_COLOR_UNITS);
-    this.colorType = new Array(AM_MAX_COLOR_UNITS);
-    this.colorOffset = new Array(AM_MAX_COLOR_UNITS);
-    for (unit = 0; unit < AM_MAX_COLOR_UNITS; ++unit) {
-        i = format.getIndex(L5.VertexFormat.AU_COLOR, unit);
+        i = format.getIndex(VertexFormat.AU_NORMAL);
         if (i >= 0) {
-            this.hasColor[unit] = 1;
+            this.hasNormal = 1;
             type = format.getAttributeType(i);
-            this.colorSize[unit] = L5.Webgl.AttributeSize[type];
-            this.colorChannels[unit] = p.inputMap.get('modelColor' + unit);
-            this.colorType[unit] = L5.Webgl.AttributeType[type];
-            this.colorOffset[unit] = format.getOffset(i);
+            this.normalType = webgl.AttributeType[type];
+            this.normalChannels = webgl.AttributeChannels[type];
+            this.normalOffset = format.getOffset(i);
         } else {
-            this.hasColor[unit] = 0;
-            this.colorSize[unit] = 0;
-            this.colorChannels[unit] = 0;
-            this.colorType[unit] = 0;
-            this.colorOffset[unit] = 0;
+            this.hasNormal = 0;
+            this.normalChannels = 0;
+            this.normalType = 0;
+            this.normalOffset = 0;
+        }
+
+        i = format.getIndex(VertexFormat.AU_TANGENT);
+        if (i >= 0) {
+            this.hasTangent = 1;
+            type = format.getAttributeType(i);
+            this.tangentType = webgl.AttributeType[type];
+            this.tangentChannels = webgl.AttributeChannels[type];
+            this.tangentOffset = format.getOffset(i);
+        } else {
+            this.hasTangent = 0;
+            this.tangentChannels = 0;
+            this.tangentType = 0;
+            this.tangentOffset = 0;
+        }
+
+        i = format.getIndex(VertexFormat.AU_BINORMAL);
+        if (i >= 0) {
+            this.hasBinormal = 1;
+            type = format.getAttributeType(i);
+            this.binormalType = webgl.AttributeType[type];
+            this.binormalChannels = webgl.AttributeChannels[type];
+            this.binormalOffset = format.getOffset(i);
+        }
+        else {
+            this.hasBinormal = 0;
+            this.binormalType = 0;
+            this.binormalChannels = 0;
+            this.binormalOffset = 0;
+        }
+
+        var unit;
+        const AM_MAX_TCOORD_UNITS = VertexFormat.MAX_TCOORD_UNITS;
+
+        this.hasTCoord = new Array(AM_MAX_TCOORD_UNITS);
+        this.tCoordChannels = new Array(AM_MAX_TCOORD_UNITS);
+        this.tCoordType = new Array(AM_MAX_TCOORD_UNITS);
+        this.tCoordOffset = new Array(AM_MAX_TCOORD_UNITS);
+
+        for (unit = 0; unit < AM_MAX_TCOORD_UNITS; ++unit) {
+            i = format.getIndex(VertexFormat.AU_TEXCOORD, unit);
+            if (i >= 0) {
+                this.hasTCoord[unit] = 1;
+                type = format.getAttributeType(i);
+                this.tCoordType[unit] = webgl.AttributeType[type];
+                this.tCoordChannels[unit] = webgl.AttributeChannels[type];
+                this.tCoordOffset[unit] = format.getOffset(i);
+            } else {
+                this.hasTCoord[unit] = 0;
+                this.tCoordType[unit] = 0;
+                this.tCoordChannels[unit] = 0;
+                this.tCoordOffset[unit] = 0;
+            }
+        }
+
+        const AM_MAX_COLOR_UNITS = VertexFormat.MAX_COLOR_UNITS;
+        this.hasColor = new Array(AM_MAX_COLOR_UNITS);
+        this.colorChannels = new Array(AM_MAX_COLOR_UNITS);
+        this.colorType = new Array(AM_MAX_COLOR_UNITS);
+        this.colorOffset = new Array(AM_MAX_COLOR_UNITS);
+        for (unit = 0; unit < AM_MAX_COLOR_UNITS; ++unit) {
+            i = format.getIndex(VertexFormat.AU_COLOR, unit);
+            if (i >= 0) {
+                this.hasColor[unit] = 1;
+                type = format.getAttributeType(i);
+                this.colorType[unit] = webgl.AttributeType[type];
+                this.colorChannels[unit] = webgl.AttributeChannels[type];
+                this.colorOffset[unit] = format.getOffset(i);
+            } else {
+                this.hasColor[unit] = 0;
+                this.colorType[unit] = 0;
+                this.colorChannels[unit] = 0;
+                this.colorOffset[unit] = 0;
+            }
+        }
+
+        i = format.getIndex(VertexFormat.AU_BLENDINDICES);
+        if (i >= 0) {
+            this.hasBlendIndices = 1;
+            type = format.getAttributeType(i);
+            this.blendIndicesChannels = webgl.AttributeChannels[type];
+            this.blendIndicesType = webgl.AttributeType[type];
+            this.blendIndicesOffset = format.getOffset(i);
+        }
+        else {
+            this.hasBlendIndices = 0;
+            this.blendIndicesType = 0;
+            this.blendIndicesChannels = 0;
+            this.blendIndicesOffset = 0;
+        }
+
+        i = format.getIndex(VertexFormat.AU_BLENDWEIGHT);
+        if (i >= 0) {
+            this.hasBlendWeight = 1;
+            type = format.getAttributeType(i);
+            this.blendWeightType = webgl.AttributeType[type];
+            this.blendWeightChannels = webgl.AttributeChannels[type];
+            this.blendWeightOffset = format.getOffset(i);
+        }
+        else {
+            this.hasBlendWeight = 0;
+            this.blendWeightType = 0;
+            this.blendWeightChannels = 0;
+            this.blendWeightOffset = 0;
+        }
+
+        i = format.getIndex(VertexFormat.AU_FOGCOORD);
+        if (i >= 0) {
+            this.hasFogCoord = 1;
+            type = format.getAttributeType(i);
+            this.fogCoordType = webgl.AttributeType[type];
+            this.fogCoordChannels = webgl.AttributeChannels[type];
+            this.fogCoordOffset = format.getOffset(i);
+        } else {
+            this.hasFogCoord = 0;
+            this.fogCoordChannels = 0;
+            this.fogCoordType = 0;
+            this.fogCoordOffset = 0;
+        }
+
+        i = format.getIndex(VertexFormat.AU_PSIZE);
+        if (i >= 0) {
+            this.hasPSize = 1;
+            type = format.getAttributeType(i);
+            this.pSizeType = webgl.AttributeType[type];
+            this.pSizeChannels = webgl.AttributeChannels[type];
+            this.pSizeOffset = format.getOffset(i);
+        } else {
+            this.hasPSize = 0;
+            this.pSizeType = 0;
+            this.pSizeChannels = 0;
+            this.pSizeOffset = 0;
         }
     }
 
-    i = format.getIndex(L5.VertexFormat.AU_BLENDINDICES);
-    if (i >= 0) {
-        this.hasBlendIndices = 1;
-        type = format.getAttributeType(i);
-        this.blendIndicesSize = L5.Webgl.AttributeSize[type];
-        this.blendIndicesChannels = p.inputMap.get('modelBlendIndices');
-        this.blendIndicesType = L5.Webgl.AttributeType[type];
-        this.blendIndicesOffset = format.getOffset(i);
-    }
-    else {
-        this.hasBlendIndices = 0;
-        this.blendIndicesSize = 0;
-        this.blendIndicesChannels = 0;
-        this.blendIndicesType = 0;
-        this.blendIndicesOffset = 0;
-    }
+    /**
+     * @param renderer {Renderer}
+     */
+    enable(renderer) {
+        // Use the enabled vertex buffer for data pointers.
 
-    i = format.getIndex(L5.VertexFormat.AU_BLENDWEIGHT);
-    if (i >= 0) {
-        this.hasBlendWeight = 1;
-        type = format.getAttributeType(i);
-        this.blendWeightSize = L5.Webgl.AttributeSize[type];
-        this.blendWeightChannels = p.inputMap.get('modelBlendWeight');
-        this.blendWeightType = L5.Webgl.AttributeType[type];
-        this.blendWeightOffset = format.getOffset(i);
-    }
-    else {
-        this.hasBlendWeight = 0;
-        this.blendWeightSize = 0;
-        this.blendWeightChannels = 0;
-        this.blendWeightType = 0;
-        this.blendWeightOffset = 0;
-    }
+        let stride = this.stride;
+        let gl = renderer.gl;
 
-    i = format.getIndex(L5.VertexFormat.AU_FOGCOORD);
-    if (i >= 0) {
-        this.hasFogCoord = 1;
-        type = format.getAttributeType(i);
-        this.fogCoordsSize = L5.Webgl.AttributeSize[type];
-        this.fogCoordChannels = p.inputMap.get('modelFogCoord');
-        this.fogCoordType = L5.Webgl.AttributeType[type];
-        this.fogCoordOffset = format.getOffset(i);
-    } else {
-        this.hasFogCoord = 0;
-        this.fogCoordsSize = 0;
-        this.fogCoordChannels = 0;
-        this.fogCoordType = 0;
-        this.fogCoordOffset = 0;
-    }
+        if (this.hasPosition) {
+            gl.enableVertexAttribArray(0);
+            gl.vertexAttribPointer(0, this.positionChannels, this.positionType, false, stride, this.positionOffset);
+        }
 
-    i = format.getIndex(L5.VertexFormat.AU_PSIZE);
-    if (i >= 0) {
-        this.hasPSize = 1;
-        type = format.getAttributeType(i);
-        this.pSizeSize = L5.Webgl.AttributeSize[type];
-        this.pSizeChannels = p.inputMap.get('modelPointSize');
-        this.pSizeType = L5.Webgl.AttributeType[type];
-        this.pSizeOffset = format.getOffset(i);
-    } else {
-        this.hasPSize = 0;
-        this.pSizeSize = 0;
-        this.pSizeChannels = 0;
-        this.pSizeType = 0;
-        this.pSizeOffset = 0;
-    }
+        if (this.hasNormal) {
+            gl.enableVertexAttribArray(2);
+            gl.vertexAttribPointer(2, this.normalChannels, this.normalType, false, stride, this.normalOffset);
+        }
 
-};
-L5.nameFix(L5.GLVertexFormat, 'GLVertexFormat');
+        if (this.hasTangent) {
+            gl.enableVertexAttribArray(14);
+            gl.vertexAttribPointer(14, this.tangentChannels, this.tangentType, false, stride, this.tangentOffset);
+        }
 
-/**
- * @param renderer {L5.Renderer}
- */
-L5.GLVertexFormat.prototype.enable = function (renderer) {
-    // Use the enabled vertex buffer for data pointers.
+        if (this.hasBinormal) {
+            gl.enableVertexAttribArray(15);
+            gl.vertexAttribPointer(15, this.binormalChannels, this.binormalType, false, stride, this.normalOffset);
+        }
 
-    var stride = this.stride;
-    var gl = renderer.gl;
+        let unit;
+        for (unit = 0; unit < VertexFormat.MAX_TCOORD_UNITS; ++unit) {
+            if (this.hasTCoord[unit]) {
+                gl.activeTexture(gl.TEXTURE0 + unit);
+                gl.enableVertexAttribArray(8 + unit);
+                gl.vertexAttribPointer(8 + unit, this.tCoordChannels[unit], this.tCoordType[unit], false, stride, this.tCoordOffset[unit]);
+            }
+        }
 
-    if (this.hasPosition) {
-        gl.enableVertexAttribArray(this.positionChannels);
-        gl.vertexAttribPointer(this.positionChannels, this.positionSize, this.positionType, false, stride, this.positionOffset);
-    }
+        if (this.hasColor[0]) {
+            gl.enableVertexAttribArray(3);
+            gl.vertexAttribPointer(3, this.colorChannels[0], this.colorType[0], false, stride, this.colorOffset[0]);
+        }
 
-    if (this.hasNormal) {
-        gl.enableVertexAttribArray(this.normalChannels);
-        gl.vertexAttribPointer(this.normalChannels, this.normalSize, this.normalType, false, stride, this.normalOffset);
-    }
+        if (this.hasColor[1]) {
+            gl.enableVertexAttribArray(4);
+            gl.vertexAttribPointer(4, this.colorChannels[1], this.colorType[1], false, stride, this.colorOffset[1]);
+        }
 
-    if (this.hasTangent) {
-        gl.enableVertexAttribArray(this.tangentChannels);
-        gl.vertexAttribPointer(this.tangentChannels, this.tangentSize, this.tangentType, false, stride, this.tangentOffset);
-    }
+        if (this.hasBlendIndices) {
+            gl.enableVertexAttribArray(7);
+            gl.vertexAttribPointer(7, this.blendIndicesChannels, this.blendIndicesType, false, stride, this.blendIndicesOffset);
+        }
 
-    if (this.hasBinormal) {
-        gl.enableVertexAttribArray(this.normalChannels);
-        gl.vertexAttribPointer(this.normalChannels, this.normalSize, this.normalType, false, stride, this.normalOffset);
-    }
+        if (this.hasBlendWeight) {
+            gl.enableVertexAttribArray(1);
+            gl.vertexAttribPointer(1, this.blendWeightChannels, this.blendWeightType, false, stride, this.blendWeightOffset);
+        }
 
-    var unit;
-    for (unit = 0; unit < L5.VertexFormat.MAX_TCOORD_UNITS; ++unit) {
-        if (this.hasTCoord[unit]) {
-            gl.activeTexture(gl.TEXTURE0 + unit);
-            gl.enableVertexAttribArray(this.tCoordChannels[unit]);
-            gl.vertexAttribPointer(this.tCoordChannels[unit], this.tCoordsSize[unit], this.tCoordType[unit], false, stride,
-                this.tCoordOffset[unit]);
+        if (this.hasFogCoord) {
+            gl.enableVertexAttribArray(5);
+            gl.vertexAttribPointer(5, this.fogCoordChannels, this.fogCoordType, false, stride, this.fogCoordOffset);
+        }
+
+        if (this.hasPSize) {
+            gl.enableVertexAttribArray(6);
+            gl.vertexAttribPointer(6, this.pSizeChannels, this.pSizeType, false, stride, this.pSizeOffset);
         }
     }
 
-    if (this.hasColor[0]) {
-        gl.enableVertexAttribArray(this.colorChannels[0]);
-        gl.vertexAttribPointer(this.colorChannels[0], this.colorSize[0], this.colorType[0], false, stride,
-            this.colorOffset[0]);
-    }
+    /**
+     * @param {Renderer} renderer
+     */
+    disable(renderer) {
+        var gl = renderer.gl;
+        if (this.hasPosition) {
+            gl.disableVertexAttribArray(0);
+        }
 
-    if (this.hasColor[1]) {
-        gl.enableVertexAttribArray(this.colorChannels[1]);
-        gl.vertexAttribPointer(this.colorChannels[1], this.colorSize[1], this.colorType[1], false, stride,
-            this.colorOffset[1]);
-    }
+        if (this.hasNormal) {
+            gl.disableVertexAttribArray(2);
+        }
 
-    if (this.hasBlendIndices) {
-        gl.enableVertexAttribArray(this.blendIndicesChannels);
-        gl.vertexAttribPointer(this.blendIndicesChannels, this.blendIndicesSize, this.blendIndicesType, false, stride,
-            this.blendIndicesOffset);
-    }
+        if (this.hasTangent) {
+            gl.disableVertexAttribArray(14);
+        }
 
-    if (this.hasBlendWeight) {
-        gl.enableVertexAttribArray(this.blendWeightChannels);
-        gl.vertexAttribPointer(this.blendWeightChannels, this.blendWeightSize, this.blendWeightType, false, stride,
-            this.blendWeightOffset);
-    }
+        if (this.hasBinormal) {
+            gl.disableVertexAttribArray(15);
+        }
 
-    if (this.hasFogCoord) {
-        gl.enableVertexAttribArray(this.fogCoordChannels);
-        gl.vertexAttribPointer(this.fogCoordChannels, this.fogCoordsSize, this.fogCoordType, false, stride, this.fogCoordOffset);
-    }
+        var unit;
+        for (unit = 0; unit < VertexFormat.MAX_TCOORD_UNITS; ++unit) {
+            if (this.hasTCoord[unit]) {
+                gl.disableVertexAttribArray(8 + unit);
+                gl.activeTexture(gl.TEXTURE0 + unit);
+                gl.bindTexture(gl.TEXTURE_2D, null);
+            }
+        }
 
-    if (this.hasPSize) {
-        gl.enableVertexAttribArray(this.pSizeChannels);
-        gl.vertexAttribPointer(this.pSizeChannels, this.pSizeSize, this.pSizeType, false, stride, this.pSizeOffset);
-    }
-};
-/**
- * @param renderer {L5.Renderer}
- */
-L5.GLVertexFormat.prototype.disable = function (renderer) {
-    var gl = renderer.gl;
-    if (this.hasPosition) {
-        gl.disableVertexAttribArray(this.positionChannels);
-    }
+        if (this.hasColor[0]) {
+            gl.disableVertexAttribArray(3);
+        }
 
-    if (this.hasNormal) {
-        gl.disableVertexAttribArray(this.normalChannels);
-    }
+        if (this.hasColor[1]) {
+            gl.disableVertexAttribArray(4);
+        }
 
-    if (this.hasTangent) {
-        gl.disableVertexAttribArray(this.tangentChannels);
-    }
+        if (this.hasBlendIndices) {
+            gl.disableVertexAttribArray(7);
+        }
 
-    if (this.hasBinormal) {
-        gl.disableVertexAttribArray(this.binormalChannels);
-    }
+        if (this.hasBlendWeight) {
+            gl.disableVertexAttribArray(1);
+        }
 
-    var unit;
-    for (unit = 0; unit < L5.VertexFormat.MAX_TCOORD_UNITS; ++unit) {
-        if (this.hasTCoord[unit]) {
-            gl.activeTexture(gl.TEXTURE0 + unit);
-            gl.bindTexture(gl.TEXTURE_2D, null);
+        if (this.hasFogCoord) {
+            gl.disableVertexAttribArray(5);
+        }
+
+        if (this.hasPSize) {
+            gl.disableVertexAttribArray(6);
         }
     }
-
-    if (this.hasColor[0]) {
-        gl.disableVertexAttribArray(this.colorChannels[0]);
-    }
-
-    if (this.hasColor[1]) {
-        gl.disableVertexAttribArray(this.colorChannels[1]);
-    }
-
-    if (this.hasBlendIndices) {
-        gl.disableVertexAttribArray(this.blendIndicesChannels);
-    }
-
-    if (this.hasBlendWeight) {
-        gl.disableVertexAttribArray(this.blendWeightChannels);
-    }
-
-    if (this.hasFogCoord) {
-        gl.disableVertexAttribArray(this.fogCoordChannels);
-    }
-
-    if (this.hasPSize) {
-        gl.disableVertexAttribArray(this.pSizeChannels);
-    }
-};
+}

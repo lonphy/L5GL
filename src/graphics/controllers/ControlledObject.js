@@ -1,116 +1,123 @@
 /**
  * ControlledObject - 控制基类
- * @version 1.0
+ *
+ * @version 2.0
  * @author lonphy
  */
 
-L5.ControlledObject = function () {
-    L5.D3Object.call(this);
+import { D3Object } from '../../core/D3Object'
+import { Controller } from './Controller'
 
-    this.numControllers = 0;
-    this.controllers = [];
-};
+export class ControlledObject extends D3Object {
+    constructor() {
+        super();
+        this.numControllers = 0;
+        this.controllers = [];
+    }
+    /**
+     * @param {number} i
+     * @returns {Controller|null}
+     */
+    getController(i) {
+        if (0 <= i && i < this.numControllers) {
+            return this.controllers[i];
+        }
 
-L5.nameFix(L5.ControlledObject, 'ControlledObject');
-L5.extendFix(L5.ControlledObject, L5.D3Object);
-
-/**
- * @param i {number}
- * @returns {L5.Controller}
- */
-L5.ControlledObject.prototype.getController = function (i) {
-    if (0 <= i && i < this.numControllers) {
-        return this.controllers[i];
+        console.assert(false, 'Invalid index in getController.');
+        return null;
     }
 
-    L5.assert(false, 'Invalid index in getController.');
-    return null;
-};
-/**
- * @param controller {L5.Controller}
- */
-L5.ControlledObject.prototype.attachController = function (controller) {
-    // By design, controllers may not be controlled.  This avoids arbitrarily
-    // complex graphs of controllers.  TODO:  Consider allowing this?
-    if (!(controller instanceof L5.Controller)) {
-        L5.assert(false, 'Controllers may not be controlled');
-        return;
-    }
-
-    // The controller must exist.
-    if (!controller) {
-        L5.assert(false, 'Cannot attach a null controller');
-        return;
-    }
-
-    // Test whether the controller is already in the array.
-    var i, l = this.numControllers;
-    for (i = 0; i < l; ++i) {
-        if (controller === this.controllers[i]) {
+    /**
+     * @param {Controller} controller
+     */
+    attachController(controller) {
+        // By design, controllers may not be controlled.  This avoids arbitrarily
+        // complex graphs of controllers.  TODO:  Consider allowing this?
+        if (!(controller instanceof Controller)) {
+            console.assert(false, 'Controllers may not be controlled');
             return;
         }
-    }
 
-    // Bind the controller to the object.
-    controller.object = this;
+        // The controller must exist.
+        if (!controller) {
+            console.assert(false, 'Cannot attach a null controller');
+            return;
+        }
 
-    this.controllers[(this.numControllers)++] = controller;
-};
-/**
- * @param controller {L5.Controller}
- */
-L5.ControlledObject.prototype.detachController = function (controller) {
-    var l = this.numControllersl;
-    for (var i = 0; i < l; ++i) {
-        if (controller == this.controllers[i]) {
-            // Unbind the controller from the object.
-            controller.object = null;
-
-            // Remove the controller from the array, keeping the array
-            // compact.
-            for (var j = i + 1; j < l; ++j, ++i) {
-                this.controllers[i] = this.controllers[j];
+        // Test whether the controller is already in the array.
+        let i, l = this.numControllers;
+        for (i = 0; i < l; ++i) {
+            if (controller === this.controllers[i]) {
+                return;
             }
-            this.controllers[--(this.numControllers)] = null;
-            return;
+        }
+
+        // Bind the controller to the object.
+        controller.object = this;
+
+        this.controllers[(this.numControllers)++] = controller;
+    }
+
+    /**
+     * @param {Controller} controller
+     */
+    detachController(controller) {
+        let l = this.numControllersl;
+        for (let i = 0; i < l; ++i) {
+            if (controller === this.controllers[i]) {
+                // Unbind the controller from the object.
+                controller.object = null;
+
+                // Remove the controller from the array, keeping the array
+                // compact.
+                for (let j = i + 1; j < l; ++j, ++i) {
+                    this.controllers[i] = this.controllers[j];
+                }
+                this.controllers[--(this.numControllers)] = null;
+                return;
+            }
         }
     }
-};
-L5.ControlledObject.prototype.detachAllControllers = function () {
-    var i, l = this.numControllers;
-    for (i = 0; i < l; ++i) {
-        // Unbind the controller from the object.
-        this.controllers[i].object = null;
-        this.controllers[i] = null;
-    }
-    this.numControllers = 0;
-};
 
-L5.ControlledObject.prototype.updateControllers = function (applicationTime) {
-    var someoneUpdated = false, l = this.numControllers;
-    for (var i = 0; i < l; ++i) {
-        if (this.controllers[i].update(applicationTime)) {
-            someoneUpdated = true;
+    detachAllControllers() {
+        let i, l = this.numControllers;
+        for (i = 0; i < l; ++i) {
+            // Unbind the controller from the object.
+            this.controllers[i].object = null;
+            this.controllers[i] = null;
         }
+        this.numControllers = 0;
     }
-    return someoneUpdated;
-};
 
-/**
- *
- * @param inStream {L5.InStream}
- */
-L5.ControlledObject.prototype.load = function (inStream) {
-    L5.D3Object.prototype.load.call(this, inStream);
-    var r = inStream.readPointerArray();
-    if (r !== false) {
-        this.numControllers = r.length;
-        this.controllers = r.slice();
+    /**
+     * @param {number} applicationTime 
+     * @return {boolean}
+     */
+    updateControllers(applicationTime) {
+        let someoneUpdated = false, l = this.numControllers;
+        for (let i = 0; i < l; ++i) {
+            if (this.controllers[i].update(applicationTime)) {
+                someoneUpdated = true;
+            }
+        }
+        return someoneUpdated;
     }
-    this.capacity = this.numControllers;
-};
 
-L5.ControlledObject.prototype.link = function (inStream) {
-    L5.D3Object.prototype.link.call(this, inStream);
-    this.controllers = inStream.resolveArrayLink(this.numControllers, this.controllers);
-};
+    /**
+     * @param inStream {InStream}
+     */
+    load(inStream) {
+        super.load(inStream);
+        let r = inStream.readPointerArray();
+        if (r !== false) {
+            this.numControllers = r.length;
+            this.controllers = r.slice();
+        }
+        this.capacity = this.numControllers;
+    }
+
+    link(inStream) {
+        super.link(inStream);
+        this.controllers = inStream.resolveArrayLink(this.numControllers, this.controllers);
+    }
+}

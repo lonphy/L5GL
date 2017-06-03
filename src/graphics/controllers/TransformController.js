@@ -1,35 +1,39 @@
 /**
- * TransformControlledObject - 控制基类
- * @version 1.0
+ * TransformController - 变换控制基类
+ *
+ * @version 2.0
  * @author lonphy
  */
-/**
- *
- * @param localTransform {L5.Transform}
- * @constructor
- */
-L5.TransformController = function (localTransform) {
-    L5.Controller.call(this);
-    this.localTransform = localTransform;
-};
 
-L5.TransformController.name = "TransformController";
-L5.extendFix(L5.TransformController, L5.Controller);
+import {Controller} from './Controller'
 
-L5.TransformController.prototype.update = function (applicationTime) {
-    if (!L5.Controller.prototype.update.call(this, applicationTime)) {
+export class TransformController extends Controller {
+
+    /**
+     * @param {Transform} localTransform
+     */
+    constructor(localTransform) {
+        super();
+        this.localTransform = localTransform;
+    }
+
+    /**
+     * @param {number} applicationTime 毫秒
+     */
+    update(applicationTime) {
+        if (super.update(applicationTime)) {
+            this.object.localTransform = this.localTransform;
+            return true;
+        }
         return false;
     }
 
-    this.object.localTransform = localTransform;
-    return true;
-};
-
-/**
- *
- * @param inStream {L5.InStream}
- */
-L5.TransformController.prototype.load = function (inStream) {
-    L5.Controller.prototype.load.call(this, inStream);
-    this.localTransform = inStream.readAggregate();
-};
+    /**
+     * 文件载入支持
+     * @param {InStream} inStream
+     */
+    load(inStream) {
+        super.load(inStream);
+        this.localTransform = inStream.readTransform();
+    }
+}

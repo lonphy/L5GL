@@ -1,26 +1,43 @@
 /**
  * 灯光 - 世界坐标
- * @param light {L5.Light} 灯光
- * @class
- *
- * @extends {L5.ShaderFloat}
  */
-L5.LightWorldPositionConstant = function (light) {
-    L5.ShaderFloat.call(this, 1);
-    this.allowUpdater = true;
-    this.light = light;
-};
-L5.nameFix(L5.LightWorldPositionConstant, 'LightWorldPositionConstant');
-L5.extendFix(L5.LightWorldPositionConstant, L5.ShaderFloat);
+import {ShaderFloat} from './ShaderFloat'
+import {D3Object} from '../../core/D3Object'
 
-L5.LightWorldPositionConstant.prototype.getLight = function () {
-    return this.light;
+export class LightWorldPositionConstant extends ShaderFloat {
+
+    /**
+     * @param light {Light}
+     */
+    constructor(light) {
+        super(1);
+        this.allowUpdater = true;
+        this.light = light;
+    }
+
+    /**
+     * 更新光源世界坐标系的方向
+     * @param visual {Visual}
+     * @param camera {Camera}
+     */
+    update (visual, camera) {
+        this.copy(this.light.position);
+    }
+
+    load(inStream) {
+        super.load(inStream);
+        this.light = inStream.readPointer();
+    }
+
+    link(inStream) {
+        super.link(inStream);
+        this.light = inStream.resolveLink(this.light);
+    }
+
+    save(outStream) {
+        super.save(outStream);
+        outStream.writePointer(this.light);
+    }
 };
 
-/**
- * 更新高光分量
- * @param visual {L5.Visual}
- * @param camera {L5.Camera}
- */
-L5.LightWorldPositionConstant.prototype.update = function (visual, camera) {
-};
+D3Object.Register('L5.LightWorldPositionConstant', LightWorldPositionConstant.factory);

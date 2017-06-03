@@ -1,178 +1,142 @@
+import {_Math} from './Math'
+import {Vector} from './Vector'
+
 /**
  * Plane - 平面
- *
- * 平面表示为 Dot(N,X) - c = 0,其中：
- *  N = (n0,n1,n2,0)，一个单位法向量
- *  X = (x0,x1,x2,1)，是任何在该平面上的点
- *  c 是平面常量
- *
- * @author lonphy
- * @version 1.0
+ * 
+ * 平面表示为 `Dot(N, X) - c = 0`, 其中：  
+ *  - `N = (n0, n1, n2, 0)` 一个单位法向量  
+ *  - `X = (x0, x1, x2, 1)` 是任何在该平面上的点  
+ *  - `c` 是平面常量
  */
-
-/**
- * @param normal {L5.Vector} 平面单位法向量
- * @param constant {number} 平面常量
- * @class
- */
-L5.Plane = function (normal, constant) {
-    this._content = new Float32Array(4);
-    this._content[0] = normal[0];
-    this._content[1] = normal[1];
-    this._content[2] = normal[2];
-    this._content[3] = -constant;
-};
-
-L5.Plane.name = "Plane";
-
-/**
- *  c = dot(normal, point)
- * @param normal {L5.Vector} specified
- * @param point {L5.Point} 平面上的点
- * @returns {L5.Plane}
- */
-L5.Plane.fromPoint1 = function (normal, point) {
-    return new L5.Plane
-    (
-        normal,
-        point.dot(normal)
-    );
-};
-
-/**
- *
- * @param normal0 {number}
- * @param normal1 {number}
- * @param normal2 {number}
- * @param constant {number}
- * @returns {L5.Plane}
- */
-L5.Plane.fromNumber = function (normal0, normal1, normal2, constant) {
-    return new L5.Plane
-    (
-        new L5.Vector
-        (
-            normal0,
-            normal1,
-            normal2
-        ),
-        constant
-    );
-};
-
-/**
- * 通过3个点创建一个平面
- *
- * normal = normalize(cross(point1-point0,point2-point0))
- * c = dot(normal,point0)
- *
- * @param point0 {L5.Point} 平面上的点
- * @param point1 {L5.Point} 平面上的点
- * @param point2 {L5.Point} 平面上的点
- * @returns {L5.Plane}
- */
-L5.Plane.fromPoint3 = function (point0, point1, point2) {
-    var edge1 = point1.subP(point0);
-    var edge2 = point2.subP(point0);
-    var normal = edge1.unitCross(edge2);
-    return new L5.Plane
-    (
-        normal,
-        point0.dot(normal)
-    );
-};
-
-
-L5.Plane.prototype = {
-    constructor: L5.Plane,
+export class Plane extends Float32Array {
 
     /**
-     * @returns {L5.Vector}
+     * @param {Vector} normal 平面单位法向量
+     * @param {number} constant 平面常量
      */
-    get normal() {
-        return new L5.Vector
-        (
-            this._content[0],
-            this._content[1],
-            this._content[2]
+    constructor(normal, constant) {
+        super(4);
+        this.set(normal, 0, 3);
+        this[3] = -constant;
+    }
+
+    /**
+     *  `c = dot(normal, point)`
+     * @param {Vector} normal specified
+     * @param {Point} point 平面上的点
+     */
+    static fromPoint1(normal, point) {
+        return new Plane(
+            normal,
+            point.dot(normal)
         );
-    },
+    }
+
     /**
-     * @param val {L5.Vector}
+     * @param {number} n0
+     * @param {number} n1
+     * @param {number} n2
+     * @param {number} constant
      */
-    set normal(val) {
-        this._content[0] = val.x;
-        this._content[1] = val.y;
-        this._content[2] = val.z;
-    },
+    static fromNumber(n0, n1, n2, constant) {
+        return new Plane(new Vector(n0, n1, n2), constant);
+    }
+
+    /**
+     * 通过3个点创建一个平面
+     *
+     * - `normal = normalize(cross(point1-point0,point2-point0))`
+     * - `c = dot(normal,point0)`
+     *
+     * @param {Point} point0 平面上的点
+     * @param {Point} point1 平面上的点
+     * @param {Point} point2 平面上的点
+     */
+    static fromPoint3(point0, point1, point2) {
+        var edge1 = point1.subAsVector(point0);
+        var edge2 = point2.subAsVector(point0);
+        var normal = edge1.unitCross(edge2);
+        return new Plane(normal, point0.dot(normal));
+    }
+
+    get normal() {
+        return new Vector(this[0], this[1], this[2]);
+    }
+
+    set normal(n) {
+        this.set(n, 0, 3);
+    }
+
     get constant() {
-        return -this._content[3];
-    },
-    set constant(val) {
-        this._content[3] = -val || 0;
-    }
-};
-
-/**
- * 复制
- * @param plane {L5.Plane}
- */
-L5.Plane.prototype.copy = function (plane) {
-    this._content[0] = plane._content[0];
-    this._content[1] = plane._content[1];
-    this._content[2] = plane._content[2];
-    this._content[3] = plane._content[3];
-    return this;
-};
-
-/**
- * 计算平面法向量的长度，并返回，同时规格化法向量和平面常量
- * @returns {number}
- */
-L5.Plane.prototype.normalize = function () {
-    var length = L5.Math.sqrt(
-        this._content[0] * this._content[0] +
-        this._content[1] * this._content[1] +
-        this._content[2] * this._content[2]);
-
-    if (length > 0) {
-        var invLength = 1 / length;
-        this._content[0] *= invLength;
-        this._content[1] *= invLength;
-        this._content[2] *= invLength;
-        this._content[3] *= invLength;
+        return -this[3];
     }
 
-    return length;
-};
-
-/**
- * 计算点到平面的距离[有符号]
- *
- * d = dot(normal, point) - c
- *  normal 是平面的法向量
- *  c 是平面常量
- *  如果返回值是正值则点在平面的正坐标一边，
- *  如果是负值，则在负坐标一边
- *  否则在平面上
- *
- * @param p {L5.Point}
- * @returns {number}
- */
-L5.Plane.prototype.distanceTo = function (p) {
-    var c = this._content;
-    return c[0] * p.x + c[1] * p.y + c[2] * p.z + c[3];
-};
-
-L5.Plane.prototype.whichSide = function (p) {
-    var distance = this.distanceTo(p);
-
-    if (distance < 0) {
-        return -1;
-    }
-    else if (distance > 0) {
-        return +1;
+    set constant(c) {
+        this[3] = -c;
     }
 
-    return 0;
-};
+    /**
+     * 复制
+     * @param {Plane} plane
+     * @return {Plane}
+     */
+    copy(plane) {
+        this[0] = plane[0];
+        this[1] = plane[1];
+        this[2] = plane[2];
+        this[3] = plane[3];
+        return this;
+    }
+
+    /**
+     * 计算平面法向量的长度，并返回，同时规格化法向量和平面常量
+     * @returns {number}
+     */
+    normalize() {
+        var length = sqrt(this[0] * this[0] + this[1] * this[1] + this[2] * this[2]);
+
+        if (length > 0) {
+            var invLength = 1 / length;
+            this[0] *= invLength;
+            this[1] *= invLength;
+            this[2] *= invLength;
+            this[3] *= invLength;
+        }
+
+        return length;
+    }
+
+
+    /**
+     * 计算点到平面的距离[有符号]  
+     * > `d = dot(normal, point) - c`
+     *  - normal 是平面的法向量
+     *  - c 是平面常量  
+     * 结果说明
+     *  - 如果返回值是正值则点在平面的正坐标一边，
+     *  - 如果是负值，则在负坐标一边
+     *  - 否则在平面上
+     * @param {Point} p
+     * @returns {number}
+     */
+    distanceTo(p) {
+        return this[0] * p.x + this[1] * p.y + this[2] * p.z + this[3];
+    }
+
+    /**
+     * @param {Point} p
+     */
+    whichSide(p) {
+        let distance = this.distanceTo(p);
+
+        if (distance < 0) {
+            return -1;
+        }
+        else if (distance > 0) {
+            return +1;
+        }
+
+        return 0;
+    }
+}

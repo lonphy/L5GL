@@ -1,71 +1,87 @@
 /**
  * 颜色缓冲 - 效果
  *
- * @class
- * @extends {L5.VisualEffect}
+ * @author lonphy
+ * @version 2.0
+ *
+ * @type {VertexColor3Effect}
+ * @extends {VisualEffect}
  */
-L5.VertexColor3Effect = function () {
-    L5.VisualEffect.call(this);
+import {DECLARE_ENUM} from '../../util/util'
+import {VisualEffect} from '../shaders/VisualEffect'
+import {VisualEffectInstance} from '../shaders/VisualEffectInstance'
+import {VisualTechnique} from '../shaders/VisualTechnique'
+import {VisualPass} from '../shaders/VisualPass'
+import {Program} from '../shaders/Program'
+import {Shader} from '../shaders/Shader'
+import {VertexShader} from '../shaders/VertexShader'
+import {FragShader} from '../shaders/FragShader'
+import {AlphaState} from '../shaders/AlphaState'
+import {CullState} from '../shaders/CullState'
+import {DepthState} from '../shaders/DepthState'
+import {OffsetState} from '../shaders/OffsetState'
+import {StencilState} from '../shaders/StencilState'
 
-    var vs = new L5.VertexShader("L5.VertexColor3", 2, 2, 1, 0, false);
+import {PVWMatrixConstant} from '../shaderFloat/PVWMatrixConstant'
 
-    vs.setInput(0, "modelPosition", L5.Shader.VT_VEC3, L5.Shader.VS_POSITION);
-    vs.setInput(0, "modelColor", L5.Shader.VT_VEC3, L5.Shader.VS_COLOR0);
-    vs.setOutput(0, "gl_Position", L5.Shader.VT_VEC4, L5.Shader.VS_POSITION);
-    vs.setOutput(1, "vertexColor", L5.Shader.VT_VEC4, L5.Shader.VS_COLOR0);
-    vs.setConstant(0, "PVWMatrix", L5.Shader.VT_MAT4);
-    vs.setProgram(L5.VertexColor3Effect.VertextSource);
+export class VertexColor3Effect extends VisualEffect {
+    constructor() {
+        super();
+        var vs = new VertexShader('VertexColor3VS', 2, 1);
+        vs.setInput(0, 'modelPosition', Shader.VT_VEC3, Shader.VS_POSITION);
+        vs.setInput(0, 'modelColor', Shader.VT_VEC3, Shader.VS_COLOR0);
+        vs.setConstant(0, 'PVWMatrix', Shader.VT_MAT4);
+        vs.setProgram(VertexColor3Effect.VS);
 
-    var fs = new L5.FragShader("L5.VertexColor3", 1, 1, 0, 0, false);
-    fs.setInput(0, "vertexColor", L5.Shader.VT_VEC4, L5.Shader.VS_COLOR0);
-    fs.setOutput(0, "gl_FragColor", L5.Shader.VT_VEC4, L5.Shader.VS_COLOR0);
-    fs.setProgram(L5.VertexColor3Effect.FragSource);
+        var fs = new FragShader('VertexColor3FS');
+        fs.setProgram(VertexColor3Effect.FS);
 
-    var program = new L5.Program("L5.VertexColor3Program", vs, fs);
+        var program = new Program('VertexColor3Program', vs, fs);
 
-    var pass = new L5.VisualPass();
-    pass.program = program;
-    pass.alphaState = new L5.AlphaState();
-    pass.cullState = new L5.CullState();
-    pass.depthState = new L5.DepthState();
-    pass.offsetState = new L5.OffsetState();
-    pass.stencilState = new L5.StencilState();
+        var pass = new VisualPass();
+        pass.program = program;
+        pass.alphaState = new AlphaState();
+        pass.cullState = new CullState();
+        pass.depthState = new DepthState();
+        pass.offsetState = new OffsetState();
+        pass.stencilState = new StencilState();
 
-    var technique = new L5.VisualTechnique();
-    technique.insertPass(pass);
-    this.insertTechnique(technique);
+        var technique = new VisualTechnique();
+        technique.insertPass(pass);
+        this.insertTechnique(technique);
+    }
+
+    createInstance() {
+        var instance = new VisualEffectInstance(this, 0);
+        instance.setVertexConstant(0, 0, new PVWMatrixConstant());
+        return instance;
+    }
+
+    static createUniqueInstance() {
+        var effect = new VertexColor3Effect();
+        return effect.createInstance();
+    }
 };
 
-L5.nameFix(L5.VertexColor3Effect, 'VertexColor3Effect');
-L5.extendFix(L5.VertexColor3Effect, L5.VisualEffect);
-
-L5.VertexColor3Effect.prototype.createInstance = function () {
-    var instance = new L5.VisualEffectInstance(this, 0);
-    instance.setVertexConstant(0, 0, new L5.PVWMatrixConstant());
-    return instance;
-};
-
-L5.VertexColor3Effect.createUniqueInstance = function () {
-    var effect = new L5.VertexColor3Effect();
-    return effect.createInstance();
-};
-
-L5.VertexColor3Effect.VertextSource = [
-    'attribute vec3 modelPosition;',
-    'attribute vec3 modelColor;',
-    'uniform mat4 PVWMatrix;',
-    'varying vec3 vertexColor;',
-    'void main(){',
-    '\t gl_Position = PVWMatrix * vec4(modelPosition, 1.0);',
-    '\t vertexColor = modelColor;',
-    '\t gl_PointSize = 1.0;',
-    '}'
-].join("\n");
-
-L5.VertexColor3Effect.FragSource = [
-    'precision highp float;',
-    'varying vec3 vertexColor;',
-    'void main (void) {',
-    '\t gl_FragColor = vec4(vertexColor, 1.0);',
-    '}'
-].join("\n");
+DECLARE_ENUM(VertexColor3Effect, {
+    VS: `#version 300 es
+uniform mat4 PVWMatrix;
+layout(location=0) in vec3 modelPosition;
+layout(location=3) in vec3 modelColor0;
+layout(location=6) in float modelPointSize;
+out vec3 vertexColor;
+void main(){
+    gl_Position = PVWMatrix * vec4(modelPosition, 1.0);
+    vertexColor = modelColor0;
+    gl_PointSize = modelPointSize;
+}
+`,
+    FS: `#version 300 es
+precision highp float;
+in vec3 vertexColor;
+out vec4 fragColor;
+void main () {
+    fragColor = vec4(vertexColor, 1.0);
+}
+`
+});

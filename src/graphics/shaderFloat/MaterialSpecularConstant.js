@@ -1,57 +1,43 @@
 /**
  * 材质高光系数
- *
- * MaterialDiffuseConstant
- * @param material {L5.Material} 材质
- * @class
- *
- * @extends {L5.ShaderFloat}
  */
-L5.MaterialSpecularConstant = function (material) {
-    L5.ShaderFloat.call(this, 1);
-    this.allowUpdater = true;
-    this.material = material;
-};
-L5.nameFix(L5.MaterialSpecularConstant, 'MaterialSpecularConstant');
-L5.extendFix(L5.MaterialSpecularConstant, L5.ShaderFloat);
+import {ShaderFloat} from './ShaderFloat'
+import {D3Object} from '../../core/D3Object'
 
+export class MaterialSpecularConstant extends ShaderFloat {
 
-L5.MaterialSpecularConstant.prototype.getMaterial = function () {
-    return this.material;
+    /**
+     * @param material {Material} 材质
+     */
+    constructor(material) {
+        super(1);
+        this.allowUpdater = true;
+        this.material = material;
+    }
+
+    /**
+     * 更新材高光系数
+     * @param visual {Visual}
+     * @param camera {Camera}
+     */
+    update(visual, camera) {
+        this.copy(this.material.specular);
+    }
+
+    load(inStream) {
+        super.load(inStream);
+        this.material = inStream.readPointer();
+    }
+
+    link(inStream) {
+        super.link(inStream);
+        this.material = inStream.resolveLink(this.material);
+    }
+
+    save(outStream) {
+        super.save(outStream);
+        outStream.writePointer(this.material);
+    }
 };
 
-/**
- * 更新材高光系数
- * @param visual {L5.Visual}
- * @param camera {L5.Camera}
- */
-L5.MaterialSpecularConstant.prototype.update = function (visual, camera) {
-    this.copy(this.material.specular);
-};
-
-L5.MaterialSpecularConstant.prototype.load = function (inStream) {
-    L5.ShaderFloat.prototype.load.call(this, inStream);
-    this.material = inStream.readPointer();
-};
-
-L5.MaterialSpecularConstant.prototype.link = function (inStream) {
-    L5.ShaderFloat.prototype.link.call(this, inStream);
-    this.material = inStream.resolveLink(this.material);
-};
-
-L5.MaterialSpecularConstant.prototype.save = function (outStream) {
-    L5.ShaderFloat.prototype.save.call(this, outStream);
-    outStream.writePointer(this.material);
-};
-
-/**
- * 文件解析工厂方法
- * @param inStream {L5.InStream}
- * @returns {L5.MaterialSpecularConstant}
- */
-L5.MaterialSpecularConstant.factory = function (inStream) {
-    var obj = new L5.MaterialSpecularConstant();
-    obj.load(inStream);
-    return obj;
-};
-L5.D3Object.factories.set('Wm5.MaterialSpecularConstant', L5.MaterialSpecularConstant.factory);
+D3Object.Register('L5.MaterialSpecularConstant', MaterialSpecularConstant.factory);

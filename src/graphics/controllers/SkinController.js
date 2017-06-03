@@ -1,140 +1,120 @@
-/**
- *
- * @param numVertices {number}
- * @param numBones {number}
- * @constructor
- */
+import { Controller } from './Controller'
+import { D3Object } from '../../core/D3Object'
+import { Renderer } from '../renderer/Renderer'
 
-L5.SkinController = function (numVertices, numBones) {
-    numVertices = numVertices || 0;
-    numBones = numBones || 0;
+export class SkinController extends Controller {
 
-    this.numVertices = numVertices; // int
-    this.numBones = numBones; // int
-
-    this._init();
-};
-L5.nameFix(L5.SkinController, 'SkinController');
-L5.extendFix(L5.SkinController, L5.Controller);
-
-L5.SkinController.prototype._init = function () {
-    var numBones = this.numBones;
-    var numVertices = this.numVertices;
-    if (numBones === 0 || numVertices === 0) {
-        return;
-    }
     /**
-     * @type {Array<L5.Node>}
+     * @param {number} numVertices
+     * @param {number} numBones
      */
-    this.bones = new Array(numBones);
-    /**
-     * @type {Array< Array<number> >}
-     */
-    this.weights = new Array(numVertices);
-    /**
-     * @type {Array< Array<Point> >}
-     */
-    this.offsets = new Array(numVertices);
-
-    for (var i = 0; i < numVertices; ++i) {
-        this.weights[i] = new Array(numBones);
-        this.offsets[i] = new Array(numBones);
-    }
-};
-
-L5.SkinController.prototype.getNumVertices = function () {
-    return this.numVertices;
-};
-L5.SkinController.prototype.getNumBones = function () {
-    return this.numBones;
-};
-L5.SkinController.prototype.getBones = function () {
-    return this.bones;
-};
-L5.SkinController.prototype.getWeights = function () {
-    return this.weights;
-};
-L5.SkinController.prototype.getOffsets = function () {
-    return this.offsets;
-};
-
-L5.SkinController.prototype.update = function (applicationTime) {
-    if (!L5.Controller.prototype.update.call(this, applicationTime)) {
-        return false;
+    constructor(numVertices = 0, numBones = 0) {
+        super();
+        this.numVertices = numVertices;
+        this.numBones = numBones;
+        this.__init();
     }
 
-    var visual = this.object;
-    L5.assert(
-        this.numVertices === visual.vertexBuffer.numElements,
-        "Controller must have the same number of vertices as the buffer"
-    );
-    var vba = L5.VertexBufferAccessor.fromVisual(visual);
+    __init() {
+        let numBones = this.numBones,
+            numVertices = this.numVertices;
+        if (numVertices > 0) {
+            /**
+             * @let {Array<Node>}
+             */
+            this.bones = new Array(numBones);
 
-    // The skin vertices are calculated in the bone world coordinate system,
-    // so the visual's world transform must be the identity.
-    visual.worldTransform = L5.Transform.IDENTITY;
-    visual.worldTransformIsCurrent = true;
+            /**
+             * @type {Array< Array<number> >}
+             */
+            this.weights = new Array(numVertices);
+            /**
+             * @type {Array< Array<Point> >}
+             */
+            this.offsets = new Array(numVertices);
 
-    // Compute the skin vertex locations.
-    var nv = this.numVertices, nb = this.numBones, vertex, bone, weight, offset, worldOffset;
-    for (vertex = 0; vertex < nv; ++vertex) {
-        var position = L5.Point.ORIGIN;
-
-        for (bone = 0; bone < nb; ++bone) {
-            weight = this.weights[vertex][bone];
-            if (weight !== 0.0) {
-                offset = this.offsets[vertex][bone];
-                worldOffset = this.bones[bone].worldTransform.mulPoint(offset);
-                position = position.add(worldOffset.scalar(weight));
+            for (let i = 0; i < numVertices; ++i) {
+                this.weights[i] = new Array(numBones);
+                this.offsets[i] = new Array(numBones);
             }
         }
-        vba.setPosition(vertex, [position.x, position.y, position.z]);
     }
 
-    visual.updateModelSpace(L5.Visual.GU_NORMALS);
-    L5.Renderer.updateAll(visual.vertexBuffer());
-    return true;
-};
+    /**
+     * 动画更新
+     * @param {number} applicationTime 毫秒
+     * @returns {boolean}
+     */
+    update(applicationTime) {
+        if (!super.update(applicationTime)) {
+            return false;
+        }
 
+        let visual = this.object;
+        console.assert(
+            this.numVertices === visual.vertexBuffer.numElements,
+            'Controller must have the same number of vertices as the buffer'
+        );
 
-/**
- * @param inStream {L5.InStream}
- */
-L5.SkinController.prototype.load = function (inStream) {
+        let vba = VertexBufferAccessor.fromVisual(visual);
 
-    L5.Controller.prototype.load.call(this, inStream);
-    var numVertices = inStream.readUint32();
-    var numBones = inStream.readUint32();
+        // 在骨骼的世界坐标系计算蒙皮顶点, 所以visual的worldTransform必须是单位Transform
+        visual.worldTransform = Transform.IDENTITY;
+        visual.worldTransformIsCurrent = true;
 
-    this.numVertices = numVertices;
-    this.numBones = numBones;
-    this._init();
-    var total = this.numVertices * this.numBones, i;
-    var t = inStream.readArray(total);
-    var t1 = inStream.readSizedPointArray(total);
-    for (i = 0; i < numVertices; ++i) {
-        this.weights[i] = t.slice(i * numBones, (i + 1) * numBones);
-        this.offsets[i] = t1.slice(i * numBones, (i + 1) * numBones);
+        // 计算蒙皮顶点位置
+        let nv = this.numVertices,
+            nb = this.numBones,
+            vertex, bone, weight, offset, worldOffset, position;
+        for (vertex = 0; vertex < nv; ++vertex) {
+            position = Point.ORIGIN;
+
+            for (bone = 0; bone < nb; ++bone) {
+                weight = this.weights[vertex][bone];
+                if (weight !== 0) {
+                    offset = this.offsets[vertex][bone];
+                    worldOffset = this.bones[bone].worldTransform.mulPoint(offset);
+                    position = position.add(worldOffset.scalar(weight));
+                }
+            }
+            vba.setPosition(vertex, position);
+        }
+
+        visual.updateModelSpace(Visual.GU_NORMALS);
+        Renderer.updateAll(visual.vertexBuffer());
+        return true;
     }
-    this.bones = inStream.readSizedPointerArray(numBones);
 
-};
+    /**
+     * 文件载入支持
+     * @param {InStream} inStream
+     */
+    load(inStream) {
+        super.load(inStream);
+        let numVertices = inStream.readUint32();
+        let numBones = inStream.readUint32();
 
-L5.SkinController.prototype.link = function (inStream) {
-    L5.Controller.prototype.link.call(this, inStream);
-    inStream.resolveArrayLink(this.numBones, this.bones);
-};
+        this.numVertices = numVertices;
+        this.numBones = numBones;
+        this.__init();
+        let total = this.numVertices * this.numBones, i;
+        let t = inStream.readArray(total);
+        let t1 = inStream.readSizedPointArray(total);
+        for (i = 0; i < numVertices; ++i) {
+            this.weights[i] = t.slice(i * numBones, (i + 1) * numBones);
+            this.offsets[i] = t1.slice(i * numBones, (i + 1) * numBones);
+        }
+        this.bones = inStream.readSizedPointerArray(numBones);
+    }
 
+    /**
+     * 文件载入支持
+     * @param {InStream} inStream
+     */
+    link(inStream) {
+        super.link(inStream);
+        inStream.resolveArrayLink(this.numBones, this.bones);
+    }
+}
 
-/**
- * 文件解析工厂方法
- * @param inStream {L5.InStream}
- * @returns {L5.SkinController}
- */
-L5.SkinController.factory = function (inStream) {
-    var obj = new L5.SkinController(0, 0);
-    obj.load(inStream);
-    return obj;
-};
-
-L5.D3Object.factories.set('Wm5.SkinController', L5.SkinController.factory);
+D3Object.Register('L5.SkinController', SkinController.factory.bind(SkinController));

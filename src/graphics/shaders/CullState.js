@@ -1,44 +1,48 @@
 /**
  * 剔除表面 状态
  *
- * @extends {L5.D3Object}
- * @class
- *
  * @author lonphy
- * @version 1.0
+ * @version 2.0
+ *
+ * @type {CullState}
+ * @extends {D3Object}
  */
-L5.CullState = function () {
-    L5.D3Object.call(this);
-    this.enabled = true;
-    this.CCWOrder = true;
-};
+import {D3Object} from '../../core/D3Object'
+import {InStream} from '../../core/InStream'
+import * as util from '../../util/util'
 
-L5.nameFix(L5.CullState, 'CullState');
-L5.extendFix(L5.CullState, L5.D3Object);
+export class CullState extends D3Object{
 
-L5.CullState.prototype.load = function (inStream) {
-    L5.D3Object.prototype.load.call(this, inStream);
+    constructor(){
+        super();
+        this.enabled = true;
+        this.CCWOrder = true;
+    }
 
-    this.enabled = inStream.readBool();
-    this.CCWOrder = inStream.readBool();
-};
+    load(inStream) {
+        super.load(inStream);
+        this.enabled = inStream.readBool();
+        this.CCWOrder = inStream.readBool();
+    }
 
-L5.CullState.prototype.save = function (outStream) {
-    L5.D3Object.prototype.save.call(this, outStream);
-    outStream.writeBool(this.enabled);
-    outStream.writeBool(this.CCWOrder);
-};
+    save(outStream) {
+        super.save(outStream);
+        outStream.writeBool(this.enabled);
+        outStream.writeBool(this.CCWOrder);
+    }
 
-/**
- * 文件解析工厂方法
- * @param inStream {L5.InStream}
- * @returns {L5.CullState}
- */
-L5.CullState.factory = function (inStream) {
-    var obj = new L5.CullState();
-    obj.enabled = false;
-    obj.CCWOrder = false;
-    obj.load(inStream);
-    return obj;
-};
-L5.D3Object.factories.set('Wm5.CullState', L5.CullState.factory);
+    /**
+     * 文件解析工厂方法
+     * @param inStream {InStream}
+     * @returns {CullState}
+     */
+    static factory(inStream) {
+        var obj = new CullState();
+        obj.enabled = false;
+        obj.CCWOrder = false;
+        obj.load(inStream);
+        return obj;
+    }
+}
+
+D3Object.Register('L5.CullState', CullState.factory);

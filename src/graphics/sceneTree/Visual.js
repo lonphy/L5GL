@@ -1,106 +1,249 @@
 /**
  * Visual
- *
- * @param type {number} primitiveType
- * @param format {L5.VertexFormat}
- * @param vertexBuffer {L5.VertexBuffer}
- * @param indexBuffer {L5.IndexBuffer}
- * @class
- *
- * @extends {L5.Spatial}
- *
- * @version 1.0
- * @author lonphy
  */
-L5.Visual = function (type, format, vertexBuffer, indexBuffer) {
-    L5.Spatial.call(this);
+import { Spatial } from './Spatial'
+import { Bound } from '../dataTypes/Bound'
+import * as util from '../../util/util'
+import { VertexFormat, VertexBufferAccessor, VertexBuffer } from '../resources/namespace'
 
-    this.primitiveType = type || L5.Visual.PT_NONE;
-
-    /**
-     * @type {L5.VertexFormat}
-     */
-    this.format = format;
+export class Visual extends Spatial {
 
     /**
-     * @type {L5.VertexBuffer}
+     * @param {number} type primitiveType
+     * @param {VertexFormat} format
+     * @param {VertexBuffer} vertexBuffer
+     * @param {IndexBuffer} indexBuffer
      */
-    this.vertexBuffer = vertexBuffer;
+    constructor(type, format, vertexBuffer, indexBuffer) {
+        super();
+        this.primitiveType = type || Visual.PT_NONE;
 
-    /**
-     * @type {L5.IndexBuffer}
-     */
-    this.indexBuffer = indexBuffer;
-    /**
-     * @type {L5.Bound}
-     */
-    this.modelBound = new L5.Bound();
+        /**
+         * @type {VertexFormat}
+         */
+        this.format = format;
 
-    /**
-     * Shader effect used to draw the Visual.
-     * @type {L5.VisualEffectInstance}
-     * @private
-     */
-    this.effect = null;
+        /**
+         * @type {VertexBuffer}
+         */
+        this.vertexBuffer = vertexBuffer;
 
-    if (format && vertexBuffer && indexBuffer) {
-        this.updateModelSpace(L5.Spatial.GU_MODEL_BOUND_ONLY);
-    }
-};
+        /**
+         * @type {IndexBuffer}
+         */
+        this.indexBuffer = indexBuffer;
+        this.modelBound = new Bound();
 
-L5.nameFix(L5.Visual, 'Visual');
-L5.extendFix(L5.Visual, L5.Spatial);
+        /**
+         * Shader effect used to draw the Visual.
+         * @type {VisualEffectInstance}
+         * @private
+         */
+        this.effect = null;
 
-L5.Visual.prototype.updateModelSpace = function (type) {
-    this.updateModelBound();
-};
+        // true则以线框模式渲染
+        this.wire = false;
 
-L5.Visual.prototype.updateWorldBound = function () {
-    this.modelBound.transformBy(this.worldTransform, this.worldBound);
-};
-L5.Visual.prototype.updateModelBound = function () {
-    var numVertices = this.vertexBuffer.numElements;
-    const format = this.format;
-    var stride = format.stride;
-
-    var posIndex = format.getIndex(L5.VertexFormat.AU_POSITION);
-    if (posIndex == -1) {
-        L5.assert(false, 'Update requires vertex positions');
-        return;
+        if (format && vertexBuffer && indexBuffer) {
+            this.updateModelSpace(Spatial.GU_MODEL_BOUND_ONLY);
+        }
     }
 
-    var posType = format.getAttributeType(posIndex);
-    if (posType != L5.VertexFormat.AT_FLOAT3 &&
-        posType != L5.VertexFormat.AT_FLOAT4
-    ) {
-        L5.assert(false, 'Positions must be 3-tuples or 4-tuples');
-        return;
+    updateModelSpace(type) {
+        this.updateModelBound();
     }
 
-    var data = this.vertexBuffer.getData();
-    var posOffset = format.getOffset(posIndex);
-    this.modelBound.computeFromData(numVertices, stride, data.slice(posOffset));
-};
+    updateWorldBound() {
+        this.modelBound.transformBy(this.worldTransform, this.worldBound);
+    }
 
-/**
- * Support for hierarchical culling.
- * @param culler {L5.Culler}
- * @param noCull {boolean}
- */
-L5.Visual.prototype.getVisibleSet = function (culler, noCull) {
-    culler.insert(this);
-};
+    updateModelBound() {
+        var numVertices = this.vertexBuffer.numElements;
+        const format = this.format;
+        var stride = format.stride;
+
+        var posIndex = format.getIndex(VertexFormat.AU_POSITION);
+        if (posIndex == -1) {
+            console.assert(false, 'Update requires vertex positions');
+            return;
+        }
+
+        var posType = format.getAttributeType(posIndex);
+        if (posType != VertexFormat.AT_FLOAT3 && posType != VertexFormat.AT_FLOAT4) {
+            console.assert(false, 'Positions must be 3-tuples or 4-tuples');
+            return;
+        }
+
+        var data = this.vertexBuffer.getData();
+        var posOffset = format.getOffset(posIndex);
+        this.modelBound.computeFromData(numVertices, stride, data.slice(posOffset).buffer);
+    }
+
+    /**
+     * Support for hierarchical culling.
+     * @param {Culler} culler
+     * @param {boolean} noCull
+     */
+    getVisibleSet(culler, noCull) {
+        culler.insert(this);
+    }
+
+    /**
+     * @param fileName {string} 文件
+     */
+    static loadWMVF(fileName) {
+        return new Promise(function (resolve, reject) {
+            var load = new L5.XhrTask(fileName, 'arraybuffer');
+            load.then(function (data) {
+                var inFile = new DataView(data);
+                var ret = {};
+                inFile.offset = 0;
+                ret.primitiveType = inFile.getInt32(inFile.offset, true);
+                inFile.offset += 4;
+
+                ret.format = Visual.loadVertexFormat(inFile); // ok
+                ret.vertexBuffer = Visual.loadVertexBuffer(inFile, ret.format);
+                ret.indexBuffer = Visual.loadIndexBuffer(inFile);
+
+                console.log(data.byteLength);
+                console.log(inFile.offset);
+
+                resolve(ret);
+            }).catch(function (err) {
+                console.log(err);
+                reject(err);
+            });
+        }).catch(function (err) {
+            console.assert(false, "Failed to open file :" + fileName);
+        });
+    }
+
+    /**
+     * 解析顶点格式
+     * @param inFile {DataView}
+     * @returns {VertexFormat}
+     */
+    static loadVertexFormat(inFile) {
+        var numAttributes = inFile.getInt32(inFile.offset, true);
+        inFile.offset += 4;
+
+        var format = new VertexFormat(numAttributes);
+        var streamIndex, offset, usageIndex, type, usage;
+
+        for (var i = 0; i < numAttributes; ++i) {
+            streamIndex = inFile.getUint32(inFile.offset, true);
+            inFile.offset += 4;
+
+            offset = inFile.getUint32(inFile.offset, true);
+            inFile.offset += 4;
+
+            type = inFile.getInt32(inFile.offset, true);
+            inFile.offset += 4;
+
+            usage = inFile.getInt32(inFile.offset, true);
+            inFile.offset += 4;
+
+            usageIndex = inFile.getUint32(inFile.offset, true);
+            inFile.offset += 4;
+
+            format.setAttribute(i, streamIndex, offset, type, usage, usageIndex);
+        }
+
+        format.stride = inFile.getInt32(inFile.offset, true);
+        inFile.offset += 4;
+
+        return format;
+    }
+
+    /**
+     * 解析顶点缓冲对象
+     * @param {BinDataView} inFile
+     * @param {VertexFormat} format
+     * @returns {VertexBuffer}
+     */
+    static loadVertexBuffer(inFile, format) {
+        var numElements = inFile.getInt32(inFile.offset, true);
+        inFile.offset += 4;
+
+        var elementSize = inFile.getInt32(inFile.offset, true);
+        inFile.offset += 4;
+
+        var usage = inFile.getInt32(inFile.offset, true);
+        inFile.offset += 4;
+
+        var buffer = new VertexBuffer(numElements, elementSize, usage);
+        var vba = new VertexBufferAccessor(format, buffer);
+        // end ok
+
+        vba.read(inFile);
+
+        return buffer;
+    }
+
+    /**
+     * @param {BinDataView} inFile
+     * @returns {IndexBuffer}
+     */
+    static loadIndexBuffer(inFile) {
+        var numElements = inFile.getInt32(inFile.offset, true);
+        inFile.offset += 4;
+
+        if (numElements > 0) {
+            var elementSize = inFile.getInt32(inFile.offset, true);
+            inFile.offset += 4;
+            var usage = inFile.getInt32(inFile.offset, true);
+            inFile.offset += 4;
+            var offset = inFile.getInt32(inFile.offset, true);
+            inFile.offset += 4;
+
+            var buffer = new IndexBuffer(numElements, elementSize, usage);
+            buffer.offset = offset;
+            //var start = inFile.offset;
+            // var end = start + buffer.numBytes;
+            buffer.getData().set(new Uint8Array(inFile.buffer, inFile.offset, buffer.numBytes));
+
+            inFile.offset += buffer.numBytes;
+
+            return buffer;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param {InStream} inStream
+     */
+    load(inStream) {
+        super.load(inStream);
+        this.type = inStream.readEnum();
+        this.modelBound = inStream.readBound();
+        this.format = inStream.readPointer();
+        this.vertexBuffer = inStream.readPointer();
+        this.indexBuffer = inStream.readPointer();
+        this.effect = inStream.readPointer();
+    }
+
+    link(inStream) {
+        super.link(inStream);
+        this.format = inStream.resolveLink(this.format);
+        this.vertexBuffer = inStream.resolveLink(this.vertexBuffer);
+        this.indexBuffer = inStream.resolveLink(this.indexBuffer);
+        this.effect = inStream.resolveLink(this.effect);
+    }
+}
 
 /////////////////// 绘制类型 //////////////////////////////
-L5.Visual.PT_NONE = 0;  // 默认
-L5.Visual.PT_POLYPOINT = 1;   // 点
-L5.Visual.PT_POLYSEGMENTS_DISJOINT = 2;
-L5.Visual.PT_POLYSEGMENTS_CONTIGUOUS = 3;
-L5.Visual.PT_TRIANGLES = 4;  // abstract
-L5.Visual.PT_TRIMESH = 5;
-L5.Visual.PT_TRISTRIP = 6;
-L5.Visual.PT_TRIFAN = 7;
-L5.Visual.PT_MAX_QUANTITY = 8;
+util.DECLARE_ENUM(Visual, {
+    PT_NONE: 0,  // 默认
+    PT_POLYPOINT: 1,   // 点
+    PT_POLYSEGMENTS_DISJOINT: 2,
+    PT_POLYSEGMENTS_CONTIGUOUS: 3,
+    PT_TRIANGLES: 4,  // abstract
+    PT_TRIMESH: 5,
+    PT_TRISTRIP: 6,
+    PT_TRIFAN: 7,
+    PT_MAX_QUANTITY: 8
+}, false);
 
 // Geometric updates.  If the positions in the vertex buffer have been
 // modified, you might want to update the surface frames (normals,
@@ -139,28 +282,9 @@ L5.Visual.PT_MAX_QUANTITY = 8;
 // shaders use normals, tangents, and bitangents, consider passing in
 // normals and tangents, and then have the shader compute the bitangent as
 //    bitangent = Cross(normal, tangent)
-L5.Visual.GU_MODEL_BOUND_ONLY = -3;
-L5.Visual.GU_NORMALS = -2;
-L5.Visual.GU_USE_GEOMETRY = -1;
-L5.Visual.GU_USE_TCOORD_CHANNEL = 0;
-
-/**
- * @param inStream {L5.InStream}
- */
-L5.Visual.prototype.load = function (inStream) {
-    L5.Spatial.prototype.load.call(this, inStream);
-    this.type = inStream.readEnum();
-    this.modelBound = inStream.readBound();
-    this.format = inStream.readPointer();
-    this.vertexBuffer = inStream.readPointer();
-    this.indexBuffer = inStream.readPointer();
-    this.effect = inStream.readPointer();
-};
-
-L5.Visual.prototype.link = function (inStream) {
-    L5.Spatial.prototype.link.call(this, inStream);
-    this.format = inStream.resolveLink(this.format);
-    this.vertexBuffer = inStream.resolveLink(this.vertexBuffer);
-    this.indexBuffer = inStream.resolveLink(this.indexBuffer);
-    this.effect = inStream.resolveLink(this.effect);
-};
+util.DECLARE_ENUM(Visual, {
+    GU_MODEL_BOUND_ONLY: -3,
+    GU_NORMALS: -2,
+    GU_USE_GEOMETRY: -1,
+    GU_USE_TCOORD_CHANNEL: 0
+});

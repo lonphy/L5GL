@@ -1,19 +1,16 @@
 /**
- * ??? VWMatrixConstant
- * @constructor
- *
- * @extends {L5.ShaderFloat}
+ * 视图-世界坐标系矩
  */
-L5.VWMatrixConstant = function () {
-    L5.ShaderFloat.call(this, 4);
-    this.allowUpdater = true;
-};
-L5.nameFix(L5.VWMatrixConstant, 'VWMatrixConstant');
-L5.extendFix(L5.VWMatrixConstant, L5.ShaderFloat);
-/**
- *
- * @param visual {L5.Visual}
- * @param camera {L5.Camera}
- */
-L5.VWMatrixConstant.prototype.update = function (visual, camera) {
-};
+import {ShaderFloat} from './ShaderFloat'
+import {D3Object} from '../../core/D3Object'
+
+export class VWMatrixConstant extends ShaderFloat{
+
+    constructor() {
+        super(4);
+        this.allowUpdater = true;
+    }
+
+    update(visual, camera) {
+    }
+}

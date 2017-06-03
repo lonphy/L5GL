@@ -1,0 +1,25 @@
+@charset "utf-8";
+html, body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+}
+
+.nodes-info {
+    position:absolute;
+    top:10px;
+    right:10px;
+    width:256px;
+    background: rgba(0,0,0,0.5);
+    border-radius: 5px;
+    min-height: 40px;
+    box-shadow: 0 1px 8px #000;
+    color:#fff;
+}
+
+.nodes-info > div {
+    padding: 5px;
+    line-height: 24px;
+    text-align: right;
+}

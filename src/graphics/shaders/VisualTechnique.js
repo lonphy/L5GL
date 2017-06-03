@@ -1,177 +1,153 @@
 /**
  * VisualTechnique
- * @class
- * @extends {L5.D3Object}
  *
  * @author lonphy
- * @version 1.0
+ * @version 2.0
  */
-L5.VisualTechnique = function () {
-    L5.D3Object.call(this);
-    this.passes = [];
-};
+import {D3Object} from '../../core/D3Object'
 
-L5.nameFix(L5.VisualTechnique, 'VisualTechnique');
-L5.extendFix(L5.VisualTechnique, L5.D3Object);
+export class VisualTechnique extends D3Object {
 
-/**
- *
- * @param pass {L5.VisualPass}
- */
-L5.VisualTechnique.prototype.insertPass = function (pass) {
-    if (pass) {
-        this.passes.push(pass);
-    }
-    else {
-        L5.assert(false, 'Input to insertPass must be nonnull.');
-    }
-};
-/**
- *
- * @returns {number}
- */
-L5.VisualTechnique.prototype.getNumPasses = function () {
-    return this.passes.length;
-};
-/**
- *
- * @returns {number}
- */
-L5.VisualTechnique.prototype.getPass = function (passIndex) {
-    if (0 <= passIndex && passIndex < this.passes.length) {
-        return this.passes[passIndex];
-    }
-    L5.assert(false, "Invalid index in GetPass.\n");
-    return null;
-};
+    constructor() {
+        super();
 
-/**
- * @param passIndex {number}
- * @returns {L5.VertexShader}
- */
-L5.VisualTechnique.prototype.getVertexShader = function (passIndex) {
-    if (0 <= passIndex && passIndex < this.passes.length) {
-        return this.passes[passIndex].getVertexShader();
+        /**
+         * @type {Array<VisualPass>}
+         */
+        this.passes = [];
     }
 
-    L5.assert(false, 'Invalid index in getVertexShader.');
-    return null;
-};
-/**
- * @param passIndex {number}
- * @returns {L5.FragShader}
- */
-L5.VisualTechnique.prototype.getFragShader = function (passIndex) {
-    if (0 <= passIndex && passIndex < this.passes.length) {
-        return this.passes[passIndex].getFragShader();
+    /**
+     * @param {VisualPass} pass
+     */
+    insertPass(pass) {
+        if (pass) {
+            this.passes.push(pass);
+        } else {
+            console.assert(false, 'Input to insertPass must be nonnull.');
+        }
     }
 
-    L5.assert(false, 'Invalid index in getFragShader.');
-    return null;
-};
-
-/**
- * @param passIndex {number}
- * @returns {L5.AlphaState}
- */
-L5.VisualTechnique.prototype.getAlphaState = function (passIndex) {
-    if (0 <= passIndex && passIndex < this.passes.length) {
-        return this.passes[passIndex].alphaState;
+    /**
+     * @returns {number}
+     */
+    getNumPasses() {
+        return this.passes.length;
     }
 
-    L5.assert(false, 'Invalid index in getAlphaState.');
-    return null;
-};
-/**
- * @param passIndex {number}
- * @returns {L5.CullState}
- */
-L5.VisualTechnique.prototype.getCullState = function (passIndex) {
-    if (0 <= passIndex && passIndex < this.passes.length) {
-        return this.passes[passIndex].cullState;
+    /**
+     * @returns {number|null}
+     */
+    getPass(passIndex) {
+        if (0 <= passIndex && passIndex < this.passes.length) {
+            return this.passes[passIndex];
+        }
+        console.warn("Invalid index in GetPass.");
+        return null;
     }
 
-    L5.assert(false, 'Invalid index in getCullState.');
-    return null;
-};
-/**
- * @param passIndex {number}
- * @returns {L5.DepthState}
- */
-L5.VisualTechnique.prototype.getDepthState = function (passIndex) {
-    if (0 <= passIndex && passIndex < this.passes.length) {
-        return this.passes[passIndex].depthState;
+    /**
+     * @param {number} passIndex
+     * @returns {VertexShader}
+     */
+    getVertexShader(passIndex) {
+        if (0 <= passIndex && passIndex < this.passes.length) {
+            return this.passes[passIndex].getVertexShader();
+        }
+        console.warn('Invalid index in getVertexShader.');
+        return null;
     }
 
-    L5.assert(false, 'Invalid index in getDepthState.');
-    return null;
-};
-/**
- * @param passIndex {number}
- * @returns {L5.OffsetState}
- */
-L5.VisualTechnique.prototype.getOffsetState = function (passIndex) {
-    if (0 <= passIndex && passIndex < this.passes.length) {
-        return this.passes[passIndex].offsetState;
+    /**
+     * @param {number} passIndex
+     * @returns {FragShader}
+     */
+    getFragShader(passIndex) {
+        if (0 <= passIndex && passIndex < this.passes.length) {
+            return this.passes[passIndex].getFragShader();
+        }
+        console.warn('Invalid index in getFragShader.');
+        return null;
     }
 
-    L5.assert(false, 'Invalid index in getOffsetState.');
-    return null;
-};
-/**
- * @param passIndex {number}
- * @returns {L5.StencilState}
- */
-L5.VisualTechnique.prototype.getStencilState = function (passIndex) {
-    if (0 <= passIndex && passIndex < this.passes.length) {
-        return this.passes[passIndex].stencilState;
+    /**
+     * @param {number} passIndex
+     * @returns {AlphaState}
+     */
+    getAlphaState(passIndex) {
+        if (0 <= passIndex && passIndex < this.passes.length) {
+            return this.passes[passIndex].alphaState;
+        }
+        console.warn('Invalid index in getAlphaState.');
+        return null;
     }
 
-    L5.assert(false, 'Invalid index in getStencilState.');
-    return null;
-};
-/**
- * @param passIndex {number}
- * @returns {L5.WireState}
- */
-L5.VisualTechnique.prototype.getWireState = function (passIndex) {
-    if (0 <= passIndex && passIndex < this.passes.length) {
-        return this.passes[passIndex].wireState;
+    /**
+     * @param {number} passIndex
+     * @returns {CullState}
+     */
+    getCullState(passIndex) {
+        if (0 <= passIndex && passIndex < this.passes.length) {
+            return this.passes[passIndex].cullState;
+        }
+        console.warn('Invalid index in getCullState.');
+        return null;
     }
 
-    L5.assert(false, 'Invalid index in getWireState.');
-    return null;
-};
+    /**
+     * @param {number} passIndex
+     * @returns {DepthState}
+     */
+    getDepthState(passIndex) {
+        if (0 <= passIndex && passIndex < this.passes.length) {
+            return this.passes[passIndex].depthState;
+        }
+        console.warn('Invalid index in getDepthState.');
+        return null;
+    }
 
+    /**
+     * @param {number} passIndex
+     * @returns {OffsetState}
+     */
+    getOffsetState(passIndex) {
+        if (0 <= passIndex && passIndex < this.passes.length) {
+            return this.passes[passIndex].offsetState;
+        }
+        console.warn('Invalid index in getOffsetState.');
+        return null;
+    }
 
-L5.VisualTechnique.prototype.load = function (inStream) {
-    L5.D3Object.prototype.load.call(this, inStream);
+    /**
+     * @param {number} passIndex
+     * @returns {StencilState}
+     */
+    getStencilState(passIndex) {
+        if (0 <= passIndex && passIndex < this.passes.length) {
+            return this.passes[passIndex].stencilState;
+        }
+        console.warn('Invalid index in getStencilState.');
+        return null;
+    }
 
-    var numPasses = inStream.readUint32();
-    this.passes.length = numPasses;
-    this.passes = inStream.readSizedPointerArray(numPasses);
-};
+    load(inStream) {
+        super.load(inStream);
+        var numPasses = inStream.readUint32();
+        this.passes.length = numPasses;
+        this.passes = inStream.readSizedPointerArray(numPasses);
+    }
 
-L5.VisualTechnique.prototype.link = function (inStream) {
-    L5.D3Object.prototype.link.call(this, inStream);
-    this.passes.forEach(function (p, i) {
-        this.passes[i] = inStream.resolveLink(p);
-    }, this);
-};
+    link(inStream) {
+        super.link(inStream);
+        this.passes.forEach(function (p, i) {
+            this.passes[i] = inStream.resolveLink(p);
+        }, this);
+    }
 
-L5.VisualTechnique.prototype.save = function (inStream) {
-    L5.D3Object.prototype.save.call(this, inStream);
-    // todo: implement
-};
+    save(inStream) {
+        super.save(inStream);
+        // todo: implement
+    }
+}
 
-/**
- * 文件解析工厂方法
- * @param inStream {L5.InStream}
- * @returns {L5.VisualTechnique}
- */
-L5.VisualTechnique.factory = function (inStream) {
-    var obj = new L5.VisualTechnique();
-    obj.load(inStream);
-    return obj;
-};
-L5.D3Object.factories.set('Wm5.VisualTechnique', L5.VisualTechnique.factory);
+D3Object.Register('VisualTechnique', VisualTechnique.factory.bind(VisualTechnique));

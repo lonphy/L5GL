@@ -1,3 +1,3 @@
-L5.ScreenTarget = function(){};
+export class ScreenTarget {
 
-L5.nameFix(L5.ScreenTarget, 'ScreenTarget');
+}

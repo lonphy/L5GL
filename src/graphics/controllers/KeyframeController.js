@@ -1,8 +1,24 @@
-import {D3Object} from '../../core/D3Object'
-import {Point, Matrix} from '../../math/index'
-import {TransformController} from './TransformController'
+import { D3Object } from '../../core/D3Object';
+import { Point, Matrix, Quaternion } from '../../math/index';
+import { TransformController } from './TransformController';
 
-export class KeyframeController extends TransformController {
+/**
+ * construction. If the translations, rotations, and
+ * scales all share the same keyframe times, then numCommonTimes is
+ * set to a positive number.  Each remaining number is numCommonTimes
+ * when the channel exists or zero when it does not.  If the keyframe
+ * times are not shared, then numCommonTimes must be set to zero and
+ * the remaining numbers set to the appropriate values--positive when
+ * the channel exists or zero otherwise.
+ * 
+ * The Transform input initializes the controlled object's local
+ * transform.  The previous behavior of this class was to fill in only
+ * those transformation channels represented by the key frames, which
+ * relied implicitly on the Spatial object to have its other channels
+ * set appropriately by the application.  Now KeyframeController sets
+ * *all* the channels.
+ */
+class KeyframeController extends TransformController {
 
     /**
      * @param {number} numCommonTimes
@@ -15,6 +31,8 @@ export class KeyframeController extends TransformController {
         super(localTransform);
         if (numCommonTimes > 0) {
             this.numCommonTimes = numCommonTimes;
+
+            // This array is used only when times are shared by translations, rotations, and scales.
             this.commonTimes = new Array(numCommonTimes);
 
             if (numTranslations > 0) {
@@ -88,14 +106,16 @@ export class KeyframeController extends TransformController {
             }
         }
 
+        // Cached indices for the last found pair of keys used for interpolation.
+        // For a sequence of times, this guarantees an O(1) lookup.
         this.tLastIndex = 0;
         this.rLastIndex = 0;
         this.sLastIndex = 0;
         this.cLastIndex = 0;
     }
+
     /**
-     * 动画更新
-     * @param {number} applicationTime
+     * @param {number} applicationTime - ms
      */
     update(applicationTime) {
         if (!super.update(applicationTime)) {
@@ -103,8 +123,8 @@ export class KeyframeController extends TransformController {
         }
 
         let ctrlTime = this.getControlTime(applicationTime);
-        let trn = new Point();
-        let rot = new Matrix();
+        let trn = Point.ORIGIN;
+        let rot = Matrix.IDENTITY;
         let scale = 0;
         let t;
 
@@ -154,11 +174,19 @@ export class KeyframeController extends TransformController {
             }
         }
 
-        this.object.localTransform = this.localTransform;
+        this.object.localTransform.copy(this.localTransform);
         return true;
     }
 
     // Support for looking up keyframes given the specified time.
+
+    /**
+     * @param {number} ctrlTime 
+     * @param {number} numTimes 
+     * @param {Array<number>} times 
+     * @param {number} lIndex
+     * @protected
+     */
     static getKeyInfo(ctrlTime, numTimes, times, lIndex) {
         if (ctrlTime <= times[0]) {
             return [0, 0, 0, 0];
@@ -202,45 +230,43 @@ export class KeyframeController extends TransformController {
     }
 
     /**
-     *
-     * @param normTime
-     * @param i0
-     * @param i1
+     * @param {number} normTime
+     * @param {number} i0
+     * @param {number} i1
      * @returns {Point}
+     * @protected
      */
     getTranslate(normTime, i0, i1) {
-        let t0 = this.translations[i0];
-        let t1 = this.translations[i1];
-        return t0.add(t1.sub(t0).scalar(normTime));
+        const t0 = this.translations[i0];
+        const t1 = this.translations[i1];
+        return t0.add(t1.sub(t0).scalar(normTime));  // t0 + (t1 - t0) * normalTime
     }
 
     /**
      *
-     * @param normTime
-     * @param i0
-     * @param i1
+     * @param {number} normTime
+     * @param {number} i0
+     * @param {number} i1
      * @returns {Matrix}
+     * @protected
      */
     getRotate(normTime, i0, i1) {
-        let q = new L5.Quaternion();
+        let q = new Quaternion();
         q.slerp(normTime, this.rotations[i0], this.rotations[i1]);
         return q.toRotateMatrix();
     }
 
     /**
-     *
-     * @param normTime
-     * @param i0
-     * @param i1
+     * @param {number} normTime
+     * @param {number} i0
+     * @param {number} i1
      * @returns {number}
+     * @protected
      */
     getScale(normTime, i0, i1) {
         return this.scales[i0] + normTime * (this.scales[i1] - this.scales[i0]);
     }
 
-    /**
-     * @param inStream {InStream}
-     */
     load(inStream) {
 
         super.load(inStream);
@@ -272,11 +298,6 @@ export class KeyframeController extends TransformController {
         }
     }
 
-    /**
-     * 文件解析工厂方法
-     * @param inStream {InStream}
-     * @returns {KeyframeController}
-     */
     static factory(inStream) {
         let obj = new KeyframeController(0, 0, 0, 0, 0);
         obj.load(inStream);
@@ -284,4 +305,6 @@ export class KeyframeController extends TransformController {
     }
 }
 
-D3Object.Register('L5.KeyframeController', KeyframeController.factory);
+D3Object.Register('KeyframeController', KeyframeController.factory);
+
+export { KeyframeController };

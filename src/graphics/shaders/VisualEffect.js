@@ -1,12 +1,6 @@
-/**
- * VisualEffect
- *
- * @author lonphy
- * @version 2.0
- */
-import {D3Object} from '../../core/D3Object'
+import { D3Object } from '../../core/D3Object';
 
-export class VisualEffect extends D3Object{
+class VisualEffect extends D3Object {
 
     constructor() {
         super('VisualEffect');
@@ -14,7 +8,7 @@ export class VisualEffect extends D3Object{
     }
 
     /**
-     * @param technique {VisualTechnique}
+     * @param {VisualTechnique} technique
      */
     insertTechnique(technique) {
         if (technique) {
@@ -33,46 +27,46 @@ export class VisualEffect extends D3Object{
     }
 
     /**
-     * @param techniqueIndex {number}
+     * @param {number} techniqueIndex
      * @returns {number}
      */
     getNumPasses(techniqueIndex) {
         if (0 <= techniqueIndex && techniqueIndex < this.techniques.length) {
             return this.techniques[techniqueIndex].getNumPass();
         }
-        console.warn("Invalid index in getNumPasses.\n");
+        console.warn('Invalid index in getNumPasses.');
         return 0;
     }
 
     /**
-     * @param techniqueIndex {number}
-     * @returns {L5.VisualTechnique}
+     * @param {number} techniqueIndex
+     * @returns {VisualTechnique}
      */
     getTechnique(techniqueIndex) {
         if (0 <= techniqueIndex && techniqueIndex < this.techniques.length) {
             return this.techniques[techniqueIndex];
         }
-        console.warn("Invalid index in getTechnique.\n");
+        console.warn('Invalid index in getTechnique.');
         return null;
     }
 
     /**
-     * @param techniqueIndex {number}
-     * @param passIndex {number}
-     * @returns {L5.VisualPass}
+     * @param {number} techniqueIndex
+     * @param {number} passIndex
+     * @returns {VisualPass}
      */
     getPass(techniqueIndex, passIndex) {
         if (0 <= techniqueIndex && techniqueIndex < this.techniques.length) {
             return this.techniques[techniqueIndex].getPass(passIndex);
         }
-        console.warn("Invalid index in GetPass.\n");
+        console.warn('Invalid index in GetPass.');
         return null;
     }
 
     /**
-     * @param techniqueIndex {number}
-     * @param passIndex {number}
-     * @returns {L5.VertexShader}
+     * @param {number} techniqueIndex
+     * @param {number} passIndex
+     * @returns {VertexShader}
      */
     getVertexShader(techniqueIndex, passIndex) {
         if (0 <= techniqueIndex && techniqueIndex < this.techniques.length) {
@@ -84,9 +78,9 @@ export class VisualEffect extends D3Object{
     }
 
     /**
-     * @param techniqueIndex {number}
-     * @param passIndex {number}
-     * @returns {L5.FragShader}
+     * @param {number} techniqueIndex
+     * @param {number} passIndex
+     * @returns {FragShader}
      */
     getFragShader(techniqueIndex, passIndex) {
         if (0 <= techniqueIndex && techniqueIndex < this.techniques.length) {
@@ -98,9 +92,9 @@ export class VisualEffect extends D3Object{
     }
 
     /**
-     * @param techniqueIndex {number}
-     * @param passIndex {number}
-     * @returns {L5.AlphaState}
+     * @param {number} techniqueIndex
+     * @param {number} passIndex
+     * @returns {AlphaState}
      */
     getAlphaState(techniqueIndex, passIndex) {
         if (0 <= techniqueIndex && techniqueIndex < this.techniques.length) {
@@ -110,13 +104,13 @@ export class VisualEffect extends D3Object{
         console.warn('Invalid index in getAlphaState.');
         return null;
     }
-    
+
     /**
-     * @param techniqueIndex {number}
-     * @param passIndex {number}
-     * @returns {L5.CullState}
+     * @param {number} techniqueIndex
+     * @param {number} passIndex
+     * @returns {CullState}
      */
-    getCullState (techniqueIndex, passIndex) {
+    getCullState(techniqueIndex, passIndex) {
         if (0 <= techniqueIndex && techniqueIndex < this.techniques.length) {
             return this.techniques[techniqueIndex].getCullState(passIndex);
         }
@@ -124,13 +118,13 @@ export class VisualEffect extends D3Object{
         console.warn('Invalid index in getCullState.');
         return null;
     }
-    
+
     /**
-     * @param techniqueIndex {number}
-     * @param passIndex {number}
-     * @returns {L5.DepthState}
+     * @param {number} techniqueIndex
+     * @param {number} passIndex
+     * @returns {DepthState}
      */
-    getDepthState (techniqueIndex, passIndex) {
+    getDepthState(techniqueIndex, passIndex) {
         if (0 <= techniqueIndex && techniqueIndex < this.techniques.length) {
             return this.techniques[techniqueIndex].getDepthState(passIndex);
         }
@@ -140,11 +134,11 @@ export class VisualEffect extends D3Object{
     }
 
     /**
-     * @param techniqueIndex {number}
-     * @param passIndex {number}
-     * @returns {L5.OffsetState}
+     * @param {number} techniqueIndex
+     * @param {number} passIndex
+     * @returns {OffsetState}
      */
-    getOffsetState (techniqueIndex, passIndex) {
+    getOffsetState(techniqueIndex, passIndex) {
         if (0 <= techniqueIndex && techniqueIndex < this.techniques.length) {
             return this.techniques[techniqueIndex].getOffsetState(passIndex);
         }
@@ -154,11 +148,11 @@ export class VisualEffect extends D3Object{
     }
 
     /**
-     * @param techniqueIndex {number}
-     * @param passIndex {number}
-     * @returns {L5.StencilState}
+     * @param {number} techniqueIndex
+     * @param {number} passIndex
+     * @returns {StencilState}
      */
-    getStencilState  (techniqueIndex, passIndex) {
+    getStencilState(techniqueIndex, passIndex) {
         if (0 <= techniqueIndex && techniqueIndex < this.techniques.length) {
             return this.techniques[techniqueIndex].getStencilState(passIndex);
         }
@@ -167,21 +161,7 @@ export class VisualEffect extends D3Object{
         return null;
     }
 
-    /**
-     * @param techniqueIndex {number}
-     * @param passIndex {number}
-     * @returns {L5.WireState}
-     */
-    getWireState (techniqueIndex, passIndex) {
-        if (0 <= techniqueIndex && techniqueIndex < this.techniques.length) {
-            return this.techniques[techniqueIndex].getWireState(passIndex);
-        }
-
-        console.warn('Invalid index in getWireState.');
-        return null;
-    }
-
-    load (inStream) {
+    load(inStream) {
         super.load(inStream);
 
         var numTechniques = inStream.readUint32();
@@ -189,10 +169,12 @@ export class VisualEffect extends D3Object{
         this.techniques = inStream.readSizedPointerArray(numTechniques);
     }
 
-    link (inStream) {
+    link(inStream) {
         super.link(inStream);
         this.techniques.forEach(function (t, i) {
             this.techniques[i] = inStream.resolveLink(t);
         }, this);
     }
 }
+
+export { VisualEffect };

@@ -1,13 +1,6 @@
-/**
- * Vector
- */
 import { _Math } from './Math';
 
-/**
- * @type {Vector}
- * @extends {Float32Array}
- */
-export class Vector extends Float32Array {
+class Vector extends Float32Array {
 
     constructor(x = 0, y = 0, z = 0) {
         super(4);
@@ -18,7 +11,7 @@ export class Vector extends Float32Array {
             this[1] = y;
             this[2] = z;
         }
-        // this[3] = 0;
+        this[3] = 0;
     }
 
     get x() {
@@ -65,9 +58,9 @@ export class Vector extends Float32Array {
 
     /**
      * 赋值
-     * @param {float} x
-     * @param {float} y
-     * @param {float} z
+     * @param {number} x
+     * @param {number} y
+     * @param {number} z
      */
     assign(x, y, z) {
         this[0] = x;
@@ -77,14 +70,9 @@ export class Vector extends Float32Array {
 
     /**
      * 求向量长度
-     * none side-effect
-     * @returns {number}
      */
     get length() {
-        let x = this[0];
-        let y = this[1];
-        let z = this[2];
-        return _Math.sqrt(x * x + y * y + z * z);
+        return Math.hypot(this[0], this[1], this[2]);
     }
 
     /**
@@ -299,9 +287,9 @@ export class Vector extends Float32Array {
         vec2.normalize();
         let invLength;
 
-        if (_Math.abs(vec2.x) >= _Math.abs(vec2.y)) {
+        if (Math.abs(vec2.x) >= Math.abs(vec2.y)) {
             // vec2.x or vec2.z is the largest magnitude component, swap them
-            invLength = 1 / _Math.sqrt(vec2.x * vec2.x + vec2.z * vec2.z);
+            invLength = 1 / Math.hypot(vec2.x, vec2.z);
             vec0.x = -vec2.z * invLength;
             vec0.y = 0;
             vec0.z = +vec2.x * invLength;
@@ -311,7 +299,7 @@ export class Vector extends Float32Array {
         }
         else {
             // vec2.y or vec2.z is the largest magnitude component, swap them
-            invLength = 1 / _Math.sqrt(vec2.y * vec2.y + vec2.z * vec2.z);
+            invLength = 1 / Math.hypot(vec2.y, vec2.z);
             vec0.x = 0;
             vec0.y = +vec2.z * invLength;
             vec0.z = -vec2.y * invLength;
@@ -321,3 +309,5 @@ export class Vector extends Float32Array {
         }
     }
 }
+
+export { Vector };

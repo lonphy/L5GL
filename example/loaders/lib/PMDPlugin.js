@@ -124,7 +124,7 @@
         static toCharStrings(s) {
             let str = '';
             for (let i = 0; i < s.length; i++) {
-                str += '0x' + ( '0000' + s[i].charCodeAt().toString(16) ).substr(-4);
+                str += '0x' + ('0000' + s[i].charCodeAt().toString(16)).substr(-4);
             }
             return str;
         }
@@ -184,7 +184,7 @@
         let pmd = Object.create(null);
         pmd.meta = {
             coordinateSystem: 'left',
-            format:           'pmd'
+            format: 'pmd'
         };
 
         // 头部解析
@@ -219,7 +219,7 @@
         pmd.meta.numFace = b.uint32() / 3;
         pmd.faces = new Array(pmd.meta.numFace);
         for (let i = 0, count = pmd.meta.numFace; i < count; ++i) {
-            pmd.faces[i] = {indices: b.uint16Array(3)};
+            pmd.faces[i] = { indices: b.uint16Array(3) };
         }
 
         // 解析材质
@@ -227,14 +227,14 @@
         pmd.materials = new Array(pmd.meta.numMaterial);
         for (let i = 0, count = pmd.meta.numMaterial; i < count; ++i) {
             pmd.materials[i] = {
-                diffuse:   b.float32Array(4),
+                diffuse: b.float32Array(4),
                 shininess: b.float32(),
-                specular:  b.float32Array(3),
-                emissive:  b.float32Array(3),
+                specular: b.float32Array(3),
+                emissive: b.float32Array(3),
                 toonIndex: b.int8(),
-                edgeFlag:  b.uint8(),
-                numFace:   b.uint32() / 3,
-                file:      b.unicodeString(20)
+                edgeFlag: b.uint8(),
+                numFace: b.uint32() / 3,
+                file: b.unicodeString(20)
             };
         }
 
@@ -273,7 +273,7 @@
             p.maxAngle = b.float32();
             p.links = new Array(p.numLink);
             for (let i = 0, count = p.numLink; i < count; ++i) {
-                p.links[i] = {index: b.uint16()};
+                p.links[i] = { index: b.uint16() };
             }
             return p;
         };
@@ -293,7 +293,7 @@
             p.elements = [];
             for (let i = 0, count = p.numElement; i < count; ++i) {
                 p.elements[i] = {
-                    index:    b.uint32(),
+                    index: b.uint32(),
                     position: b.float32Array(3)
                 };
             }
@@ -309,21 +309,21 @@
         pmd.meta.numMorphFrame = b.uint8();
         pmd.morphFrames = new Array(pmd.meta.numMorphFrame);
         for (let i = 0, count = pmd.meta.numMorphFrame; i < count; ++i) {
-            pmd.morphFrames[i] = {index: b.uint16()};
+            pmd.morphFrames[i] = { index: b.uint16() };
         }
 
         // 骨骼帧名称
         pmd.meta.numBoneFrameName = b.uint8();
         pmd.boneFrameNames = new Array(pmd.meta.numBoneFrameName);
         for (let i = 0, count = pmd.meta.numBoneFrameName; i < count; ++i) {
-            pmd.boneFrameNames[i] = {name: b.unicodeString(50)};
+            pmd.boneFrameNames[i] = { name: b.unicodeString(50) };
         }
 
         // 骨骼帧
         pmd.meta.numBoneFrame = b.uint32();
         pmd.boneFrames = new Array(pmd.meta.numBoneFrame);
         for (let i = 0, count = pmd.meta.numBoneFrame; i < count; ++i) {
-            pmd.boneFrames[i] = {boneIndex: b.int16(), frameIndex: b.uint8()};
+            pmd.boneFrames[i] = { boneIndex: b.int16(), frameIndex: b.uint8() };
         }
 
         // 英文兼容
@@ -335,26 +335,26 @@
             // 英文骨骼名
             pmd.englishBoneNames = new Array(pmd.meta.numBone);
             for (let i = 0, count = pmd.meta.numBone; i < count; ++i) {
-                pmd.englishBoneNames[i] = {name: b.unicodeString(20)}
+                pmd.englishBoneNames[i] = { name: b.unicodeString(20) }
             }
 
             // 英文变体名
             pmd.englishMorphNames = new Array(pmd.meta.numMorph);
             for (let i = 0, count = pmd.meta.numMorph; i < count - 1; ++i) {
-                pmd.englishMorphNames[i] = {name: b.unicodeString(20)};
+                pmd.englishMorphNames[i] = { name: b.unicodeString(20) };
             }
 
             // 英文骨骼帧名
             pmd.englishBoneFrameNames = new Array(pmd.meta.numBoneFrameName);
             for (let i = 0, count = pmd.meta.numBoneFrameName; i < count; ++i) {
-                pmd.englishBoneFrameNames[i] = {name: b.unicodeString(50)};
+                pmd.englishBoneFrameNames[i] = { name: b.unicodeString(50) };
             }
         }
 
         // 卡通纹理
         pmd.toonTextures = new Array(10);
         for (let i = 0; i < 10; ++i) {
-            pmd.toonTextures[i] = {file: b.unicodeString(100)};
+            pmd.toonTextures[i] = { file: b.unicodeString(100) };
         }
 
         // 刚体
@@ -362,22 +362,22 @@
         pmd.rigidBodies = new Array(pmd.meta.numRigidBody);
         for (let i = 0, count = pmd.meta.numRigidBody; i < count; ++i) {
             pmd.rigidBodies[i] = {
-                name:            b.unicodeString(20),
-                boneIndex:       b.int16(),
-                groupIndex:      b.uint8(),
-                groupTarget:     b.uint16(),
-                shapeType:       b.uint8(),
-                width:           b.float32(),
-                height:          b.float32(),
-                depth:           b.float32(),
-                position:        b.float32Array(3),
-                rotation:        b.float32Array(3),
-                weight:          b.float32(),
+                name: b.unicodeString(20),
+                boneIndex: b.int16(),
+                groupIndex: b.uint8(),
+                groupTarget: b.uint16(),
+                shapeType: b.uint8(),
+                width: b.float32(),
+                height: b.float32(),
+                depth: b.float32(),
+                position: b.float32Array(3),
+                rotation: b.float32Array(3),
+                weight: b.float32(),
                 positionDamping: b.float32(),
                 rotationDamping: b.float32(),
-                restriction:     b.float32(),
-                friction:        b.float32(),
-                type:            b.uint8()
+                restriction: b.float32(),
+                friction: b.float32(),
+                type: b.uint8()
             }
         }
 
@@ -386,17 +386,17 @@
         pmd.constraints = new Array(pmd.meta.numConstraint);
         for (let i = 0, count = pmd.meta.numConstraint; i < count; ++i) {
             pmd.constraints[i] = {
-                name:                   b.unicodeString(20),
-                rigidBodyIndex1:        b.uint32(),
-                rigidBodyIndex2:        b.uint32(),
-                position:               b.float32Array(3),
-                rotation:               b.float32Array(3),
+                name: b.unicodeString(20),
+                rigidBodyIndex1: b.uint32(),
+                rigidBodyIndex2: b.uint32(),
+                position: b.float32Array(3),
+                rotation: b.float32Array(3),
                 translationLimitation1: b.float32Array(3),
                 translationLimitation2: b.float32Array(3),
-                rotationLimitation1:    b.float32Array(3),
-                rotationLimitation2:    b.float32Array(3),
-                springPosition:         b.float32Array(3),
-                springRotation:         b.float32Array(3)
+                rotationLimitation1: b.float32Array(3),
+                rotationLimitation2: b.float32Array(3),
+                springPosition: b.float32Array(3),
+                springRotation: b.float32Array(3)
             };
         }
 
@@ -417,7 +417,7 @@
         // var textureLoader = new THREE.TextureLoader(this.manager);
         // var tgaLoader = new THREE.TGALoader(this.manager);
         // var materialLoader = new THREE.MaterialLoader(this.manager);
-        var color = [0,0,0];
+        var color = [0, 0, 0];
         var offset = 0;
         var materialParams = [];
 
@@ -426,13 +426,13 @@
                 params = {};
             }
 
-            var directoryPath = ( params.defaultTexturePath === true ) ? scope.defaultTexturePath : texturePath;
+            var directoryPath = (params.defaultTexturePath === true) ? scope.defaultTexturePath : texturePath;
             var fullPath = directoryPath + filePath;
 
             var loader = THREE.Loader.Handlers.get(fullPath);
 
             if (loader === null) {
-                loader = ( filePath.indexOf('.tga') >= 0 ) ? tgaLoader : textureLoader;
+                loader = (filePath.indexOf('.tga') >= 0) ? tgaLoader : textureLoader;
             }
 
             var texture = loader.load(fullPath, function (t) {
@@ -474,7 +474,7 @@
                 // 设置面的UV坐标
                 let uvs = [];
                 for (let k = 0; k < 3; k++) {
-                    let v = model.vertices[ model.faces[offset].indices[k] ];
+                    let v = model.vertices[model.faces[offset].indices[k]];
                     uvs.push(new THREE.Vector2(v.uv[0], v.uv[1]));
                 }
                 geometry.faceVertexUvs[0].push(uvs);
@@ -521,7 +521,7 @@
 
                         if (n.indexOf('.sph') >= 0 || n.indexOf('.spa') >= 0) {
 
-                            params.envMap = loadTexture(n, {sphericalReflectionMapping: true});
+                            params.envMap = loadTexture(n, { sphericalReflectionMapping: true });
 
                             if (n.indexOf('.sph') >= 0) {
 
@@ -605,12 +605,12 @@
                             var height = image.height;
                             var data = image.data;
                             var threshold = 253;
-                            if (data.length / ( width * height ) !== 4) {
+                            if (data.length / (width * height) !== 4) {
                                 return false;
                             }
 
                             for (var i = 0; i < uvs.length; i++) {
-                                var centerUV = {x: 0.0, y: 0.0};
+                                var centerUV = { x: 0.0, y: 0.0 };
                                 for (var j = 0; j < 3; j++) {
                                     var uv = uvs[i][j];
                                     if (getAlphaByUv(image, uv) < threshold) {
@@ -669,7 +669,7 @@
 
                 // TODO: WebGLRenderer should automatically update?
                 function updateMaterialWhenTextureIsReady(m) {
-                    m.envMap.readyCallbacks.push(function (t) {m.needsUpdate = true;});
+                    m.envMap.readyCallbacks.push(function (t) { m.needsUpdate = true; });
                 }
                 m.combine = p.envMapType;
                 updateMaterialWhenTextureIsReady(m);
@@ -709,7 +709,7 @@
                 } else {
 
                     var n = model.toonTextures[p2.toonIndex].file;
-                    var uuid = loadTexture(n, {defaultTexturePath: isDefaultToonTexture(n)});
+                    var uuid = loadTexture(n, { defaultTexturePath: isDefaultToonTexture(n) });
                     m.uniforms.toonMap.value = textures[uuid];
                     m.uniforms.hasToonTexture.value = 1;
                 }
@@ -737,8 +737,8 @@
                     } else {
 
                         var num = p2.toonIndex + 1;
-                        var fileName = 'toon' + ( num < 10 ? '0' + num : num ) + '.bmp';
-                        var uuid = loadTexture(fileName, {defaultTexturePath: true});
+                        var fileName = 'toon' + (num < 10 ? '0' + num : num) + '.bmp';
+                        var uuid = loadTexture(fileName, { defaultTexturePath: true });
                         m.uniforms.toonMap.value = textures[uuid];
 
                     }

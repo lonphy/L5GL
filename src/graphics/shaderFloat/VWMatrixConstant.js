@@ -1,10 +1,7 @@
-/**
- * 视图-世界坐标系矩
- */
-import {ShaderFloat} from './ShaderFloat'
-import {D3Object} from '../../core/D3Object'
+import { ShaderFloat } from './ShaderFloat';
+import { D3Object } from '../../core/D3Object';
 
-export class VWMatrixConstant extends ShaderFloat{
+class VWMatrixConstant extends ShaderFloat {
 
     constructor() {
         super(4);
@@ -12,5 +9,10 @@ export class VWMatrixConstant extends ShaderFloat{
     }
 
     update(visual, camera) {
+        const view = camera.viewMatrix;
+        const worldMatrix = visual.worldTransform.toMatrix();
+        this.copy(view.mul(worldMatrix));
     }
 }
+
+export { VWMatrixConstant };

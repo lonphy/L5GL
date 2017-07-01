@@ -1,17 +1,6 @@
-/**
- * Point - 3D点
- *
- * @author lonphy
- * @version 2.0
- */
-
 import { Vector } from './Vector';
 
-/**
- * @type {Point}
- * @extends {Float32Array}
- */
-export class Point extends Float32Array {
+class Point extends Float32Array {
 
     constructor(x = 0, y = 0, z = 0) {
         super(4);
@@ -188,3 +177,5 @@ export class Point extends Float32Array {
         return new Point();
     }
 }
+
+export { Point };

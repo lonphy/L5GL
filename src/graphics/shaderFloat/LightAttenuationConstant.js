@@ -1,19 +1,10 @@
-/**
- * 灯光 - 衰减系数
- *
- * @author lonphy
- * @version 2.0
- *
- * @type {L5.LightAttenuationConstant}
- * @extends {L5.ShaderFloat}
- */
-import {ShaderFloat} from './ShaderFloat'
-import {D3Object} from '../../core/D3Object'
+import { ShaderFloat } from './ShaderFloat';
+import { D3Object } from '../../core/D3Object';
 
-export class LightAttenuationConstant extends ShaderFloat {
+class LightAttenuationConstant extends ShaderFloat {
 
     /**
-     * @param light {L5.Light} 灯光
+     * @param {Light} light
      */
     constructor(light) {
         super(1);
@@ -21,11 +12,6 @@ export class LightAttenuationConstant extends ShaderFloat {
         this.light = light;
     }
 
-    /**
-     * 更新衰减系数
-     * @param visual {L5.Visual}
-     * @param camera {L5.Camera}
-     */
     update(visual, camera) {
         this.data[0] = this.light.constant;
         this.data[1] = this.light.linear;
@@ -47,6 +33,8 @@ export class LightAttenuationConstant extends ShaderFloat {
         super.save(outStream);
         outStream.writePointer(this.light);
     }
-};
+}
 
-D3Object.Register('L5.LightAttenuationConstant', LightAttenuationConstant.factory);
+D3Object.Register('LightAttenuationConstant', LightAttenuationConstant.factory);
+
+export { LightAttenuationConstant };

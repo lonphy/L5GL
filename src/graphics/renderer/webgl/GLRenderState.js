@@ -1,19 +1,11 @@
-/**
- * maintain current render states to avoid redundant state changes.
- *
- * @class
- *
- * @author lonphy
- * @version 2.0
- */
-import { default as webgl } from './GLMapping'
-import { AlphaState } from '../../shaders/AlphaState'
-import { CullState } from '../../shaders/CullState'
-import { DepthState } from '../../shaders/DepthState'
-import { OffsetState } from '../../shaders/OffsetState'
-import { StencilState } from '../../shaders/StencilState'
+import { default as webgl } from './GLMapping';
+import { AlphaState } from '../../shaders/AlphaState';
+import { CullState } from '../../shaders/CullState';
+import { DepthState } from '../../shaders/DepthState';
+import { OffsetState } from '../../shaders/OffsetState';
+import { StencilState } from '../../shaders/StencilState';
 
-export class GLRenderState {
+class GLRenderState {
 	constructor() {
 		// AlphaState
 		this.alphaBlendEnabled = false;
@@ -44,13 +36,10 @@ export class GLRenderState {
 		this.stencilOnFail = false;
 		this.stencilOnZFail = false;
 		this.stencilOnZPass = false;
-
-		// WireState
-		this.wireEnabled = false;
 	}
 
     /**
-	 * @param {WebGLRenderingContext} gl
+	 * @param {WebGL2RenderingContext} gl
 	 * @param {AlphaState} alphaState
 	 * @param {CullState} cullState
 	 * @param {DepthState} depthState
@@ -60,14 +49,7 @@ export class GLRenderState {
 	initialize(gl, alphaState, cullState, depthState, offsetState, stencilState) {
 		let op = ['disable', 'enable'];
 
-		// AlphaState
-		this.alphaBlendEnabled = alphaState.blendEnabled;
-		this.alphaSrcBlend = webgl.AlphaBlend[alphaState.srcBlend];
-		this.alphaDstBlend = webgl.AlphaBlend[alphaState.dstBlend];
-		this.blendColor = alphaState.constantColor;
-		gl[op[this.alphaBlendEnabled | 0]](gl.BLEND);
-		gl.blendFunc(this.alphaSrcBlend, this.alphaDstBlend);
-		gl.blendColor(this.blendColor[0], this.blendColor[1], this.blendColor[2], this.blendColor[3]);
+
 
 		// CullState
 		this.cullEnabled = cullState.enabled;
@@ -86,6 +68,15 @@ export class GLRenderState {
 		gl.depthMask(this.depthWriteEnabled);
 		gl.depthFunc(this.depthCompareFunction);
 
+		// AlphaState
+		this.alphaBlendEnabled = alphaState.blendEnabled;
+		this.alphaSrcBlend = webgl.AlphaBlend[alphaState.srcBlend];
+		this.alphaDstBlend = webgl.AlphaBlend[alphaState.dstBlend];
+		this.blendColor = alphaState.constantColor;
+		gl[op[this.alphaBlendEnabled | 0]](gl.BLEND);
+		gl.blendFunc(this.alphaSrcBlend, this.alphaDstBlend);
+		gl.blendColor(this.blendColor[0], this.blendColor[1], this.blendColor[2], this.blendColor[3]);
+		
 		// OffsetState
 		this.fillEnabled = offsetState.fillEnabled;
 		this.offsetScale = offsetState.scale;
@@ -110,3 +101,5 @@ export class GLRenderState {
 		gl.stencilOp(this.stencilOnFail, this.stencilOnZFail, this.stencilOnZPass);
 	}
 }
+
+export { GLRenderState };

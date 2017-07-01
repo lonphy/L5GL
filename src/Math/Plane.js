@@ -1,5 +1,4 @@
-import {_Math} from './Math'
-import {Vector} from './Vector'
+import { Vector } from './Vector'
 
 /**
  * Plane - 平面
@@ -46,17 +45,17 @@ export class Plane extends Float32Array {
     /**
      * 通过3个点创建一个平面
      *
-     * - `normal = normalize(cross(point1-point0,point2-point0))`
-     * - `c = dot(normal,point0)`
+     * - `normal = normalize( cross(point1-point0, point2-point0) )`
+     * - `c = dot(normal, point0)`
      *
-     * @param {Point} point0 平面上的点
-     * @param {Point} point1 平面上的点
-     * @param {Point} point2 平面上的点
+     * @param {Point} point0
+     * @param {Point} point1
+     * @param {Point} point2
      */
     static fromPoint3(point0, point1, point2) {
-        var edge1 = point1.subAsVector(point0);
-        var edge2 = point2.subAsVector(point0);
-        var normal = edge1.unitCross(edge2);
+        let edge1 = point1.subAsVector(point0);
+        let edge2 = point2.subAsVector(point0);
+        let normal = edge1.unitCross(edge2);
         return new Plane(normal, point0.dot(normal));
     }
 
@@ -94,10 +93,10 @@ export class Plane extends Float32Array {
      * @returns {number}
      */
     normalize() {
-        var length = sqrt(this[0] * this[0] + this[1] * this[1] + this[2] * this[2]);
+        let length = Math.hypot(this[0], this[1], this[2]);
 
         if (length > 0) {
-            var invLength = 1 / length;
+            let invLength = 1 / length;
             this[0] *= invLength;
             this[1] *= invLength;
             this[2] *= invLength;

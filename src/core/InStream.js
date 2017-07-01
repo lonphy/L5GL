@@ -1,10 +1,7 @@
-import { D3Object } from './D3Object'
-import { VERSION } from '../util/version'
+import { D3Object } from './D3Object';
+import { VERSION } from '../util/version';
 
-/**
- * 输入流处理 - InStream
- **/
-export class InStream {
+class InStream {
     constructor(file) {
         this.filePath = file;
         this.fileLength = 0;
@@ -17,11 +14,11 @@ export class InStream {
     }
     /**
      * 读取文件
-     * @returns {Promise}
+     * @returns {Promise<InStream>}
      */
     read() {
         return new Promise((resolve, reject) => {
-            var file = new XhrTask(this.filePath, 'arraybuffer');
+            let file = new XhrTask(this.filePath, 'arraybuffer');
             file.then(buffer => {
                 this.fileLength = buffer.byteLength;
                 this.source = new DataView(buffer);
@@ -135,7 +132,7 @@ export class InStream {
                 this.onerror(`${this.filePath}, Cannot find factory for ${name}`);
                 return;
             }
-            var obj = factory(this);
+            let obj = factory(this);
             if (isTopLevel) {
                 this.topLevel.push(obj);
             }
@@ -169,7 +166,7 @@ export class InStream {
     readUint32() {
         let limit = this.fileOffset + 4;
         if (limit <= this.fileLength) {
-            var ret = this.source.getUint32(this.fileOffset, true);
+            let ret = this.source.getUint32(this.fileOffset, true);
             this.fileOffset = limit;
             return ret;
         }
@@ -209,7 +206,7 @@ export class InStream {
     readFloat32() {
         let limit = this.fileOffset + 4;
         if (limit <= this.fileLength) {
-            var ret = this.source.getFloat32(this.fileOffset, true);
+            let ret = this.source.getFloat32(this.fileOffset, true);
             this.fileOffset = limit;
             return ret;
         }
@@ -219,7 +216,7 @@ export class InStream {
     readFloat64() {
         let limit = this.fileOffset + 8;
         if (limit <= this.fileLength) {
-            var ret = this.source.getFloat64(this.fileOffset, true);
+            let ret = this.source.getFloat64(this.fileOffset, true);
             this.fileOffset = limit;
             return ret;
         }
@@ -227,7 +224,7 @@ export class InStream {
     }
 
     readEnum() {
-        var value = this.readUint32();
+        let value = this.readUint32();
         if (value === undefined) {
             return false;
         }
@@ -236,7 +233,7 @@ export class InStream {
 
     readSizedEnumArray(numElements) {
         if (numElements > 0) {
-            var ret = [], i, e;
+            let ret = [], i, e;
             for (i = 0; i < numElements; ++i) {
                 ret[i] = this.readEnum();
                 if (ret[i] === undefined) {
@@ -249,7 +246,7 @@ export class InStream {
     }
 
     readBool() {
-        var val = this.readUint32();
+        let val = this.readUint32();
         if (val === undefined) {
             return false;
         }
@@ -259,7 +256,7 @@ export class InStream {
     readSizedPointerArray(numElements) {
         if (numElements > 0) {
             let ret = new Array(numElements), v;
-            for (var i = 0; i < numElements; ++i) {
+            for (let i = 0; i < numElements; ++i) {
                 v = this.readPointer();
                 if (v === undefined) {
                     return false;
@@ -278,8 +275,8 @@ export class InStream {
         }
 
         if (numElements > 0) {
-            var ret = new Array(numElements);
-            for (var i = 0; i < numElements; ++i) {
+            let ret = new Array(numElements);
+            for (let i = 0; i < numElements; ++i) {
                 ret[i] = this.readPointer();
                 if (ret[i] === undefined) {
                     return false;
@@ -303,7 +300,7 @@ export class InStream {
         if (numElements <= 0) {
             return [];
         }
-        var ret = [], i;
+        let ret = [], i;
         for (i = 0; i < numElements; ++i) {
             ret[i] = this.readFloat32Range(4);
         }
@@ -317,8 +314,8 @@ export class InStream {
     readFloatArray() {
         let num = this.readUint32();
         if (num > 0) {
-            var ret = new Array(num);
-            for (var i = 0; i < num; ++i) {
+            let ret = new Array(num);
+            for (let i = 0; i < num; ++i) {
                 ret[i] = this.readFloat32();
             }
             return ret;
@@ -327,11 +324,10 @@ export class InStream {
     }
 
     /**
-     * 读取L5.Transform
-     * @returns {L5.Transform}
+     * @returns {Transform}
      */
     readTransform() {
-        var tf = new L5.Transform();
+        let tf = new L5.Transform();
         tf.__matrix.copy(this.readMatrix());
         tf._invMatrix.copy(this.readMatrix());
         tf._matrix.copy(this.readMatrix());
@@ -347,8 +343,8 @@ export class InStream {
     readTransformArray() {
         let num = this.readUint32();
         if (num > 0) {
-            var ret = new Array(num);
-            for (var i = 0; i < num; ++i) {
+            let ret = new Array(num);
+            for (let i = 0; i < num; ++i) {
                 ret[i] = this.readTransform();
             }
             return ret;
@@ -375,8 +371,8 @@ export class InStream {
     readPointArray() {
         let num = this.readUint32();
         if (num > 0) {
-            var ret = new Array(num);
-            for (var i = 0; i < num; ++i) {
+            let ret = new Array(num);
+            for (let i = 0; i < num; ++i) {
                 ret[i] = this.readPoint();
             }
             return ret;
@@ -386,8 +382,8 @@ export class InStream {
 
     readSizedPointArray(size) {
         if (size > 0) {
-            var ret = new Array(size);
-            for (var i = 0; i < size; ++i) {
+            let ret = new Array(size);
+            for (let i = 0; i < size; ++i) {
                 ret[i] = this.readPoint();
             }
             return ret;
@@ -414,8 +410,8 @@ export class InStream {
     readQuaternionArray() {
         let num = this.readUint32();
         if (num > 0) {
-            var ret = new Array(num);
-            for (var i = 0; i < num; ++i) {
+            let ret = new Array(num);
+            for (let i = 0; i < num; ++i) {
                 ret[i] = this.readQuaternion();
             }
             return ret;
@@ -425,12 +421,12 @@ export class InStream {
 
     /**
      * 读取四元素数组
-     * @param size {number} 数组大小
+     * @param {number} size 数组大小
      * @returns {Array<Quaternion>}
      */
     readSizedQuaternionArray(size) {
         if (size > 0) {
-            var ret = new Array(size);
+            let ret = new Array(size);
             for (let i = 0; i < size; ++i) {
                 ret[i] = this.readQuaternion();
             }
@@ -440,7 +436,7 @@ export class InStream {
     }
 
     readBound() {
-        var b = new Bound();
+        let b = new Bound();
         let t1 = this.readPoint();
         let t2 = this.readFloat32();
         if (t1 === false || t2 === undefined) {
@@ -460,7 +456,7 @@ export class InStream {
         if (byteSize > 0) {
             let limit = this.fileOffset + byteSize;
             if (limit <= this.fileLength) {
-                var ret = this.source.buffer.slice(this.fileOffset, limit);
+                let ret = this.source.buffer.slice(this.fileOffset, limit);
                 this.fileOffset = limit;
                 return ret;
             }
@@ -470,7 +466,7 @@ export class InStream {
 
     resolveLink(obj) {
         if (obj) {
-            var t = this.linked.get(obj);
+            let t = this.linked.get(obj);
             if (t !== undefined) {
                 return t;
             }
@@ -481,10 +477,12 @@ export class InStream {
         }
     }
     resolveArrayLink(numElements, objs) {
-        var ret = [];
+        let ret = [];
         for (let i = 0; i < numElements; ++i) {
             ret[i] = this.resolveLink(objs[i]);
         }
         return ret;
     }
 }
+
+export { InStream };

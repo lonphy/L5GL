@@ -1,37 +1,25 @@
-/**
- * 3D应用实现类
- *
- * @author lonphy
- * @version 1.0
- **/
-import {BaseApplication} from './BaseApplication'
-import {_Math, Vector, Matrix} from '../math/index'
-import * as Input from '../input/key'
-import {Camera} from '../graphics/sceneTree/Camera'
+import { BaseApplication } from './BaseApplication';
+import { _Math, Vector, Matrix } from '../math/index';
+import * as Input from '../input/key';
+import { Camera } from '../graphics/sceneTree/Camera';
 
- /**
- * Application 3D
- * @param title {string}
- * @param width {number}
- * @param height {number}
- * @param clearColor
- * @param canvas
- */
-export class Application3D extends BaseApplication {
+class Application3D extends BaseApplication {
+    /**
+     * @param {string} title
+     * @param {number} width
+     * @param {number} height
+     * @param {ArrayLike<number>} clearColor
+     * @param {string} canvas - canvas's DOM id
+     */
     constructor(title, width, height, clearColor, canvas) {
         super(title, width, height, clearColor, canvas);
         this.camera = null;
-
-        this.worldAxis = [
-            Vector.ZERO,
-            Vector.ZERO,
-            Vector.ZERO
-        ];
+        this.worldAxis = [Vector.ZERO, Vector.ZERO, Vector.ZERO];
 
         this.trnSpeed = 0;
-        this.trnSpeedFactor = 0;
+        this.trnSpeedFactor = 2;
         this.rotSpeed = 0;
-        this.rotSpeedFactor = 0;
+        this.rotSpeedFactor = 2;
 
         this.UArrowPressed = false;
         this.DArrowPressed = false;
@@ -45,9 +33,7 @@ export class Application3D extends BaseApplication {
         this.DeletePressed = false;
         this.cameraMoveable = false;
 
-        /**
-         * @type {Spatial}
-         */
+        /** @type {Spatial} */
         this.motionObject = null;
         this.doRoll = 0;
         this.doYaw = 0;
@@ -56,23 +42,20 @@ export class Application3D extends BaseApplication {
         this.xTrack1 = 0;
         this.yTrack0 = 0;
         this.yTrack1 = 0;
-        /**
-         * @type {Matrix}
-         */
+        /** @type {Matrix} */
         this.saveRotate = null;
         this.useTrackBall = true;
         this.trackBallDown = false;
     }
 
     /**
-     * @param motionObject {Spatial}
+     * @param {Spatial} motionObject
      */
-    initializeObjectMotion (motionObject) {
+    initializeObjectMotion(motionObject) {
         this.motionObject = motionObject;
     }
 
-
-    moveObject () {
+    moveObject() {
         // The coordinate system in which the rotations are applied is that of
         // the object's parent, if it has one.  The parent's world rotation
         // matrix is R, of which the columns are the coordinate axis directions.
@@ -86,7 +69,7 @@ export class Application3D extends BaseApplication {
         //
         // Roll is about the "direction" axis, yaw is about the "up" axis, and
         // pitch is about the "right" axis.
-        var motionObject = this.motionObject;
+        let motionObject = this.motionObject;
 
         if (!this.cameraMoveable || !motionObject) {
             return false;
@@ -98,11 +81,11 @@ export class Application3D extends BaseApplication {
         }
 
         // Check if the object has been moved by the function keys.
-        var parent = motionObject.parent;
-        var axis = Vector.ZERO;
-        var angle;
-        var rot, incr;
-        var rotSpeed = this.rotSpeed;
+        let parent = motionObject.parent;
+        let axis = Vector.ZERO;
+        let angle;
+        let rot, incr;
+        let rotSpeed = this.rotSpeed;
 
         if (this.doRoll) {
             rot = motionObject.localTransform.getRotate();
@@ -161,15 +144,14 @@ export class Application3D extends BaseApplication {
         return false;
     }
 
-
-    rotateTrackBall (x0, y0, x1, y1) {
+    rotateTrackBall(x0, y0, x1, y1) {
         if ((x0 === x1 && y0 === y1) || !this.camera) {
             // Nothing to rotate.
             return;
         }
 
         // Get the first vector on the sphere.
-        var length = _Math.sqrt(x0 * x0 + y0 * y0), invLength, z0, z1;
+        let length = _Math.sqrt(x0 * x0 + y0 * y0), invLength, z0, z1;
         if (length > 1) {
             // Outside the unit disk, project onto it.
             invLength = 1 / length;
@@ -185,7 +167,7 @@ export class Application3D extends BaseApplication {
         z0 = -z0;
 
         // Use camera world coordinates, order is (D,U,R), so point is (z,y,x).
-        var vec0 = new Vector(z0, y0, x0);
+        let vec0 = new Vector(z0, y0, x0);
 
         // Get the second vector on the sphere.
         length = _Math.sqrt(x1 * x1 + y1 * y1);
@@ -204,12 +186,12 @@ export class Application3D extends BaseApplication {
         z1 = -z1;
 
         // Use camera world coordinates, order is (D,U,R), so point is (z,y,x).
-        var vec1 = new Vector(z1, y1, x1);
+        let vec1 = new Vector(z1, y1, x1);
 
         // Create axis and angle for the rotation.
-        var axis = vec0.cross(vec1);
-        var dot = vec0.dot(vec1);
-        var angle;
+        let axis = vec0.cross(vec1);
+        let dot = vec0.dot(vec1);
+        let angle;
         if (axis.normalize() > _Math.ZERO_TOLERANCE) {
             angle = _Math.acos(dot);
         }
@@ -233,14 +215,12 @@ export class Application3D extends BaseApplication {
         // Compute the world rotation matrix implied by trackball motion.  The
         // axis vector was computed in camera coordinates.  It must be converted
         // to world coordinates.  Once again, I use the camera ordering (D,U,R).
-        var worldAxis = this.camera.direction.scalar(axis.x).add(
+        let worldAxis = this.camera.direction.scalar(axis.x).add(
             this.camera.up.scalar(axis.y).add(
                 this.camera.right.scalar(axis.z)
             )
         );
-
-
-        var trackRotate = new Matrix(worldAxis, angle);
+        let trackRotate = new Matrix(worldAxis, angle);
 
         // Compute the new local rotation.  If the object is the root of the
         // scene, the new rotation is simply the *incremental rotation* of the
@@ -248,10 +228,10 @@ export class Application3D extends BaseApplication {
         // local rotation.  If the object is not the root of the scene, you have
         // to convert the incremental rotation by a change of basis in the
         // parent's coordinate space.
-        var parent = this.motionObject.parent;
-        var localRot;
+        let parent = this.motionObject.parent;
+        let localRot;
         if (parent) {
-            var parWorRotate = parent.worldTransform.GetRotate();
+            let parWorRotate = parent.worldTransform.GetRotate();
             localRot = parWorRotate.transposeTimes(trackRotate) * parWorRotate * this.saveRotate;
         }
         else {
@@ -262,20 +242,18 @@ export class Application3D extends BaseApplication {
     }
 
     /**
-     * 初始化相机运动参数
-     *
-     * @param trnSpeed {float} 移动速度
-     * @param rotSpeed {float} 旋转速度
-     * @param trnSpeedFactor {float} 移动速度变化因子 默认为2
-     * @param rotSpeedFactor {float} 旋转速度变化因子 默认为2
+     * @param {number} trnSpeed - move speed
+     * @param {number} rotSpeed - rotate speed /rad
+     * @param {number} trnSpeedFactor - move speed factor, default = 2
+     * @param {number} rotSpeedFactor - rotate speed factor, default = 2
      */
-    initializeCameraMotion (trnSpeed, rotSpeed, trnSpeedFactor, rotSpeedFactor) {
+    initializeCameraMotion(trnSpeed, rotSpeed, trnSpeedFactor = 2, rotSpeedFactor = 2) {
         this.cameraMoveable = true;
 
         this.trnSpeed = trnSpeed;
         this.rotSpeed = rotSpeed;
-        this.trnSpeedFactor = trnSpeedFactor || 2;
-        this.rotSpeedFactor = rotSpeedFactor || 2;
+        this.trnSpeedFactor = trnSpeedFactor;
+        this.rotSpeedFactor = rotSpeedFactor;
 
         this.worldAxis[0] = this.camera.direction;
         this.worldAxis[1] = this.camera.up;
@@ -283,16 +261,14 @@ export class Application3D extends BaseApplication {
     }
 
     /**
-     * 移动相机,如果有则更新相机
-     *
-     * @returns {boolean}
+     * if we move camera, then update camera
      */
-    moveCamera () {
+    moveCamera() {
         if (!this.cameraMoveable) {
             return false;
         }
 
-        var moved = false;
+        let moved = false;
 
         if (this.UArrowPressed) {
             this.moveForward();
@@ -347,89 +323,88 @@ export class Application3D extends BaseApplication {
         return moved;
     }
 
-
-    moveForward () {
-        var pos = this.camera.position;
-        var t = this.worldAxis[0].scalar(this.trnSpeed);
+    moveForward() {
+        let pos = this.camera.position;
+        let t = this.worldAxis[0].scalar(this.trnSpeed);
         this.camera.setPosition(pos.sub(t));
     }
 
-    moveBackward () {
-        var pos = this.camera.position;
-        var t = this.worldAxis[0].scalar(this.trnSpeed);
+    moveBackward() {
+        let pos = this.camera.position;
+        let t = this.worldAxis[0].scalar(this.trnSpeed);
         this.camera.setPosition(pos.add(t));
     }
 
-    moveUp () {
-        var pos = this.camera.position;
-        var t = this.worldAxis[1].scalar(this.trnSpeed);
+    moveUp() {
+        let pos = this.camera.position;
+        let t = this.worldAxis[1].scalar(this.trnSpeed);
         this.camera.setPosition(pos.sub(t));
     }
 
-    moveDown () {
-        var pos = this.camera.position;
-        var t = this.worldAxis[1].scalar(this.trnSpeed);
+    moveDown() {
+        let pos = this.camera.position;
+        let t = this.worldAxis[1].scalar(this.trnSpeed);
         this.camera.setPosition(pos.add(t));
     }
 
-    moveLeft () {
-        var pos = this.camera.position;
-        var t = this.worldAxis[2].scalar(this.trnSpeed);
+    moveLeft() {
+        let pos = this.camera.position;
+        let t = this.worldAxis[2].scalar(this.trnSpeed);
         this.camera.setPosition(pos.sub(t));
     }
 
-    moveRight () {
-        var pos = this.camera.position;
-        var t = this.worldAxis[2].scalar(this.trnSpeed);
+    moveRight() {
+        let pos = this.camera.position;
+        let t = this.worldAxis[2].scalar(this.trnSpeed);
         this.camera.setPosition(pos.add(t));
     }
 
-    turnLeft () {
-        var incr = Matrix.makeRotation(this.worldAxis[1], -this.rotSpeed);
+    turnLeft() {
+        let incr = Matrix.makeRotation(this.worldAxis[1], -this.rotSpeed);
         this.worldAxis[0] = incr.mulPoint(this.worldAxis[0]);
         this.worldAxis[2] = incr.mulPoint(this.worldAxis[2]);
-        var camera = this.camera;
-        var dir = incr.mulPoint(camera.direction);
-        var up = incr.mulPoint(camera.up);
-        var right = incr.mulPoint(camera.right);
+        let camera = this.camera;
+        let dir = incr.mulPoint(camera.direction);
+        let up = incr.mulPoint(camera.up);
+        let right = incr.mulPoint(camera.right);
         this.camera.setAxes(dir, up, right);
     }
 
-    turnRight () {
-        var incr = Matrix.makeRotation(this.worldAxis[1], this.rotSpeed);
+    turnRight() {
+        let incr = Matrix.makeRotation(this.worldAxis[1], this.rotSpeed);
         this.worldAxis[0] = incr.mulPoint(this.worldAxis[0]);
         this.worldAxis[2] = incr.mulPoint(this.worldAxis[2]);
-        var camera = this.camera;
-        var dVector = incr.mulPoint(camera.direction);
-        var uVector = incr.mulPoint(camera.up);
-        var rVector = incr.mulPoint(camera.right);
+        let camera = this.camera;
+        let dVector = incr.mulPoint(camera.direction);
+        let uVector = incr.mulPoint(camera.up);
+        let rVector = incr.mulPoint(camera.right);
         this.camera.setAxes(dVector, uVector, rVector);
     }
 
-    lookUp () {
-        var incr = Matrix.makeRotation(this.worldAxis[2], -this.rotSpeed);
-        var camera = this.camera;
-        var dVector = incr.mulPoint(camera.direction);
-        var uVector = incr.mulPoint(camera.up);
-        var rVector = incr.mulPoint(camera.right);
+    lookUp() {
+        let incr = Matrix.makeRotation(this.worldAxis[2], -this.rotSpeed);
+        let camera = this.camera;
+        let dVector = incr.mulPoint(camera.direction);
+        let uVector = incr.mulPoint(camera.up);
+        let rVector = incr.mulPoint(camera.right);
         this.camera.setAxes(dVector, uVector, rVector);
     }
 
-    lookDown () {
-        var incr = Matrix.makeRotation(this.worldAxis[2], this.rotSpeed);
-        var camera = this.camera;
-        var dVector = incr.mulPoint(camera.direction);
-        var uVector = incr.mulPoint(camera.up);
-        var rVector = incr.mulPoint(camera.right);
+    lookDown() {
+        let incr = Matrix.makeRotation(this.worldAxis[2], this.rotSpeed);
+        let camera = this.camera;
+        let dVector = incr.mulPoint(camera.direction);
+        let uVector = incr.mulPoint(camera.up);
+        let rVector = incr.mulPoint(camera.right);
         this.camera.setAxes(dVector, uVector, rVector);
     }
 
     /**
      *
-     * @param isPerspective {Boolean} 透视相机
+     * @param {boolean} isPerspective - 透视相机
      * @returns {boolean}
      */
-    onInitialize (isPerspective=true) {
+    onInitialize(isPerspective = true) {
         if (!super.onInitialize()) {
             return false;
         }
@@ -439,11 +414,11 @@ export class Application3D extends BaseApplication {
         return true;
     }
 
-    onKeyDown (key, x, y) {
+    onKeyDown(key, x, y) {
         if (super.onKeyDown(key, x, y)) {
             return true;
         }
-        var cameraMoveable = this.cameraMoveable;
+        let cameraMoveable = this.cameraMoveable;
 
         switch (key) {
             case Input.KB_1:  // Slower camera translation.
@@ -471,7 +446,7 @@ export class Application3D extends BaseApplication {
         return false;
     }
 
-    onSpecialKeyDown (key, x, y) {
+    onSpecialKeyDown(key, x, y) {
         if (this.cameraMoveable) {
             switch (key) {
                 case Input.KB_LEFT:
@@ -515,7 +490,7 @@ export class Application3D extends BaseApplication {
         return false;
     }
 
-    onSpecialKeyUp (key, x, y) {
+    onSpecialKeyUp(key, x, y) {
         if (this.cameraMoveable) {
             if (key === Input.KB_LEFT) {
                 this.LArrowPressed = false;
@@ -565,16 +540,16 @@ export class Application3D extends BaseApplication {
         return false;
     }
 
-    onMouseClick (button, state, x, y, modifiers) {
-        var width = this.width;
-        var height = this.height;
+    onMouseClick(button, state, x, y, modifiers) {
+        let width = this.width;
+        let height = this.height;
         if (!this.useTrackBall ||
             button !== Input.MS_LEFT || !this.motionObject
         ) {
             return false;
         }
 
-        var mult = 1 / (width >= height ? height : width);
+        let mult = 1 / (width >= height ? height : width);
 
         if (state === Input.MS_RIGHT) {
             // Get the starting point.
@@ -590,18 +565,18 @@ export class Application3D extends BaseApplication {
         return true;
     }
 
-    onMotion (button, x, y, modifiers) {
+    onMotion(button, x, y, modifiers) {
         if (
             !this.useTrackBall ||
             button !== Input.MS_LEFT || !this.trackBallDown || !this.motionObject
         ) {
             return false;
         }
-        var width = this.width;
-        var height = this.height;
+        let width = this.width;
+        let height = this.height;
 
         // Get the ending point.
-        var mult = 1 / (width >= height ? height : width);
+        let mult = 1 / (width >= height ? height : width);
         this.xTrack1 = (2 * x - width) * mult;
         this.yTrack1 = (2 * (height - 1 - y) - height) * mult;
 
@@ -616,3 +591,5 @@ export class Application3D extends BaseApplication {
         this.camera.setPerspective(params[0], this.getAspectRatio(), params[2], params[3]);
     }
 }
+
+export { Application3D };

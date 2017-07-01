@@ -1,15 +1,16 @@
-/**
- * Visual
- */
-import { Spatial } from './Spatial'
-import { Bound } from '../dataTypes/Bound'
-import * as util from '../../util/util'
-import { VertexFormat, VertexBufferAccessor, VertexBuffer } from '../resources/namespace'
+import { Spatial } from './Spatial';
+import { Bound } from '../dataTypes/Bound';
+import { DECLARE_ENUM } from '../../util/util';
+import {
+    VertexFormat,
+    VertexBufferAccessor,
+    VertexBuffer
+} from '../resources/namespace';
 
-export class Visual extends Spatial {
+class Visual extends Spatial {
 
     /**
-     * @param {number} type primitiveType
+     * @param {number} type - primitiveType
      * @param {VertexFormat} format
      * @param {VertexBuffer} vertexBuffer
      * @param {IndexBuffer} indexBuffer
@@ -41,11 +42,12 @@ export class Visual extends Spatial {
          */
         this.effect = null;
 
-        // true则以线框模式渲染
         this.wire = false;
 
+        this.userData = null;
+
         if (format && vertexBuffer && indexBuffer) {
-            this.updateModelSpace(Spatial.GU_MODEL_BOUND_ONLY);
+            this.updateModelSpace(Visual.GU_MODEL_BOUND_ONLY);
         }
     }
 
@@ -58,24 +60,24 @@ export class Visual extends Spatial {
     }
 
     updateModelBound() {
-        var numVertices = this.vertexBuffer.numElements;
+        const numVertices = this.vertexBuffer.numElements;
         const format = this.format;
-        var stride = format.stride;
+        const stride = format.stride;
 
-        var posIndex = format.getIndex(VertexFormat.AU_POSITION);
-        if (posIndex == -1) {
-            console.assert(false, 'Update requires vertex positions');
+        let posIndex = format.getIndex(VertexFormat.AU_POSITION);
+        if (posIndex === -1) {
+            console.assert(false, 'update requires vertex positions');
             return;
         }
 
-        var posType = format.getAttributeType(posIndex);
-        if (posType != VertexFormat.AT_FLOAT3 && posType != VertexFormat.AT_FLOAT4) {
+        let posType = format.getAttributeType(posIndex);
+        if (posType !== VertexFormat.AT_FLOAT3 && posType !== VertexFormat.AT_FLOAT4) {
             console.assert(false, 'Positions must be 3-tuples or 4-tuples');
             return;
         }
 
-        var data = this.vertexBuffer.getData();
-        var posOffset = format.getOffset(posIndex);
+        let data = this.vertexBuffer.getData();
+        let posOffset = format.getOffset(posIndex);
         this.modelBound.computeFromData(numVertices, stride, data.slice(posOffset).buffer);
     }
 
@@ -89,14 +91,14 @@ export class Visual extends Spatial {
     }
 
     /**
-     * @param fileName {string} 文件
+     * @param {string} fileName - 文件名
      */
     static loadWMVF(fileName) {
         return new Promise(function (resolve, reject) {
-            var load = new L5.XhrTask(fileName, 'arraybuffer');
+            let load = new L5.XhrTask(fileName, 'arraybuffer');
             load.then(function (data) {
-                var inFile = new DataView(data);
-                var ret = {};
+                let inFile = new DataView(data);
+                let ret = {};
                 inFile.offset = 0;
                 ret.primitiveType = inFile.getInt32(inFile.offset, true);
                 inFile.offset += 4;
@@ -120,17 +122,17 @@ export class Visual extends Spatial {
 
     /**
      * 解析顶点格式
-     * @param inFile {DataView}
+     * @param {BinDataView} inFile
      * @returns {VertexFormat}
      */
     static loadVertexFormat(inFile) {
-        var numAttributes = inFile.getInt32(inFile.offset, true);
+        let numAttributes = inFile.getInt32(inFile.offset, true);
         inFile.offset += 4;
 
-        var format = new VertexFormat(numAttributes);
-        var streamIndex, offset, usageIndex, type, usage;
+        let format = new VertexFormat(numAttributes);
+        let streamIndex, offset, usageIndex, type, usage;
 
-        for (var i = 0; i < numAttributes; ++i) {
+        for (let i = 0; i < numAttributes; ++i) {
             streamIndex = inFile.getUint32(inFile.offset, true);
             inFile.offset += 4;
 
@@ -162,17 +164,17 @@ export class Visual extends Spatial {
      * @returns {VertexBuffer}
      */
     static loadVertexBuffer(inFile, format) {
-        var numElements = inFile.getInt32(inFile.offset, true);
+        let numElements = inFile.getInt32(inFile.offset, true);
         inFile.offset += 4;
 
-        var elementSize = inFile.getInt32(inFile.offset, true);
+        let elementSize = inFile.getInt32(inFile.offset, true);
         inFile.offset += 4;
 
-        var usage = inFile.getInt32(inFile.offset, true);
+        let usage = inFile.getInt32(inFile.offset, true);
         inFile.offset += 4;
 
-        var buffer = new VertexBuffer(numElements, elementSize, usage);
-        var vba = new VertexBufferAccessor(format, buffer);
+        let buffer = new VertexBuffer(numElements, elementSize, usage);
+        let vba = new VertexBufferAccessor(format, buffer);
         // end ok
 
         vba.read(inFile);
@@ -185,21 +187,21 @@ export class Visual extends Spatial {
      * @returns {IndexBuffer}
      */
     static loadIndexBuffer(inFile) {
-        var numElements = inFile.getInt32(inFile.offset, true);
+        let numElements = inFile.getInt32(inFile.offset, true);
         inFile.offset += 4;
 
         if (numElements > 0) {
-            var elementSize = inFile.getInt32(inFile.offset, true);
+            let elementSize = inFile.getInt32(inFile.offset, true);
             inFile.offset += 4;
-            var usage = inFile.getInt32(inFile.offset, true);
+            let usage = inFile.getInt32(inFile.offset, true);
             inFile.offset += 4;
-            var offset = inFile.getInt32(inFile.offset, true);
+            let offset = inFile.getInt32(inFile.offset, true);
             inFile.offset += 4;
 
-            var buffer = new IndexBuffer(numElements, elementSize, usage);
+            let buffer = new IndexBuffer(numElements, elementSize, usage);
             buffer.offset = offset;
-            //var start = inFile.offset;
-            // var end = start + buffer.numBytes;
+            //let start = inFile.offset;
+            // let end = start + buffer.numBytes;
             buffer.getData().set(new Uint8Array(inFile.buffer, inFile.offset, buffer.numBytes));
 
             inFile.offset += buffer.numBytes;
@@ -233,7 +235,7 @@ export class Visual extends Spatial {
 }
 
 /////////////////// 绘制类型 //////////////////////////////
-util.DECLARE_ENUM(Visual, {
+DECLARE_ENUM(Visual, {
     PT_NONE: 0,  // 默认
     PT_POLYPOINT: 1,   // 点
     PT_POLYSEGMENTS_DISJOINT: 2,
@@ -282,9 +284,11 @@ util.DECLARE_ENUM(Visual, {
 // shaders use normals, tangents, and bitangents, consider passing in
 // normals and tangents, and then have the shader compute the bitangent as
 //    bitangent = Cross(normal, tangent)
-util.DECLARE_ENUM(Visual, {
+DECLARE_ENUM(Visual, {
     GU_MODEL_BOUND_ONLY: -3,
     GU_NORMALS: -2,
     GU_USE_GEOMETRY: -1,
     GU_USE_TCOORD_CHANNEL: 0
 });
+
+export { Visual };

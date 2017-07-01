@@ -1,32 +1,24 @@
-/**
- * 默认应用核心类
- *
- * @version 1.0
- * @author lonphy
- *
- * @type BaseApplication
- */
-import { Renderer } from '../graphics/renderer/Renderer'
-import { Texture } from '../graphics/resources/Texture'
-import { Input } from '../input/index'
+import { Renderer } from '../graphics/renderer/Renderer';
+import { Texture } from '../graphics/resources/Texture';
+import { Input } from '../input/index';
 
-export class BaseApplication {
+class BaseApplication {
     /**
-     * @param title {string} 应用名称
-     * @param width {number} 绘制区域宽度
-     * @param height {number} 绘制区域高度
-     * @param clearColor {Float32Array} 背景颜色
-     * @param canvas {string} 需要渲染的CanvasID
+     * @param {string} title - 应用名称
+     * @param {number} width - 绘制区域宽度
+     * @param {number} height - 绘制区域高度
+     * @param {Float32Array} clearColor - 背景颜色
+     * @param {string} canvas - 需要渲染的CanvasID
      */
     constructor(title, width, height, clearColor, canvas) {
         BaseApplication._instance = this;
-        var renderDOM = document.getElementById(canvas);
+        let renderDOM = document.getElementById(canvas);
         renderDOM = renderDOM || document.createElement('canvas');
 
         renderDOM.width = width;
         renderDOM.height = height;
 
-        this.title = title; // 实例名称
+        this.title = title;
         this.width = width;
         this.height = height;
         this.clearColor = clearColor;
@@ -73,7 +65,7 @@ export class BaseApplication {
             this.colorFormat, this.depthStencilFormat, this.numMultisamples);
 
 
-        var handles = BaseApplication.handles;
+        let handles = BaseApplication.handles;
         // TODO : 事件回调定义
         window.addEventListener('resize', handles.ResizeHandler, false);
         window.addEventListener('keydown', handles.KeyDownHandler, false);
@@ -87,8 +79,8 @@ export class BaseApplication {
         this.onPreIdle();
 
         this.applicationRun = true;
-        var $this = this;
-        var loopFunc = function () {
+        let $this = this;
+        let loopFunc = function (deltaTime) {
             if (!$this.applicationRun) {
                 $this.onTerminate();
                 delete $this.renderer;
@@ -96,8 +88,10 @@ export class BaseApplication {
                 return;
             }
             $this.updateFrameCount();
+            $this.measureTime();
+
             if ($this.loadWait === 0) {
-                $this.onIdle.call($this);
+                $this.onIdle.call($this, deltaTime);
             }
             requestAnimationFrame(loopFunc);
         };
@@ -117,8 +111,8 @@ export class BaseApplication {
 
         // accumulate the time only when the miniature time allows it
         if (--this.timer === 0) {
-            var currentTime = Date.now();
-            var dDelta = currentTime - this.lastTime;
+            let currentTime = Date.now();
+            let dDelta = currentTime - this.lastTime;
             this.lastTime = currentTime;
             this.accumulatedTime += dDelta;
             this.accumulatedFrameCount += this.frameCount;
@@ -141,7 +135,7 @@ export class BaseApplication {
         else {
             this.frameRate = 0;
         }
-        this.fpsOutput.textContent = 'fps: ' + this.frameRate.toFixed(1);
+        this.renderer.drawText(8, 8, '#666', `fps: ${this.frameRate.toFixed(1)}`);
     }
 
     getAspectRatio() {
@@ -166,7 +160,7 @@ export class BaseApplication {
         this.renderer.clearBuffers();
     }
 
-    onIdle() {
+    onIdle(t) {
     }
 
     onKeyDown(key, x, y) {
@@ -261,15 +255,15 @@ export class BaseApplication {
              * @param evt {Event}
              */
             ResizeHandler: evt => {
-                var ins = this.instance;
+                let ins = this.instance;
                 if (ins) {
                     ins.onResize(window.innerWidth, window.innerHeight);
                 }
             },
 
             KeyDownHandler: evt => {
-                var key = evt.keyCode;
-                var ins = this.instance;
+                let key = evt.keyCode;
+                let ins = this.instance;
                 if (ins) {
                     if (key === Input.KB_ESC && evt.ctrlKey) {
                         ins.onTerminate();
@@ -280,8 +274,8 @@ export class BaseApplication {
                 }
             },
             KeyUpHandler: evt => {
-                var key = evt.keyCode;
-                var ins = this.instance;
+                let key = evt.keyCode;
+                let ins = this.instance;
                 if (ins) {
                     ins.onKeyUp(key, this.mX, this.mY);
                     ins.onSpecialKeyUp(key, this.mX, this.mY);
@@ -293,7 +287,7 @@ export class BaseApplication {
                 this.mY = evt.y;
             },
             MouseHandler: evt => {
-                var ins = this.instance;
+                let ins = this.instance;
                 if (ins) {
                     this.gModifyButton = evt.ctrlKey;
                     if (evt.state === 'down') {
@@ -305,13 +299,13 @@ export class BaseApplication {
                 }
             },
             MotionHandler: (x, y) => {
-                var ins = this.instance;
+                let ins = this.instance;
                 if (ins) {
                     ins.onMotion(this.gButton, x, y, this.gModifyButton);
                 }
             },
             PassiveMotionHandler: (x, y) => {
-                var ins = this.instance;
+                let ins = this.instance;
                 if (ins) {
                     ins.onPassiveMotion(x, y);
                 }
@@ -319,3 +313,5 @@ export class BaseApplication {
         });
     }
 }
+
+export { BaseApplication };

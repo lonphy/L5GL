@@ -1,19 +1,10 @@
-/**
- * VertexFormat 顶点格式
- *
- * @author lonphy
- * @version 2.0
- *
- * @type {VertexFormat}
- * @extends {D3Object}
- */
-import {D3Object} from '../../core/D3Object'
-import * as util from '../../util/util'
+import { D3Object } from '../../core/D3Object';
+import { DECLARE_ENUM } from '../../util/util';
 
-export class VertexFormat extends D3Object {
+class VertexFormat extends D3Object {
 
     /**
-     * @param numAttributes {number} 属性数量
+     * @param {number} numAttributes
      */
     constructor(numAttributes) {
         console.assert(numAttributes >= 0, 'Number of attributes must be positive');
@@ -25,7 +16,7 @@ export class VertexFormat extends D3Object {
         this.stride = 0;
 
         this.elements = new Array(MAX_ATTRIBUTES);
-        for (var i = 0; i < MAX_ATTRIBUTES; ++i) {
+        for (let i = 0; i < MAX_ATTRIBUTES; ++i) {
             this.elements[i] = new VertexFormat.Element(0, 0, VertexFormat.AT_NONE, VertexFormat.AU_NONE, 0);
         }
     }
@@ -33,22 +24,22 @@ export class VertexFormat extends D3Object {
 
     /**
      * 创建顶点格式快捷函数
-     * @param numAttributes {number} 顶点元素数量
-     * @param args {Array}
+     * @param {number} numAttributes - 顶点元素数量
+     * @param {Array} args
      *
      * @returns {VertexFormat}
      */
-    static create(numAttributes,    ...args/*, usage1, type1, usageIndex1, usage2,...*/) {
-        var vf = new VertexFormat(numAttributes);
+    static create(numAttributes, ...args/*, usage1, type1, usageIndex1, usage2,...*/) {
+        let vf = new VertexFormat(numAttributes);
 
-        var offset = 0;
-        var start = 0;
+        let offset = 0;
+        let start = 0;
         const TYPE_SIZE = VertexFormat.TYPE_SIZE;
 
-        for (var i = 0; i < numAttributes; ++i, start += 3) {
-            var usage = args[start];
-            var type = args[start + 1];
-            var usageIndex = args[start + 2];
+        for (let i = 0; i < numAttributes; ++i, start += 3) {
+            let usage = args[start];
+            let type = args[start + 1];
+            let usageIndex = args[start + 2];
             vf.setAttribute(i, 0, offset, type, usage, usageIndex);
 
             offset += TYPE_SIZE[type];
@@ -60,17 +51,17 @@ export class VertexFormat extends D3Object {
 
     /**
      * 设置指定位置顶点元素
-     * @param attribute {number}
-     * @param streamIndex {number}
-     * @param offset {number}
-     * @param type {number} AttributeType
-     * @param usage {number} AttributeUsage
-     * @param usageIndex {number}
+     * @param {number} attribute
+     * @param {number} streamIndex
+     * @param {number} offset
+     * @param {number} type - AttributeType
+     * @param {number} usage - AttributeUsage
+     * @param {number} usageIndex
      */
     setAttribute(attribute, streamIndex, offset, type, usage, usageIndex) {
         console.assert(0 <= attribute && attribute < this.numAttributes, 'Invalid index in SetAttribute');
 
-        var element = this.elements[attribute];
+        let element = this.elements[attribute];
         element.streamIndex = streamIndex;
         element.offset = offset;
         element.type = type;
@@ -80,8 +71,8 @@ export class VertexFormat extends D3Object {
 
     /**
      * 获取指定位置顶点元素
-     * @param attribute {number} 顶点元素索引
-     * @returns {L5.VertexFormat.Element}
+     * @param {number} attribute - 顶点元素索引
+     * @returns {VertexFormat.Element}
      */
     getAttribute(attribute) {
         console.assert(0 <= attribute && attribute < this.numAttributes, 'Invalid index in GetAttribute');
@@ -90,7 +81,7 @@ export class VertexFormat extends D3Object {
 
     /**
      * 获取指定位置顶点元素
-     * @param stride {number} 顶点步幅
+     * @param {number} stride
      */
     setStride(stride) {
         console.assert(0 < stride, 'Stride must be positive');
@@ -99,14 +90,14 @@ export class VertexFormat extends D3Object {
 
     /**
      * 根据用途获取顶点元素位置
-     * @param usage {number} 用途，参考L5.VertexFormat.AU_XXX
-     * @param usageIndex {number}
+     * @param {number} usage - 用途，参考VertexFormat.AU_XXX
+     * @param {number} usageIndex
      * @returns {number}
      */
-    getIndex(usage, usageIndex=0) {
+    getIndex(usage, usageIndex = 0) {
         usageIndex = usageIndex || 0;
 
-        for (var i = 0; i < this.numAttributes; ++i) {
+        for (let i = 0; i < this.numAttributes; ++i) {
             if (this.elements[i].usage === usage &&
                 this.elements[i].usageIndex === usageIndex
             ) {
@@ -118,7 +109,7 @@ export class VertexFormat extends D3Object {
     }
 
     /**
-     * @param attribute {number}
+     * @param {number} attribute
      * @returns {number}
      */
     getStreamIndex(attribute) {
@@ -131,7 +122,7 @@ export class VertexFormat extends D3Object {
 
     /**
      * 获取顶点元素偏移
-     * @param attribute {number} 用途，参考L5.VertexFormat.AU_XXX
+     * @param {number} attribute - 用途，参考VertexFormat.AU_XXX
      * @returns {number}
      */
     getOffset(attribute) {
@@ -144,8 +135,8 @@ export class VertexFormat extends D3Object {
 
     /**
      * 获取顶点元素数据类型
-     * @param attribute {number} 顶点索引
-     * @returns {number} L5.VertexFormat.AT_XXX
+     * @param {number} attribute 顶点索引
+     * @returns {number} VertexFormat.AT_XXX
      */
     getAttributeType(attribute) {
         if (0 <= attribute && attribute < this.numAttributes) {
@@ -157,11 +148,11 @@ export class VertexFormat extends D3Object {
 
     /**
      * 填充VBA 属性
-     * @param usage {number} 用途, 参考 L5.VertexFormat.AU_XXX
-     * @param attr {L5.VBAAttr}
-     * @param usageIndex {number}
+     * @param {number} usage - 用途, 参考 VertexFormat.AU_XXX
+     * @param {VBAAttr} attr
+     * @param {number} usageIndex
      */
-    fillVBAttr(usage, attr, usageIndex=0) {
+    fillVBAttr(usage, attr, usageIndex = 0) {
         let index = this.getIndex(usage);
         if (index >= 0) {
             let type = this.getAttributeType(index, usageIndex);
@@ -169,8 +160,8 @@ export class VertexFormat extends D3Object {
             attr.eType = VertexFormat.TYPE_CST[type];
             attr.eNum = VertexFormat.NUM_COMPONENTS[type];
             attr.cSize = VertexFormat.TYPE_SIZE[type];
-            attr.wFn = 'set'+ attr.eType.name.replace('Array', '');
-            attr.rFn = 'get'+ attr.eType.name.replace('Array', '');
+            attr.wFn = 'set' + attr.eType.name.replace('Array', '');
+            attr.rFn = 'get' + attr.eType.name.replace('Array', '');
         }
     }
 
@@ -192,7 +183,7 @@ export class VertexFormat extends D3Object {
 
     /**
      * 获取顶点元素类型单位字节
-     * @param type {number} 参考L5.AT_XXX
+     * @param {number} type - 参考AT_XXX
      * @returns {number}
      */
     static getComponentSize(type) {
@@ -201,7 +192,7 @@ export class VertexFormat extends D3Object {
 
     /**
      * 获取顶点元素类型单位个数
-     * @param type {number} 参考L5.AT_XXX
+     * @param {number} type - 参考AT_XXX
      * @returns {number}
      */
     static getNumComponents(type) {
@@ -210,7 +201,7 @@ export class VertexFormat extends D3Object {
 
     /**
      * 获取顶点元素类型所占字节
-     * @param type {number} 参考L5.AT_XXX
+     * @param {number} type - 参考AT_XXX
      * @returns {number}
      */
     static getTypeSize(type) {
@@ -228,14 +219,14 @@ export class VertexFormat extends D3Object {
     debug() {
         console.log('================ VertexFormat 类型 ===============');
         console.log('  属性个数:', this.numAttributes, '步幅:', this.stride, '字节');
-        for (var i = 0, l = this.numAttributes; i < l; ++i) {
+        for (let i = 0, l = this.numAttributes; i < l; ++i) {
             this.elements[i].debug();
         }
         console.log('================ VertexFormat 类型 ===============');
     }
 
     /**
-     * @param inStream {InStream}
+     * @param {InStream} inStream
      */
     load(inStream) {
         super.load(inStream);
@@ -243,7 +234,7 @@ export class VertexFormat extends D3Object {
         this.numAttributes = inStream.readUint32();
         const MAX_ATTRIBUTES = VertexFormat.MAX_ATTRIBUTES;
 
-        for (var i = 0; i < MAX_ATTRIBUTES; ++i) {
+        for (let i = 0; i < MAX_ATTRIBUTES; ++i) {
             this.elements[i].streamIndex = inStream.readUint32();
             this.elements[i].offset = inStream.readUint32();
             this.elements[i].type = inStream.readEnum();
@@ -256,29 +247,21 @@ export class VertexFormat extends D3Object {
 
     /**
      * 文件解析工厂方法
-     * @param inStream {InStream}
+     * @param {InStream} inStream
      * @returns {VertexFormat}
      */
     static factory(inStream) {
-        var obj = new VertexFormat(0);
+        let obj = new VertexFormat(0);
         obj.load(inStream);
         return obj;
     }
 }
 
 
-D3Object.Register('L5.VertexFormat', VertexFormat.factory);
+D3Object.Register('VertexFormat', VertexFormat.factory);
 
 /**
  * 顶点元素构造
- * @class
- *
- * @param streamIndex
- * @param offset
- * @param type
- * @param usage
- * @param usageIndex
- * @type Element
  */
 class Element {
     constructor(streamIndex, offset, type, usage, usageIndex) {
@@ -291,13 +274,13 @@ class Element {
 
     clone() {
         return new Element
-        (
+            (
             this.streamIndex,
             this.offset,
             this.type,
             this.usage,
             this.usageIndex
-        );
+            );
     }
 
     debug() {
@@ -306,26 +289,26 @@ class Element {
         console.log('  类型:', VertexFormat.getTypeString(this.type));
     }
 }
-VertexFormat.Element =Element;
+VertexFormat.Element = Element;
 
 // 顶点属性最大个数
-util.DECLARE_ENUM(VertexFormat, {
-    MAX_ATTRIBUTES:   16,
+DECLARE_ENUM(VertexFormat, {
+    MAX_ATTRIBUTES: 16,
     MAX_TCOORD_UNITS: 8,
-    MAX_COLOR_UNITS:  2
+    MAX_COLOR_UNITS: 2
 }, false);
 
 // 顶点属性数据类型
-util.DECLARE_ENUM(VertexFormat, {
-    AT_NONE:   0x00,
+DECLARE_ENUM(VertexFormat, {
+    AT_NONE: 0x00,
     AT_FLOAT1: 0x01,
     AT_FLOAT2: 0x02,
     AT_FLOAT3: 0x03,
     AT_FLOAT4: 0x04,
-    AT_HALF1:  0x05,
-    AT_HALF2:  0x06,
-    AT_HALF3:  0x07,
-    AT_HALF4:  0x08,
+    AT_HALF1: 0x05,
+    AT_HALF2: 0x06,
+    AT_HALF3: 0x07,
+    AT_HALF4: 0x08,
     AT_UBYTE4: 0x09,
     AT_SHORT1: 0x0a,
     AT_SHORT2: 0x0b,
@@ -333,22 +316,22 @@ util.DECLARE_ENUM(VertexFormat, {
 }, false);
 
 // 属性用途
-util.DECLARE_ENUM(VertexFormat, {
-    AU_NONE:         0,
-    AU_POSITION:     1,   // 顶点     -> shader location 0
-    AU_NORMAL:       2,   // 法线     -> shader location 2
-    AU_TANGENT:      3,   // 切线     -> shader location 14
-    AU_BINORMAL:     4,   // 双切线   -> shader location 15
-    AU_TEXCOORD:     5,   // 纹理坐标  -> shader location 8-15
-    AU_COLOR:        6,   // 颜色     -> shader location 3-4
+DECLARE_ENUM(VertexFormat, {
+    AU_NONE: 0,
+    AU_POSITION: 1,   // 顶点     -> shader location 0
+    AU_NORMAL: 2,   // 法线     -> shader location 2
+    AU_TANGENT: 3,   // 切线     -> shader location 14
+    AU_BINORMAL: 4,   // 双切线   -> shader location 15
+    AU_TEXCOORD: 5,   // 纹理坐标  -> shader location 8-15
+    AU_COLOR: 6,   // 颜色     -> shader location 3-4
     AU_BLENDINDICES: 7,   // 混合索引  -> shader location 7
-    AU_BLENDWEIGHT:  8,   // 混合权重  -> shader location 1
-    AU_FOGCOORD:     9,   // 雾坐标    -> shader location 5
-    AU_PSIZE:        10   // 点大小    -> shader location 6
+    AU_BLENDWEIGHT: 8,   // 混合权重  -> shader location 1
+    AU_FOGCOORD: 9,   // 雾坐标    -> shader location 5
+    AU_PSIZE: 10   // 点大小    -> shader location 6
 }, false);
 
 // 属性类型的 构造, 尺寸 字节
-util.DECLARE_ENUM(VertexFormat, {
+DECLARE_ENUM(VertexFormat, {
     TYPE_CST: [
         null,          // AT_NONE
         Float32Array,  // AT_FLOAT1
@@ -360,7 +343,7 @@ util.DECLARE_ENUM(VertexFormat, {
         Uint16Array,   // AT_SHORT2
         Uint16Array    // AT_SHORT4
     ],
-    TYPE_SIZE:       [
+    TYPE_SIZE: [
         0,  // AT_NONE
         4,  // AT_FLOAT1
         8,  // AT_FLOAT2
@@ -371,7 +354,7 @@ util.DECLARE_ENUM(VertexFormat, {
         4,  // AT_SHORT2
         8   // AT_SHORT4
     ],
-    NUM_COMPONENTS:  [
+    NUM_COMPONENTS: [
         0,  // AT_NONE
         1,  // AT_FLOAT1
         2,  // AT_FLOAT2
@@ -383,3 +366,5 @@ util.DECLARE_ENUM(VertexFormat, {
         4   // AT_SHORT4
     ]
 });
+
+export { VertexFormat };

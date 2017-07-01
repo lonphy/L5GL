@@ -1,18 +1,12 @@
-/**
- * ShaderParameters 着色器参数
- *
- * @author lonphy
- * @version 2.0
- */
-import {D3Object} from '../../core/D3Object'
+import { D3Object } from '../../core/D3Object';
 
-export class ShaderParameters extends D3Object{
+class ShaderParameters extends D3Object {
 
     /**
-     * @param shader {Shader}
-     * @param [__privateCreate] {boolean}
+     * @param {Shader} shader
+     * @param {boolean} [__privateCreate] 
      */
-    constructor(shader, __privateCreate=false) {
+    constructor(shader, __privateCreate = false) {
         super();
         if (!__privateCreate) {
             console.assert(shader !== null, 'Shader must be specified.');
@@ -22,7 +16,7 @@ export class ShaderParameters extends D3Object{
              */
             this.shader = shader;
 
-            var nc = shader.numConstants;
+            let nc = shader.numConstants;
             this.numConstants = nc;
 
             if (nc > 0) {
@@ -34,7 +28,7 @@ export class ShaderParameters extends D3Object{
                 this.constants = null;
             }
 
-            var ns = shader.numSamplers;
+            let ns = shader.numSamplers;
             this.numTextures = ns;
             if (ns > 0) {
                 this.textures = new Array(ns);
@@ -53,19 +47,19 @@ export class ShaderParameters extends D3Object{
 
 
 
-// These functions set the constants/textures.  If successful, the return
-// value is nonnegative and is the index into the appropriate array.  This
-// index may passed to the Set* functions that have the paremeter
-// 'handle'.  The mechanism allows you to set directly by index and avoid
-// the name comparisons that occur with the Set* functions that have the
-// parameter 'const std::string& name'.
+    // These functions set the constants/textures.  If successful, the return
+    // value is nonnegative and is the index into the appropriate array.  This
+    // index may passed to the Set* functions that have the paremeter
+    // 'handle'.  The mechanism allows you to set directly by index and avoid
+    // the name comparisons that occur with the Set* functions that have the
+    // parameter 'const std::string& name'.
     /**
-     * @param name {string}
-     * @param sfloat {Array}
+     * @param {string} name
+     * @param {Array} sfloat
      * @return {number}
      */
     setConstantByName(name, sfloat) {
-        var i, m = this.numConstants, shader = this.shader;
+        let i, m = this.numConstants, shader = this.shader;
 
         for (i = 0; i < m; ++i) {
             if (shader.getConstantName(i) === name) {
@@ -79,8 +73,8 @@ export class ShaderParameters extends D3Object{
     }
 
     /**
-     * @param handle {number}
-     * @param sfloat {Array}
+     * @param {number} handle
+     * @param {Array} sfloat
      * @return {number}
      */
     setConstant(handle, sfloat) {
@@ -93,12 +87,12 @@ export class ShaderParameters extends D3Object{
     }
 
     /**
-     * @param name {string}
-     * @param texture {Texture}
+     * @param {string} name
+     * @param {Texture} texture
      * @returns {number}
      */
     setTextureByName(name, texture) {
-        var i, m = this.numTextures, shader = this.shader;
+        let i, m = this.numTextures, shader = this.shader;
 
         for (i = 0; i < m; ++i) {
             if (shader.getSamplerName(i) === name) {
@@ -112,8 +106,8 @@ export class ShaderParameters extends D3Object{
     }
 
     /**
-     * @param handle {number}
-     * @param texture {L5.Texture}
+     * @param {number} handle
+     * @param {Texture} texture
      * @returns {number}
      */
     setTexture(handle, texture) {
@@ -126,11 +120,11 @@ export class ShaderParameters extends D3Object{
     }
 
     /**
-     * @param name {string}
+     * @param {string} name
      * @returns {ArrayBuffer}
      */
     getConstantByName(name) {
-        var i, m = this.numConstants, shader = this.shader;
+        let i, m = this.numConstants, shader = this.shader;
         for (i = 0; i < m; ++i) {
             if (shader.getConstantName(i) === name) {
                 return this.constants[i];
@@ -142,11 +136,11 @@ export class ShaderParameters extends D3Object{
     }
 
     /**
-     * @param name {string}
+     * @param {string} name
      * @returns {Texture}
      */
     getTextureByName(name) {
-        var i, m = this.numTextures, shader = this.shader;
+        let i, m = this.numTextures, shader = this.shader;
         for (i = 0; i < m; ++i) {
             if (shader.getSamplerName(i) === name) {
                 return this.textures[i];
@@ -158,7 +152,7 @@ export class ShaderParameters extends D3Object{
     }
 
     /**
-     * @param index {number}
+     * @param {number} index
      * @returns {ArrayBuffer}
      */
     getConstant(index) {
@@ -171,7 +165,7 @@ export class ShaderParameters extends D3Object{
     }
 
     /**
-     * @param index {number}
+     * @param {number} index
      * @returns {Texture}
      */
     getTexture(index) {
@@ -182,16 +176,16 @@ export class ShaderParameters extends D3Object{
         console.assert(false, 'Invalid texture handle.');
         return null;
     }
-    
+
     /**
-     * @param visual {Visual}
-     * @param camera {Camera}
+     * @param {Visual} visual
+     * @param {Camera} camera
      */
     updateConstants(visual, camera) {
-        var constants = this.constants,
+        let constants = this.constants,
             i, m = this.numConstants;
         for (i = 0; i < m; ++i) {
-            var constant = constants[i];
+            let constant = constants[i];
             if (constant.allowUpdater) {
                 constant.update(visual, camera);
             }
@@ -221,16 +215,13 @@ export class ShaderParameters extends D3Object{
         outStream.writePointerArray(this.numTextures, this.textures);
     }
 
-    /**
-     * 文件解析工厂方法
-     * @param inStream {InStream}
-     * @returns {ShaderParameters}
-     */
     static factory(inStream) {
-        var obj = new ShaderParameters(null, true);
+        let obj = new ShaderParameters(null, true);
         obj.load(inStream);
         return obj;
     }
 }
 
-D3Object.Register('L5.ShaderParameters', ShaderParameters.factory);
+D3Object.Register('ShaderParameters', ShaderParameters.factory.bind(ShaderParameters));
+
+export { ShaderParameters };

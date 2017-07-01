@@ -1,6 +1,6 @@
-import { D3Object } from '../../core/D3Object'
+import { D3Object } from '../../core/D3Object';
 
-export class IKGoal extends D3Object {
+class IKGoal extends D3Object {
 
 	/**
 	 * @param {Spatial} target 
@@ -26,3 +26,5 @@ export class IKGoal extends D3Object {
 		return this.effector.worldTransform.getTranslate();
 	}
 }
+
+export { IKGoal };

@@ -1,19 +1,20 @@
-/**
- * @param format {L5.VertexFormat}
- * @param vertexBuffer {L5.VertexBuffer}
- * @param indexSize {number}
- */
-import { Triangles } from './Triangles'
-import { D3Object } from '../../core/D3Object'
+import { Triangles } from './Triangles';
+import { D3Object } from '../../core/D3Object';
 
-export class TriStrip extends Triangles {
+class TriStrip extends Triangles {
+
+    /**
+     * @param {VertexFormat} format
+     * @param {VertexBuffer} vertexBuffer
+     * @param {number} indexSize
+     */
     constructor(format, vertexBuffer, indexSize) {
         super(Visual.PT_TRISTRIP, format, vertexBuffer, null);
         console.assert(indexSize === 2 || indexSize === 4, 'Invalid index size.');
 
-        var numVertices = this.vertexBuffer.numElements;
+        const numVertices = this.vertexBuffer.numElements;
         this.indexBuffer = new IndexBuffer(numVertices, indexSize);
-        var i, indices;
+        let i, indices;
 
         if (indexSize == 2) {
             indices = new Uint16Array(this.indexBuffer.getData());
@@ -37,13 +38,13 @@ export class TriStrip extends Triangles {
 
     /**
      * 获取位置I处的三角形索引
-     * @param i {number}
-     * @param output {Array} 3 elements
+     * @param {number} i
+     * @param {Array<number>} output - 3 elements
      * @returns {boolean}
      */
     getTriangle(i, output) {
         if (0 <= i && i < this.getNumTriangles()) {
-            var data = new Uint32Array(this.indexBuffer.getData());
+            let data = new Uint32Array(this.indexBuffer.getData());
             output[0] = data[i];
             if (i & 1) {
                 output[1] = data[i + 2];
@@ -61,4 +62,5 @@ export class TriStrip extends Triangles {
     }
 }
 
-D3Object.Register('L5.TriStrip', TriStrip.factory);
+D3Object.Register('TriStrip', TriStrip.factory);
+export { TriStrip };

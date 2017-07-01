@@ -1,10 +1,7 @@
-/**
- * 灯光 - 高光分量
- */
-import {ShaderFloat} from './ShaderFloat'
-import {D3Object} from '../../core/D3Object'
+import { ShaderFloat } from './ShaderFloat';
+import { D3Object } from '../../core/D3Object';
 
-export class LightSpecularConstant extends ShaderFloat {
+class LightSpecularConstant extends ShaderFloat {
 
     /**
      * @param light {Light}
@@ -15,11 +12,6 @@ export class LightSpecularConstant extends ShaderFloat {
         this.light = light;
     }
 
-    /**
-     * 更新高光分量
-     * @param visual {Visual}
-     * @param camera {Camera}
-     */
     update(visual, camera) {
         this.copy(this.light.specular);
     }
@@ -38,6 +30,8 @@ export class LightSpecularConstant extends ShaderFloat {
         super.save(outStream);
         outStream.writePointer(this.light);
     }
-};
+}
 
-D3Object.Register('L5.LightSpecularConstant', LightSpecularConstant.factory);
+D3Object.Register('LightSpecularConstant', LightSpecularConstant.factory);
+
+export { LightSpecularConstant };

@@ -1,10 +1,10 @@
+import { Node } from '../sceneTree/Node';
+import { _Math, Matrix } from '../../math/index';
+
 /**
  * 广告牌节点
  */
-import { Node } from '../sceneTree/Node'
-import { _Math, Matrix } from '../../math/index'
-
-export class BillboardNode extends Node {
+class BillboardNode extends Node {
 
     /**
      * @param {Camera} camera
@@ -55,8 +55,8 @@ export class BillboardNode extends Node {
         }
 
         // Update the children now that the billboard orientation is known.
-        this.childs.forEach(function (c) {
-            c.update(applicationTime, false);
-        });
+        this.childs.forEach(c => c.update(applicationTime, false));
     }
 }
+
+export { BillboardNode };

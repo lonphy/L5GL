@@ -1,12 +1,12 @@
-import { Controller } from './Controller'
-import { Vector, Matrix } from '../../math/index'
-import { Particles } from '../sceneTree/namespace'
+import { Controller } from './Controller';
+import { Vector, Matrix } from '../../math/index';
+import { Particles } from '../sceneTree/namespace';
 
 /**
  * Abstract base class. The object to
  * which this is attached must be Particles.
  */
-export class ParticleController extends Controller {
+class ParticleController extends Controller {
 	constructor() {
 		super()
 		// The system motion, in local coordinates.  The velocity vectors should
@@ -111,3 +111,5 @@ export class ParticleController extends Controller {
 		}
 	}
 }
+
+export { ParticleController };

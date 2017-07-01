@@ -1,39 +1,32 @@
-/**
- * TransformController - 变换控制基类
- *
- * @version 2.0
- * @author lonphy
- */
+import { Controller } from './Controller';
+import { Transform } from '../dataTypes/Transform';
 
-import {Controller} from './Controller'
-
-export class TransformController extends Controller {
+class TransformController extends Controller {
 
     /**
      * @param {Transform} localTransform
      */
     constructor(localTransform) {
         super();
-        this.localTransform = localTransform;
+        this.localTransform = Transform.IDENTITY;
+        this.localTransform.copy(localTransform);
     }
 
     /**
-     * @param {number} applicationTime 毫秒
+     * @param {number} applicationTime - ms
      */
     update(applicationTime) {
         if (super.update(applicationTime)) {
-            this.object.localTransform = this.localTransform;
+            this.object.localTransform.copy(this.localTransform);
             return true;
         }
         return false;
     }
 
-    /**
-     * 文件载入支持
-     * @param {InStream} inStream
-     */
     load(inStream) {
         super.load(inStream);
         this.localTransform = inStream.readTransform();
     }
 }
+
+export { TransformController };

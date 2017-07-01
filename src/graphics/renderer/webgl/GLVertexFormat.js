@@ -1,25 +1,17 @@
-/**
- * VertexFormat 底层包装
- *
- * @author lonphy
- * @version 2.0
- *
- * @type {GLVertexFormat}
- */
-import {default as webgl} from './GLMapping'
-import {VertexFormat} from '../../resources/VertexFormat'
+import { default as webgl } from './GLMapping';
+import { VertexFormat } from '../../resources/VertexFormat';
 
-export class GLVertexFormat {
+class GLVertexFormat {
     /**
-     * @param {Renderer} renderer
+     * @param {WebGL2RenderingContext} gl
      * @param {VertexFormat} format
      */
-    constructor(renderer, format) {
+    constructor(gl, format) {
         this.stride = format.stride;
 
         let type;
 
-        var i = format.getIndex(VertexFormat.AU_POSITION);
+        let i = format.getIndex(VertexFormat.AU_POSITION);
         if (i >= 0) {
             this.hasPosition = 1;
             type = format.getAttributeType(i);
@@ -76,7 +68,7 @@ export class GLVertexFormat {
             this.binormalOffset = 0;
         }
 
-        var unit;
+        let unit;
         const AM_MAX_TCOORD_UNITS = VertexFormat.MAX_TCOORD_UNITS;
 
         this.hasTCoord = new Array(AM_MAX_TCOORD_UNITS);
@@ -181,14 +173,12 @@ export class GLVertexFormat {
     }
 
     /**
-     * @param renderer {Renderer}
+     * @param {WebGL2RenderingContext} gl
      */
-    enable(renderer) {
+    enable(gl) {
         // Use the enabled vertex buffer for data pointers.
 
-        let stride = this.stride;
-        let gl = renderer.gl;
-
+        const stride = this.stride;
         if (this.hasPosition) {
             gl.enableVertexAttribArray(0);
             gl.vertexAttribPointer(0, this.positionChannels, this.positionType, false, stride, this.positionOffset);
@@ -248,59 +238,6 @@ export class GLVertexFormat {
             gl.vertexAttribPointer(6, this.pSizeChannels, this.pSizeType, false, stride, this.pSizeOffset);
         }
     }
-
-    /**
-     * @param {Renderer} renderer
-     */
-    disable(renderer) {
-        var gl = renderer.gl;
-        if (this.hasPosition) {
-            gl.disableVertexAttribArray(0);
-        }
-
-        if (this.hasNormal) {
-            gl.disableVertexAttribArray(2);
-        }
-
-        if (this.hasTangent) {
-            gl.disableVertexAttribArray(14);
-        }
-
-        if (this.hasBinormal) {
-            gl.disableVertexAttribArray(15);
-        }
-
-        var unit;
-        for (unit = 0; unit < VertexFormat.MAX_TCOORD_UNITS; ++unit) {
-            if (this.hasTCoord[unit]) {
-                gl.disableVertexAttribArray(8 + unit);
-                gl.activeTexture(gl.TEXTURE0 + unit);
-                gl.bindTexture(gl.TEXTURE_2D, null);
-            }
-        }
-
-        if (this.hasColor[0]) {
-            gl.disableVertexAttribArray(3);
-        }
-
-        if (this.hasColor[1]) {
-            gl.disableVertexAttribArray(4);
-        }
-
-        if (this.hasBlendIndices) {
-            gl.disableVertexAttribArray(7);
-        }
-
-        if (this.hasBlendWeight) {
-            gl.disableVertexAttribArray(1);
-        }
-
-        if (this.hasFogCoord) {
-            gl.disableVertexAttribArray(5);
-        }
-
-        if (this.hasPSize) {
-            gl.disableVertexAttribArray(6);
-        }
-    }
 }
+
+export { GLVertexFormat };

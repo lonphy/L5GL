@@ -4,11 +4,18 @@
 	(factory());
 }(this, (function () { 'use strict';
 
+/**
+ * 生成UUID
+ * @return {String}
+ */
+
 let buf = new Uint32Array(1);
 let dv = new DataView(buf.buffer);
 dv.setUint32(0, 0x12345678, true); // little endian
 
-const WebGL_VERSION = 'webgl2';
+function def(obj, key, value) {
+    Object.defineProperty(obj, key, { value: value });
+}
 
 function runApplication(Klass) {
     if (!document.querySelector('.l5-nodes-info')) {
@@ -36,16 +43,10 @@ function DECLARE_ENUM(tar, val, lock = true) {
     if (lock) Object.seal(tar);
 }
 
-/**
- * Math - 通用工具类
- * @version 2.0
- * @author lonphy
- */
-
 const _Math = {
     // 一些通用常量.
-    EPSILON: 1e-07,
-    ZERO_TOLERANCE: 1e-07,
+    EPSILON: Number.EPSILON,
+    ZERO_TOLERANCE: Number.EPSILON,
     MAX_REAL: window.Infinity,
     PI: 3.14159265358979323846,
     TWO_PI: 2 * 3.14159265358979323846,
@@ -74,6 +75,7 @@ const _Math = {
     cos: Math.cos,
     sin: Math.sin,
     tan: Math.tan,
+    sign: Math.sign,
 
     /**
      * 开平方
@@ -239,22 +241,6 @@ const _Math = {
      */
     sqr(value) {
         return value * value;
-    },
-
-    /**
-     * 获取值的符号
-     * -1 负 1 正 0 零值
-     * @param {number} value
-     * @returns {number}
-     */
-    sign(value) {
-        if (value > 0) {
-            return 1;
-        }
-        if (value < 0) {
-            return -1;
-        }
-        return 0;
     },
 
     /**
@@ -631,6 +617,10 @@ const _Math = {
 /**
  * Vector
  */
+/**
+ * @type {Vector}
+ * @extends {Float32Array}
+ */
 class Vector$1 extends Float32Array {
 
     constructor(x = 0, y = 0, z = 0) {
@@ -708,7 +698,7 @@ class Vector$1 extends Float32Array {
         let x = this[0];
         let y = this[1];
         let z = this[2];
-        return _Math.sqrt(x * x + y * y + z * z);
+        return Math.hypot(x, y, z);
     }
 
     /**
@@ -953,6 +943,10 @@ class Vector$1 extends Float32Array {
  * @version 2.0
  */
 
+/**
+ * @type {Point}
+ * @extends {Float32Array}
+ */
 class Point$1 extends Float32Array {
 
     constructor(x = 0, y = 0, z = 0) {
@@ -1131,6 +1125,14 @@ class Point$1 extends Float32Array {
     }
 }
 
+/**
+ * Plane - 平面
+ * 
+ * 平面表示为 `Dot(N, X) - c = 0`, 其中：  
+ *  - `N = (n0, n1, n2, 0)` 一个单位法向量  
+ *  - `X = (x0, x1, x2, 1)` 是任何在该平面上的点  
+ *  - `c` 是平面常量
+ */
 class Plane$1 extends Float32Array {
 
     /**
@@ -1263,6 +1265,9 @@ class Plane$1 extends Float32Array {
     }
 }
 
+/**
+ * 4阶矩阵
+ */
 class Matrix$1 extends Float32Array {
     constructor(m00, m01, m02, m03,
         m10, m11, m12, m13,
@@ -1495,7 +1500,7 @@ class Matrix$1 extends Float32Array {
      */
     mulPoint(p) {
         let c = this,
-            x = p.x, y = p.y, z = p.z, w = p.w;
+            x = p[0], y = p[1], z = p[2], w = p[3];
 
         return new p.constructor(
             c[0] * x + c[4] * y + c[8] * z + c[12] * w,
@@ -1994,6 +1999,14 @@ class Matrix$1 extends Float32Array {
     }
 }
 
+/**
+ * Quaternion 四元数
+ * 
+ * 四元数表示为  
+ * `q = w + x*i + y*j + z*k`  
+ * 但(w, x, y, z) 在4D空间不一定是单位向量
+ * @type {Quaternion}
+ */
 class Quaternion$1 extends Float32Array {
 
     constructor(w = 0, x = 0, y = 0, z = 0) {
@@ -2527,18 +2540,200 @@ class Quaternion$1 extends Float32Array {
  * Polynomial1
  */
 
+class Triangle3 {
+	/**
+	 * @param {Vector} v0 
+	 * @param {Vector} v1 
+	 * @param {Vector} v2 
+	 */
+	constructor(v0 = undefined, v1 = undefined, v2 = undefined) {
+		this.V = [Vector$1.ZERO, Vector$1.ZERO, Vector$1.ZERO];
+		if (v0 !== undefined) {
+			this.V[0].copy(v0);
+			this.V[1].copy(v1);
+			this.V[2].copy(v2);
+		}
+	}
+
+	/**
+	 * @param {Vector} v 
+	 */
+	distanceTo(v) {
+		let diff = this.V[0].sub(v);
+		let edge0 = this.V[1].sub(this.V[0]);
+		let edge1 = this.V[2].sub(this.V[0]);
+		let a00 = edge0.squaredLength();
+		let a01 = edge0.dot(edge1);
+		let a11 = edge1.squaredLength();
+		let b0 = diff.dot(edge0);
+		let b1 = diff.dot(edge1);
+		let c = diff.squaredLength();
+		let det = _Math.abs(a00 * a11 - a01 * a01);
+		let s = a01 * b1 - a11 * b0;
+		let t = a01 * b0 - a00 * b1;
+		let sqrDistance;
+
+		if (s + t <= det) {
+			if (s < 0) {
+				if (t < 0)  // region 4
+				{
+					if (b0 < 0) {
+						if (-b0 >= a00) {
+							sqrDistance = a00 + (2) * b0 + c;
+						}
+						else {
+							sqrDistance = c - b0 * b0 / a00;
+						}
+					}
+					else {
+						if (b1 >= 0) {
+							sqrDistance = c;
+						}
+						else if (-b1 >= a11) {
+							sqrDistance = a11 + 2 * b1 + c;
+						}
+						else {
+							sqrDistance = c - b1 * b1 / a11;
+						}
+					}
+				}
+				else  // region 3
+				{
+					if (b1 >= 0) {
+						sqrDistance = c;
+					}
+					else if (-b1 >= a11) {
+						sqrDistance = a11 + 2 * b1 + c;
+					}
+					else {
+						sqrDistance = c - b1 * b1 / a11;
+					}
+				}
+			}
+			else if (t < 0)  // region 5
+			{
+				if (b0 >= 0) {
+					sqrDistance = c;
+				}
+				else if (-b0 >= a00) {
+					sqrDistance = a00 + 2 * b0 + c;
+				}
+				else {
+					sqrDistance = b0 * s + c - b0 * b0 / a00;
+				}
+			}
+			else  // region 0
+			{
+				// The minimum is at an interior point of the triangle.
+				let invDet = 1 / det;
+				s *= invDet;
+				t *= invDet;
+				sqrDistance = s * (a00 * s + a01 * t + 2 * b0) + t * (a01 * s + a11 * t + 2 * b1) + c;
+			}
+		}
+		else {
+			let tmp0, tmp1, numer, denom;
+
+			if (s < 0)  // region 2
+			{
+				tmp0 = a01 + b0;
+				tmp1 = a11 + b1;
+				if (tmp1 > tmp0) {
+					numer = tmp1 - tmp0;
+					denom = a00 - 2 * a01 + a11;
+					if (numer >= denom) {
+						sqrDistance = a00 + 2 * b0 + c;
+					}
+					else {
+						s = numer / denom;
+						t = 1 - s;
+						sqrDistance = s * (a00 * s + a01 * t + 2 * b0) + t * (a01 * s + a11 * t + 2 * b1) + c;
+					}
+				}
+				else {
+					if (tmp1 <= 0) {
+						sqrDistance = a11 + 2 * b1 + c;
+					}
+					else if (b1 >= 0) {
+						sqrDistance = c;
+					}
+					else {
+						sqrDistance = c - b1 * b1 / a11;
+					}
+				}
+			}
+			else if (t < 0)  // region 6
+			{
+				tmp0 = a01 + b1;
+				tmp1 = a00 + b0;
+				if (tmp1 > tmp0) {
+					numer = tmp1 - tmp0;
+					denom = a00 - 2 * a01 + a11;
+					if (numer >= denom) {
+						t = 1;
+						s = 0;
+						sqrDistance = a11 + 2 * b1 + c;
+					}
+					else {
+						t = numer / denom;
+						s = 1 - t;
+						sqrDistance = s * (a00 * s + a01 * t + 2 * b0) + t * (a01 * s + a11 * t + 2 * b1) + c;
+					}
+				}
+				else {
+					if (tmp1 <= 0) {
+						sqrDistance = a00 + 2 * b0 + c;
+					}
+					else if (b0 >= 0) {
+						sqrDistance = c;
+					}
+					else {
+						sqrDistance = c - b0 * b0 / a00;
+					}
+				}
+			}
+			else  // region 1
+			{
+				numer = a11 + b1 - a01 - b0;
+				if (numer <= 0) {
+					sqrDistance = a11 + 2 * b1 + c;
+				}
+				else {
+					denom = a00 - 2 * a01 + a11;
+					if (numer >= denom) {
+						sqrDistance = a00 + 2 * b0 + c;
+					}
+					else {
+						s = numer / denom;
+						t = 1 - s;
+						sqrDistance = s * (a00 * s + a01 * t + 2 * b0) + t * (a01 * s + a11 * t + 2 * b1) + c;
+					}
+				}
+			}
+		}
+
+		return _Math.sqrt(_Math.abs(sqrDistance));
+	}
+}
+
+class Line3 {
+	/**
+	 * @param {Point} org 
+	 * @param {Vector} dir
+	 */
+	constructor(org, dir) {
+		this.org = Point$1.ORIGIN;
+		this.dir = Vector$1.ZERO;
+		if (org) this.org.copy(org);
+		if (dir) this.dir.copy(dir);
+	}
+}
+
 // @ts-check
-/**
- * 对象系统 - 基类
- * @abstract
- */
+
 class D3Object {
     constructor(name = '') {
-        /** @type {string} */
-        this.name = name;
-        if (name === '') {
-            this.name = new.target.name;
-        }
+        this.name = name || new.target.name;
     }
 
     getObjectByName(name) {
@@ -2559,8 +2754,8 @@ class D3Object {
         inStream.readUniqueID(this);
         this.name = inStream.readString();
     }
-    link(inStream) {}
-    postLink() {}
+    link(inStream) { }
+    postLink() { }
 
     save(tar) {
         tar.writeString(this.constructor.name);
@@ -2592,9 +2787,6 @@ class D3Object {
  */
 D3Object._factories = new Map();
 
-/**
- * 工具类 - 2进制流读写
- */
 class BinDataView {
 
     /**
@@ -2602,7 +2794,7 @@ class BinDataView {
      * @param {number} offset
      * @param {number} size
      */
-    constructor(buf, offset=0, size=0) {
+    constructor(buf, offset = 0, size = 0) {
         if (size === 0) {
             size = buf.byteLength - offset;
         }
@@ -2626,13 +2818,13 @@ class BinDataView {
 
     uint16() {
         let val = this.dv.getUint16(this.offset, true);
-        this.offset +=2;
+        this.offset += 2;
         return val;
     }
 
     setUint16(val) {
         this.dv.setUint16(this.offset, val, true);
-        this.offset +=2;
+        this.offset += 2;
     }
 
     int16() {
@@ -2642,7 +2834,7 @@ class BinDataView {
     }
     setInt16(val) {
         this.dv.setInt16(this.offset, val, true);
-        this.offset +=2;
+        this.offset += 2;
     }
 
     int32() {
@@ -2652,7 +2844,7 @@ class BinDataView {
     }
     setInt32(val) {
         this.dv.setInt32(this.offset, val, true);
-        this.offset +=4;
+        this.offset += 4;
     }
 
     uint32() {
@@ -2663,7 +2855,7 @@ class BinDataView {
 
     setUint32(val) {
         this.dv.setUint32(this.offset, val, true);
-        this.offset +=4;
+        this.offset += 4;
     }
 
     float32() {
@@ -2674,7 +2866,7 @@ class BinDataView {
 
     setFloat32(val) {
         this.dv.setFloat32(this.offset, val, true);
-        this.offset +=4;
+        this.offset += 4;
     }
 
     float64() {
@@ -2685,12 +2877,12 @@ class BinDataView {
 
     setFloat64(val) {
         this.dv.setFloat64(this.offset, val, true);
-        this.offset +=8;
+        this.offset += 8;
     }
 
     string() {
-        let size = this.uint16(), ret='';
-        for (let i=0; i<size;++i) {
+        let size = this.uint16(), ret = '';
+        for (let i = 0; i < size; ++i) {
             ret += String.fromCharCode(this.uint8());
         }
         return ret;
@@ -2698,7 +2890,7 @@ class BinDataView {
     setString(val) {
         let size = val.length;
         this.setUint16(size);
-        for( let i=0; i<size; ++i ) {
+        for (let i = 0; i < size; ++i) {
             this.setUint8(val[i].charCodeAt(i));
         }
         this.offset += size;
@@ -2716,14 +2908,7 @@ class BinDataView {
     }
 }
 
-/**
- * Controller - 控制基类
- * 
- * @author lonphy
- * @version 2.0
- */
 class Controller extends D3Object {
-
     constructor() {
         super();
         this.repeat = Controller.RT_CLAMP;
@@ -2780,7 +2965,7 @@ class Controller extends D3Object {
 
     /**
      * 动画更新
-     * @param {number} applicationTime 毫秒
+     * @param {number} applicationTime - 毫秒
      * @returns {boolean}
      */
     update(applicationTime) {
@@ -2811,16 +2996,9 @@ class Controller extends D3Object {
 
 DECLARE_ENUM(Controller, {
     RT_CLAMP: 0,
-    RT_WRAP:  1,
+    RT_WRAP: 1,
     RT_CYCLE: 2
 });
-
-/**
- * TransformController - 变换控制基类
- *
- * @version 2.0
- * @author lonphy
- */
 
 class TransformController extends Controller {
 
@@ -2833,7 +3011,7 @@ class TransformController extends Controller {
     }
 
     /**
-     * @param {number} applicationTime 毫秒
+     * @param {number} applicationTime - 毫秒
      */
     update(applicationTime) {
         if (super.update(applicationTime)) {
@@ -2853,16 +3031,10 @@ class TransformController extends Controller {
     }
 }
 
-/**
- * BlendTransformController - 混合变换控制器
- *
- * @author lonphy
- * @version 2.0
- */
 class BlendTransformController extends TransformController {
 
     /**
-     *  ####Construction
+     *  #### Construction
      *  
      *  Set 'rsMatrices' to 'true' when theinput controllers manage
      *  transformations of the form Y = R*S*X + T, where R is a rotation, S is
@@ -3019,16 +3191,13 @@ class BlendTransformController extends TransformController {
     }
 }
 
-D3Object.Register('L5.BlendTransformController', BlendTransformController.factory);
+D3Object.Register('BlendTransformController', BlendTransformController.factory);
 
 /**
- * ControlledObject - 控制基类
- *
- * @version 2.0
- * @author lonphy
+ * Abstract base class
  */
-
 class ControlledObject extends D3Object {
+    /** @protected */
     constructor() {
         super();
         this.numControllers = 0;
@@ -3110,7 +3279,7 @@ class ControlledObject extends D3Object {
     }
 
     /**
-     * @param {number} applicationTime 
+     * @param {number} applicationTime
      * @return {boolean}
      */
     updateControllers(applicationTime) {
@@ -3124,7 +3293,7 @@ class ControlledObject extends D3Object {
     }
 
     /**
-     * @param inStream {InStream}
+     * @param {InStream} inStream
      */
     load(inStream) {
         super.load(inStream);
@@ -3136,11 +3305,117 @@ class ControlledObject extends D3Object {
         this.capacity = this.numControllers;
     }
 
+    /**
+     * @param {InStream} inStream
+     */
     link(inStream) {
         super.link(inStream);
         this.controllers = inStream.resolveArrayLink(this.numControllers, this.controllers);
     }
 }
+
+/**
+ * IKController assumes responsibility for 
+ * the input arrays and will delete them.  They should be dynamically allocated.
+ */
+class IKController extends Controller {
+
+	/**
+	 * 
+	 * @param {number} numJoints 
+	 * @param {Array<IKJoint>} joints 
+	 * @param {number} numGoals 
+	 * @param {Array<IKGoal>} goals 
+	 */
+	constructor(numJoints, joints, numGoals, goals) {
+		this.iterations = 128;
+		this.orderEndToRoot = true;
+		this.numJoints = numJoints;
+		this.joints = joints;
+		this.numGoals = numGoals;
+		this.goals = goals;
+	}
+	/**
+	 * @param {number} applicationTime - ms
+	 */
+	update(applicationTime) {
+		if (!super.update(applicationTime)) return false;
+
+		// Make sure effectors are all current in world space.  It is assumed
+		// that the joints form a chain, so the world transforms of joint I
+		// are the parent transforms for the joint I+1.
+		let k, numJoints = this.numJoints;
+		for (k = 0; k < numJoints; ++k) {
+			this.joints[k].updateWorldSRT();
+		}
+
+		// Update joints one-at-a-time to meet goals.  As each joint is updated,
+		// the nodes occurring in the chain after that joint must be made current
+		// in world space.
+		let iter, i, j;
+		let joint, joints = this.joints;
+		if (this.orderEndToRoot) {
+			for (iter = 0; iter < this.iterations; ++iter) {
+				for (k = 0; k < numJoints; ++k) {
+					let r = numJoints - 1 - k;
+					joint = joints[r];
+
+					for (i = 0; i < 3; ++i) {
+						if (joint.allowTranslation[i]) {
+							if (joint.updateLocalT(i)) {
+								for (j = r; j < numJoints; ++j) {
+									joints[j].updateWorldRT();
+								}
+							}
+						}
+					}
+
+					for (i = 0; i < 3; ++i) {
+						if (joint.allowRotation[i]) {
+							if (joint.updateLocalR(i)) {
+								for (j = r; j < numJoints; ++j) {
+									joints[j].updateWorldRT();
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		else  // order root to end
+		{
+			for (iter = 0; iter < this.iterations; ++iter) {
+				for (k = 0; k < numJoints; ++k) {
+					joint = joints[k];
+
+					for (i = 0; i < 3; ++i) {
+						if (joint.allowTranslation[i]) {
+							if (joint.updateLocalT(i)) {
+								for (j = k; j < numJoints; ++j) {
+									joints[j].updateWorldRT();
+								}
+							}
+						}
+					}
+
+					for (i = 0; i < 3; ++i) {
+						if (joint.allowRotation[i]) {
+							if (joint.updateLocalR(i)) {
+								for (j = k; j < numJoints; ++j) {
+									joints[j].updateWorldRT();
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		return true;
+	}
+}
+
+D3Object.Register(IKController.name, IKController.factory.bind(IKController));
 
 class KeyframeController extends TransformController {
 
@@ -3414,7 +3689,7 @@ class KeyframeController extends TransformController {
 
     /**
      * 文件解析工厂方法
-     * @param inStream {InStream}
+     * @param {InStream} inStream
      * @returns {KeyframeController}
      */
     static factory(inStream) {
@@ -3424,2186 +3699,14 @@ class KeyframeController extends TransformController {
     }
 }
 
-D3Object.Register('L5.KeyframeController', KeyframeController.factory);
-
-/**
- * Camera - 摄像机
- *
- * @param isPerspective {boolean} 是否是透视相机, true-透视, false-正交
- * @author lonphy
- * @version 2.0
- */
-class Camera extends D3Object {
-
-    constructor(isPerspective = false) {
-        super();
-
-        this.isPerspective = isPerspective;
-
-        this.position = Point$1.ORIGIN;
-        this.direction = Vector$1.UNIT_Z.negative(); //-z
-        this.up = Vector$1.UNIT_Y;
-        this.right = Vector$1.UNIT_X;
-
-        // 摄像机视图矩阵
-        this.viewMatrix = Matrix$1.IDENTITY;
-
-        // 视截体存储结构, 存储顺序 NEAR-FAR-BOTTOM-TOP-LEFT-RIGHT
-        this.frustum = new Float32Array(6);
-
-        // 摄像机投影矩阵
-        this.projectionMatrix = Matrix$1.IDENTITY;
-
-        // 投影视图矩阵， 即投影矩阵和视图矩阵的乘积
-        // 当视图前置/后置矩阵不为空时会包含它们
-        this.projectionViewMatrix = Matrix$1.IDENTITY;
-
-        // 视图前置矩阵，位置在模型矩阵之后，但在视图矩阵之前
-        // 用于对物体的变换， 例如反射等，默认为单位矩阵
-        this.preViewMatrix = Matrix$1.IDENTITY;
-        this.preViewIsIdentity = true;
-
-        // 视图后置矩阵，用于屏幕空间转换，例如反射渲染后的图像等，默认为单位矩阵
-        this.postProjectionMatrix = Matrix$1.IDENTITY;
-        this.postProjectionIsIdentity = true;
-
-        // 初始化
-        this.setFrame(this.position, this.direction, this.up, this.right);
-        this.setPerspective(90, 1, 1, 1000);
-    }
-
-
-    /**
-     * 所有参数均为世界坐标系
-     *
-     * @param eye {Point} 相机位置
-     * @param center {Point} 场景中心
-     * @param up {Vector} 相机上方向
-     */
-    lookAt(eye, center, up) {
-
-        if (eye.equals(center)) {
-            this.position.copy(Point$1.ORIGIN);
-            this.up.copy(up);
-            this.direction.copy(Vector$1.UNIT_Z.negative());
-            this.right.copy(Vector$1.UNIT_X);
-            return;
-        }
-
-        this.position.copy(eye);
-
-        // 这里可直接计算正-Z方向, 上面已经做过判断
-        var z = eye.subAsVector(center);
-        z.normalize();
-
-        // 计算右方向
-        var x = up.cross(z);
-        x.normalize();
-
-        // 计算右方向
-        var y = z.cross(x);
-        y.normalize();
-
-        this.direction.copy(z);
-        this.up.copy(y);
-        this.right.copy(x);
-
-        this.onFrameChange();
-    }
-
-    /**
-     * 摄像机的向量使用世界坐标系.
-     *
-     * @param position  {Point } 位置 default (0, 0,  0; 1)
-     * @param direction {Vector} 观察方向 default (0, 0, -1; 0)
-     * @param up        {Vector} 上方向 default default (0, 1, 0; 0)
-     * @returns {void}
-     */
-    setFrame(position, direction, up) {
-        this.position.copy(position);
-        var right = direction.cross(up);
-        this.setAxes(direction, up, right);
-    }
-
-    /**
-     * 设置摄像机位置
-     * @param position {Point}
-     * @returns {void}
-     */
-    setPosition(position) {
-        this.position.copy(position);
-        this.onFrameChange();
-    }
-
-    /**
-     * 设置摄像机坐标系的3个轴
-     *
-     * @param direction {Vector} 观察方向
-     * @param up        {Vector} 上方向
-     * @param right     {Vector} 右方向
-     * @returns {void}
-     */
-    setAxes(direction, up, right) {
-        this.direction.copy(direction);
-        this.up.copy(up);
-        this.right.copy(right);
-
-        // 判断3个轴是否正交, 否则需要校正
-        var det = direction.dot(up.cross(right));
-        if (_Math.abs(1 - det) > 0.00001) {
-            Vector$1.orthoNormalize(this.direction, this.up, this.right);
-        }
-        this.onFrameChange();
-    }
-
-    /**
-     * 设置透视矩阵参数
-     * @param fov {float} 垂直视角, 单位: 度
-     * @param aspect {float} 高宽比
-     * @param near {float} 近平面
-     * @param far {float} 远平面
-     */
-    setPerspective(fov, aspect, near, far) {
-        var top = near * _Math.tan(fov * _Math.PI / 360);
-        var right = top * aspect;
-
-        this.frustum[Camera.VF_TOP] = top;
-        this.frustum[Camera.VF_BOTTOM] = -top;
-        this.frustum[Camera.VF_RIGHT] = right;
-        this.frustum[Camera.VF_LEFT] = -right;
-        this.frustum[Camera.VF_NEAR] = near;
-        this.frustum[Camera.VF_FAR] = far;
-
-        this.onFrustumChange();
-    }
-
-    /**
-     * 返回透视图的4个参数
-     * returns {Float32Array} [fov, aspect, near, far]
-     */
-    getPerspective() {
-        var ret = new Float32Array(4);
-
-        if (
-            this.frustum[Camera.VF_LEFT] == -this.frustum[Camera.VF_RIGHT] &&
-            this.frustum[Camera.VF_BOTTOM] == -this.frustum[Camera.VF_TOP]
-        ) {
-            var tmp = this.frustum[Camera.VF_TOP] / this.frustum[Camera.VF_NEAR];
-            ret[0] = _Math.atan(tmp) * 360 / _Math.PI;
-            ret[1] = this.frustum[Camera.VF_RIGHT] / this.frustum[Camera.VF_TOP];
-            ret[2] = this.frustum[Camera.VF_NEAR];
-            ret[3] = this.frustum[Camera.VF_FAR];
-        }
-        return ret;
-    }
-
-    /**
-     * 通过6个面的参数设置视截体
-     * @param near   {number} 近平面
-     * @param far    {number} 远平面
-     * @param bottom {number} 底面
-     * @param top    {number} 顶面
-     * @param left   {number} 左面
-     * @param right  {number} 右面
-     * @returns {void}
-     */
-    setFrustum(near, far, bottom, top, left, right) {
-        this.frustum[Camera.VF_NEAR] = near;
-        this.frustum[Camera.VF_FAR] = far;
-        this.frustum[Camera.VF_BOTTOM] = bottom;
-        this.frustum[Camera.VF_TOP] = top;
-        this.frustum[Camera.VF_LEFT] = left;
-        this.frustum[Camera.VF_RIGHT] = right;
-
-        this.onFrustumChange();
-    }
-
-    /**
-     * p00 {Point}
-     * p10 {Point}
-     * p11 {Point}
-     * p01 {Point}
-     * nearExtrude {number}
-     * farExtrude {number}
-     *
-     */
-    setProjectionMatrix(p00, p10, p11, p01,
-        nearExtrude, farExtrude) {
-
-        var // 计算近平面
-            q000 = p00.scalar(nearExtrude),
-            q100 = p01.scalar(nearExtrude),
-            q110 = p11.scalar(nearExtrude),
-            q010 = p01.scalar(nearExtrude),
-
-            // 计算远平面
-            q001 = p00.scalar(farExtrude),
-            q101 = p10.scalar(farExtrude),
-            q111 = p11.scalar(farExtrude),
-            q011 = p01.scalar(farExtrude);
-
-        // Compute the representation of q111.
-        var u0 = q100.sub(q000),
-            u1 = q010.sub(q000),
-            u2 = q001.sub(q000);
-
-        var m = Matrix$1.IPMake(u0, u1, u2, q000);
-        var invM = m.inverse(0.001);
-        var a = invM.mulPoint(q111);
-
-        // Compute the coeffients in the fractional linear transformation.
-        //   y[i] = n[i]*x[i]/(d[0]*x[0] + d[1]*x[1] + d[2]*x[2] + d[3])
-        var n0 = 2 * a.x;
-        var n1 = 2 * a.y;
-        var n2 = 2 * a.z;
-        var d0 = +a.x - a.y - a.z + 1;
-        var d1 = -a.x + a.y - a.z + 1;
-        var d2 = -a.x - a.y + a.z + 1;
-        var d3 = +a.x + a.y + a.z - 1;
-
-        // 从规范正方体[-1,1]^2 x [0,1]计算透视投影
-        var n20 = n2 / n0,
-            n21 = n2 / n1,
-            n20d0 = n20 * d0,
-            n21d1 = n21 * d1,
-            d32 = 2 * d3,
-            project = new Matrix$1(
-                n20 * d32 + n20d0, n21d1, d2, -n2,
-                n20d0, n21 * d32 + n21d1, d2, -n2,
-                n20d0, n21d1, d2, -n2,
-                -n20d0, -n21d1, -d2, n2
-            );
-
-        this.postProjectionMatrix.copy(project.mul(invM));
-        this.postProjectionIsIdentity = Matrix$1.isIdentity(this.postProjectionMatrix);
-        this.updatePVMatrix();
-    }
-
-    /**
-     * 设置视图前置矩阵
-     *
-     * @param mat {Matrix}
-     * @returns {void}
-     */
-    setPreViewMatrix(mat) {
-        this.preViewMatrix.copy(mat);
-        this.preViewIsIdentity = Matrix$1.isIdentity(mat);
-        this.updatePVMatrix();
-    }
-
-    /**
-     * 设置视图后置矩阵
-     *
-     * @param mat {Matrix}
-     * @returns {void}
-     */
-    setPostProjectionMatrix(mat) {
-        this.postProjectionMatrix.copy(mat);
-        this.postProjectionIsIdentity = Matrix$1.isIdentity(mat);
-        this.updatePVMatrix();
-    }
-
-    /**
-     * 在归一化后的显示空间[-1,1]x[-1,1]计算物体轴对齐包围盒
-     *
-     * @param numVertices  {number}       顶点数量
-     * @param vertices     {Float32Array} 顶点数组
-     * @param stride       {number}       步幅
-     * @param worldMatrix  {Matrix}   物体变换矩阵
-     * @returns {object}
-     */
-    computeBoundingAABB(numVertices, vertices, stride, worldMatrix) {
-        // 计算当前物体，世界视图投影矩阵.
-        var vpMatrix = this.projectionMatrix.mul(this.viewMatrix);
-        if (!this.postProjectionIsIdentity) {
-            vpMatrix.copy(this.postProjectionMatrix.mul(vpMatrix));
-        }
-        var wvpMatrix = vpMatrix.mul(worldMatrix);
-        var xmin, xmax, ymin, ymax;
-        // 计算规范化后的显示坐标包围盒
-        xmin = ymin = Infinity;
-        xmax = ymax = -Infinity;
-
-        for (var i = 0; i < numVertices; ++i) {
-            var pos = new Point$1(vertices[i + stride], vertices[i + stride + 1], vertices[i + stride + 2]);
-            var hpos = wvpMatrix.mulPoint(pos);
-            var invW = 1 / hpos.w;
-            var xNDC = hpos.x * invW;
-            var yNDC = hpos.y * invW;
-            if (xNDC < xmin) {
-                xmin = xNDC;
-            }
-            if (xNDC > xmax) {
-                xmax = xNDC;
-            }
-            if (yNDC < ymin) {
-                ymin = yNDC;
-            }
-            if (yNDC > ymax) {
-                ymax = yNDC;
-            }
-        }
-        return { xmin: xmin, xmax: xmax, ymin: ymin, ymax: ymax };
-    }
-
-    /**
-     * 计算变更后的视图矩阵
-     * @returns {void}
-     */
-    onFrameChange() {
-        var nPos = this.position;
-        var x = this.right, y = this.up, z = this.direction;
-
-        this.viewMatrix[0] = x[0];
-        this.viewMatrix[1] = y[0];
-        this.viewMatrix[2] = z[0];
-        this.viewMatrix[3] = 0;
-
-        this.viewMatrix[4] = x[1];
-        this.viewMatrix[5] = y[1];
-        this.viewMatrix[6] = z[1];
-        this.viewMatrix[7] = 0;
-
-        this.viewMatrix[8] = x[2];
-        this.viewMatrix[9] = y[2];
-        this.viewMatrix[10] = z[2];
-        this.viewMatrix[11] = 0;
-
-        this.viewMatrix[12] = -nPos.dot(x);
-        this.viewMatrix[13] = -nPos.dot(y);
-        this.viewMatrix[14] = -nPos.dot(z);
-        this.viewMatrix[15] = 1;
-
-        this.updatePVMatrix();
-    }
-
-    /**
-     * 视截体变化后计算投影矩阵
-     * @returns {void}
-     */
-    onFrustumChange() {
-        var f = this.frustum;
-        var near = f[Camera.VF_NEAR],
-            far = f[Camera.VF_FAR],
-            bottom = f[Camera.VF_BOTTOM],
-            top = f[Camera.VF_TOP],
-            left = f[Camera.VF_LEFT],
-            right = f[Camera.VF_RIGHT],
-
-            rl = right - left,
-            tb = top - bottom,
-            fn = far - near;
-
-        this.projectionMatrix.zero();
-
-        if (this.isPerspective) {
-            var near2 = 2 * near;
-            this.projectionMatrix[0] = near2 / rl;
-            this.projectionMatrix[5] = near2 / tb;
-            this.projectionMatrix[8] = (right + left) / rl;
-            this.projectionMatrix[9] = (top + bottom) / tb;
-            this.projectionMatrix[10] = -(far + near) / fn;
-            this.projectionMatrix[11] = -1;
-            this.projectionMatrix[14] = -(far * near2) / fn;
-        }
-        else {
-            this.projectionMatrix[0] = 2 / rl;
-            this.projectionMatrix[5] = 2 / tb;
-            this.projectionMatrix[10] = -2 / fn;
-            this.projectionMatrix[12] = -(left + right) / rl;
-            this.projectionMatrix[13] = -(top + bottom) / tb;
-            this.projectionMatrix[14] = -(far + near) / fn;
-            this.projectionMatrix[15] = 1;
-        }
-
-        this.updatePVMatrix();
-    }
-
-    /**
-     * 计算postproj-proj-view-preview的乘积
-     * @returns {void}
-     */
-    updatePVMatrix() {
-
-        this.projectionViewMatrix.copy(this.projectionMatrix.mul(this.viewMatrix));
-
-
-        if (!this.postProjectionIsIdentity) {
-            this.projectionViewMatrix.copy(this.postProjectionMatrix.mul(this.projectionViewMatrix));
-        }
-
-        if (!this.preViewIsIdentity) {
-            this.projectionViewMatrix.copy(this.projectionViewMatrix.mul(this.preViewMatrix));
-        }
-    }
-
-    debug() {
-        if (!this.output) {
-            this.output = document.createElement('div');
-            document.querySelector('.nodes-info').appendChild(this.output);
-        }
-        let pos = this.position;
-        let dir = this.direction;
-        this.output.innerHTML = `pos:[${pos.x.toFixed(4)}, ${pos.y.toFixed(4)}, ${pos.z.toFixed(4)}]<br/>
-                        dir:[${dir.x.toFixed(4)}, ${dir.y.toFixed(4)}, ${dir.z.toFixed(4)}]<br/>`;
-    }
-}
-
-////////////////////// const 视截体常量定义 //////////////////////
-DECLARE_ENUM(Camera, {
-    VF_NEAR: 0,
-    VF_FAR: 1,
-    VF_BOTTOM: 2,
-    VF_TOP: 3,
-    VF_LEFT: 4,
-    VF_RIGHT: 5,
-    VF_QUANTITY: 6
-});
-
-/**
- * Transform
- *
- * @author lonphy
- * @version 2.0
- */
-class Transform$1 {
-    constructor() {
-        // The full 4x4 homogeneous matrix H = {{M,T},{0,1}} and its inverse
-        // H^{-1} = {M^{-1},-M^{-1}*T},{0,1}}.  The inverse is computed only
-        // on demand.
-
-        // 变换矩阵
-        this.__matrix = Matrix$1.IDENTITY;
-        // 变换矩阵的逆矩阵
-        this._invMatrix = Matrix$1.IDENTITY;
-
-        this._matrix = Matrix$1.IDENTITY;     // M (general) or R (rotation)
-
-
-        this._scale = new Point$1(1, 1, 1);        // S
-        this._translate = Point$1.ORIGIN;          // T
-
-        this._isIdentity = true;
-        this._isRSMatrix = true;
-        this._isUniformScale = true;
-        this._inverseNeedsUpdate = false;
-    }
-
-    /**
-     * 置单位变换
-     */
-    makeIdentity() {
-        this._matrix = Matrix$1.IDENTITY;
-        this._translate.fill(0);
-        this._scale.fill(1);
-        this._isIdentity = true;
-        this._isRSMatrix = true;
-        this._isUniformScale = true;
-        this._updateMatrix();
-        return this;
-    }
-
-    /**
-     * 缩放置1
-     */
-    makeUnitScale() {
-        console.assert(this._isRSMatrix, 'Matrix is not a rotation');
-        this._scale.fill(1);
-        this._isUniformScale = true;
-        this._updateMatrix();
-        return this;
-    }
-
-    /**
-     * I
-     * @returns {boolean}
-     */
-    isIdentity() {
-        return this._isIdentity;
-    }
-
-    /**
-     * R*S
-     * @returns {boolean}
-     */
-    isRSMatrix() {
-        return this._isRSMatrix;
-    }
-
-    /**
-     * R*S, S = c*I
-     * @returns {boolean}
-     */
-    isUniformScale() {
-        return this._isRSMatrix && this._isUniformScale;
-    }
-
-
-    // Member access.
-    // (1) The Set* functions set the is-identity hint to false.
-    // (2) The SetRotate function sets the is-rsmatrix hint to true.  If this
-    //     hint is false,  GetRotate fires an "assert" in debug mode.
-    // (3) The SetMatrix function sets the is-rsmatrix and is-uniform-scale
-    //     hints to false.
-    // (4) The SetScale function sets the is-uniform-scale hint to false.
-    //     The SetUniformScale function sets the is-uniform-scale hint to
-    //     true.  If this hint is false, GetUniformScale fires an "assert" in
-    //     debug mode.
-    // (5) All Set* functions set the inverse-needs-update to true.  When
-    //     GetInverse is called, the inverse must be computed in this case and
-    //     the inverse-needs-update is reset to false.
-    /**
-     * @param rotate {Matrix}
-     */
-    setRotate(rotate) {
-        this._matrix.copy(rotate);
-        this._isIdentity = false;
-        this._isRSMatrix = true;
-        this._updateMatrix();
-        return this;
-    }
-
-    /**
-     * @param matrix {Matrix}
-     */
-    setMatrix(matrix) {
-        this._matrix.copy(matrix);
-        this._isIdentity = false;
-        this._isRSMatrix = false;
-        this._isUniformScale = false;
-        this._updateMatrix();
-        return this;
-    }
-
-    /**
-     * @param translate {Point}
-     */
-    setTranslate(translate) {
-        this._translate.copy(translate);
-        this._isIdentity = false;
-        this._updateMatrix();
-        return this;
-    }
-
-    /**
-     * @param scale {Point}
-     */
-    setScale(scale) {
-        console.assert(this._isRSMatrix, 'Matrix is not a rotation');
-        console.assert(!this._scale.equals(Point$1.ORIGIN), 'Scales must be nonzero');
-        this._scale.copy(scale);
-        this._isIdentity = false;
-        this._isUniformScale = false;
-        this._updateMatrix();
-        return this;
-    }
-
-    /**
-     * @param scale {number}
-     */
-    setUniformScale(scale) {
-        console.assert(this._isRSMatrix, 'Matrix is not a rotation');
-        console.assert(scale !== 0, 'Scale must be nonzero');
-
-        this._scale.fill(scale);
-        this._isIdentity = false;
-        this._isUniformScale = true;
-        this._updateMatrix();
-        return this;
-    }
-
-    /**
-     * @returns {Matrix}
-     */
-    getRotate() {
-        console.assert(this._isRSMatrix, 'Matrix is not a rotation');
-        return this._matrix;
-    }
-
-    /**
-     * @returns {Matrix}
-     */
-    getMatrix() {
-        return this._matrix;
-    }
-
-    /**
-     * @returns {Point}
-     */
-    getTranslate() {
-        return this._translate;
-    }
-
-    /**
-     * @returns {Point}
-     */
-    getScale() {
-        console.assert(this._isRSMatrix, 'Matrix is not a rotation-scale');
-        return this._scale;
-    }
-
-    /**
-     * @returns {number}
-     */
-    getUniformScale() {
-        console.assert(this._isRSMatrix, 'Matrix is not a rotation-scale');
-        console.assert(this._isUniformScale, 'Matrix is not uniform scale');
-        return this._scale[0];
-    }
-
-
-    /**
-     * For M = R*S, the largest value of S in absolute value is returned.
-     * For general M, the max-row-sum norm is returned, which is a reasonable
-     * measure of maximum scale of the transformation.
-     * @returns {number}
-     */
-    getNorm() {
-        const abs = _Math.abs;
-        if (this._isRSMatrix) {
-            var maxValue = abs(this._scale[0]);
-            if (abs(this._scale[1]) > maxValue) {
-                maxValue = abs(this._scale[1]);
-            }
-            if (abs(this._scale[2]) > maxValue) {
-                maxValue = abs(this._scale[2]);
-            }
-            return maxValue;
-        }
-
-        // A general matrix.  Use the max-row-sum matrix norm.  The spectral
-        // norm (the maximum absolute value of the eigenvalues) is smaller or
-        // equal to this norm.  Therefore, this function returns an approximation
-        // to the maximum scale.
-        var m = this._matrix;
-        var maxRowSum = abs(m.item(0, 0)) + abs(m.item(0, 1)) + abs(m.item(0, 2));
-        var rowSum = abs(m.item(1, 0)) + abs(m.item(1, 1)) + abs(m.item(1, 2));
-
-        if (rowSum > maxRowSum) {
-            maxRowSum = rowSum;
-        }
-        rowSum = abs(m.item(2, 0)) + abs(m.item(2, 1)) + abs(m.item(2, 2));
-        if (rowSum > maxRowSum) {
-            maxRowSum = rowSum;
-        }
-
-        return maxRowSum;
-    }
-
-    /**
-     * @param p {Point|Vector}
-     * Matrix-point/vector 乘法, M*p.
-     */
-    mulPoint(p) {
-        return this.__matrix.mulPoint(p);
-    }
-
-    /**
-     * Matrix-matrix multiplication.
-     * @param transform {Transform}
-     * @returns {Transform}
-     */
-    mul(transform) {
-        if (this._isIdentity) {
-            return transform;
-        }
-
-        if (transform.isIdentity()) {
-            return this;
-        }
-        const IsRS = this._isRSMatrix;
-        var product = new Transform$1();
-
-        if (IsRS && transform.isRSMatrix()) {
-            if (this._isUniformScale) {
-                var scale0 = this._scale[0];
-                product.setRotate(this._matrix.mul(transform.getMatrix()));
-
-                product.setTranslate(
-                    this._matrix.mulPoint(transform.getTranslate())
-                        .scalar(scale0)
-                        .add(this._translate)
-                );
-
-                if (transform.isUniformScale()) {
-                    product.setUniformScale(scale0 * transform.getUniformScale());
-                } else {
-                    product.setScale(transform.getScale().scalar(scale0));
-                }
-
-                return product;
-            }
-        }
-
-        // In all remaining cases, the matrix cannot be written as R*S*X+T.
-        var matMA = (IsRS ? this._matrix.timesDiagonal(this._scale) : this._matrix);
-        var matMB = (
-            transform.isRSMatrix() ?
-                transform.getMatrix().timesDiagonal(transform.getScale()) :
-                transform.getMatrix()
-        );
-
-        product.setMatrix(matMA.mul(matMB));
-        product.setTranslate(matMA.mulPoint(transform.getTranslate()).add(this._translate));
-        return product;
-    }
-
-    /**
-     * Get the homogeneous matrix.
-     */
-    toMatrix() {
-        return this.__matrix;
-    }
-
-
-    /**
-     * Get the inverse homogeneous matrix, recomputing it when necessary.
-     * If H = {{M,T},{0,1}}, then H^{-1} = {{M^{-1},-M^{-1}*T},{0,1}}.
-     * @returns {Matrix}
-     */
-    inverse() {
-        if (!this._inverseNeedsUpdate) {
-            return this._invMatrix;
-        }
-        if (this._isIdentity) {
-            this._invMatrix.copy(Matrix$1.IDENTITY);
-            this._inverseNeedsUpdate = false;
-            return this._invMatrix;
-        }
-
-        var im = this._invMatrix,
-            m = this._matrix;
-
-        if (this._isRSMatrix) {
-            var s0 = this._scale[0],
-                s1 = this._scale[1],
-                s2 = this._scale[2];
-
-            if (this._isUniformScale) {
-                var invScale = 1 / s0;
-                im.setItem(0, 0, invScale * m.item(0, 0));
-                im.setItem(0, 1, invScale * m.item(1, 0));
-                im.setItem(0, 2, invScale * m.item(2, 0));
-                im.setItem(1, 0, invScale * m.item(0, 1));
-                im.setItem(1, 1, invScale * m.item(1, 1));
-                im.setItem(1, 2, invScale * m.item(2, 1));
-                im.setItem(2, 0, invScale * m.item(0, 2));
-                im.setItem(2, 1, invScale * m.item(1, 2));
-                im.setItem(2, 2, invScale * m.item(2, 2));
-            } else {
-                // Replace 3 reciprocals by 6 multiplies and 1 reciprocal.
-                var s01 = s0 * s1;
-                var s02 = s0 * s2;
-                var s12 = s1 * s2;
-                var invs012 = 1 / (s01 * s2);
-                var invS0 = s12 * invs012;
-                var invS1 = s02 * invs012;
-                var invS2 = s01 * invs012;
-                im.setItem(0, 0, invS0 * m.item(0, 0));
-                im.setItem(0, 1, invS0 * m.item(1, 0));
-                im.setItem(0, 2, invS0 * m.item(2, 0));
-                im.setItem(1, 0, invS1 * m.item(0, 1));
-                im.setItem(1, 1, invS1 * m.item(1, 1));
-                im.setItem(1, 2, invS1 * m.item(2, 1));
-                im.setItem(2, 0, invS2 * m.item(0, 2));
-                im.setItem(2, 1, invS2 * m.item(1, 2));
-                im.setItem(2, 2, invS2 * m.item(2, 2));
-            }
-        } else {
-            Transform$1.invert3x3(this.__matrix, im);
-        }
-
-        var t0 = this._translate[0],
-            t1 = this._translate[1],
-            t2 = this._translate[2];
-        im.setItem(0, 3, -(im.item(0, 0) * t0 + im.item(0, 1) * t1 + im.item(0, 2) * t2));
-        im.setItem(1, 3, -(im.item(1, 0) * t0 + im.item(1, 1) * t1 + im.item(1, 2) * t2));
-        im.setItem(2, 3, -(im.item(2, 0) * t0 + im.item(2, 1) * t1 + im.item(2, 2) * t2));
-
-        this._inverseNeedsUpdate = false;
-        return this._invMatrix;
-    }
-
-
-    /**
-     * Get the inversion transform.  No test is performed to determine whether
-     * the caller transform is invertible.
-     * @returns {Transform}
-     */
-    inverseTransform() {
-        if (this._isIdentity) {
-            return Transform$1.IDENTITY;
-        }
-
-        var inverse = new Transform$1();
-        var invTrn = Point$1.ORIGIN;
-
-        if (this._isRSMatrix) {
-            var invRot = this._matrix.transpose();
-            var invScale;
-            inverse.setRotate(invRot);
-            if (this._isUniformScale) {
-                invScale = 1 / this._scale[0];
-                inverse.setUniformScale(invScale);
-                invTrn = invRot.mulPoint(this._translate).scalar(-invScale);
-            }
-            else {
-                invScale = new Point$1(1 / this._scale[0], 1 / this._scale[1], 1 / this._scale[2]);
-                inverse.setScale(invScale);
-                invTrn = invRot.mulPoint(this._translate);
-                invTrn[0] *= -invScale[0];
-                invTrn[1] *= -invScale[1];
-                invTrn[2] *= -invScale[2];
-            }
-        }
-        else {
-            var invMat = new Matrix$1();
-            Transform$1.invert3x3(this._matrix, invMat);
-            inverse.setMatrix(invMat);
-            invTrn = invMat.mulPoint(this._translate).negative();
-        }
-        inverse.setTranslate(invTrn);
-
-        return inverse;
-    }
-
-    /**
-     * Fill in the entries of mm whenever one of the components
-     * m, mTranslate, or mScale changes.
-     * @private
-     */
-    _updateMatrix() {
-        if (this._isIdentity) {
-            this.__matrix = Matrix$1.IDENTITY;
-        }
-        else {
-            var mm = this.__matrix;
-            var m = this._matrix;
-
-            if (this._isRSMatrix) {
-                var s0 = this._scale[0],
-                    s1 = this._scale[1],
-                    s2 = this._scale[2];
-
-                mm.setItem(0, 0, m.item(0, 0) * s0);
-                mm.setItem(0, 1, m.item(0, 1) * s1);
-                mm.setItem(0, 2, m.item(0, 2) * s2);
-                mm.setItem(1, 0, m.item(1, 0) * s0);
-                mm.setItem(1, 1, m.item(1, 1) * s1);
-                mm.setItem(1, 2, m.item(1, 2) * s2);
-                mm.setItem(2, 0, m.item(2, 0) * s0);
-                mm.setItem(2, 1, m.item(2, 1) * s1);
-                mm.setItem(2, 2, m.item(2, 2) * s2);
-            }
-            else {
-                mm.setItem(0, 0, m.item(0, 0));
-                mm.setItem(0, 1, m.item(0, 1));
-                mm.setItem(0, 2, m.item(0, 2));
-                mm.setItem(1, 0, m.item(1, 0));
-                mm.setItem(1, 1, m.item(1, 1));
-                mm.setItem(1, 2, m.item(1, 2));
-                mm.setItem(2, 0, m.item(2, 0));
-                mm.setItem(2, 1, m.item(2, 1));
-                mm.setItem(2, 2, m.item(2, 2));
-            }
-
-            mm.setItem(0, 3, this._translate[0]);
-            mm.setItem(1, 3, this._translate[1]);
-            mm.setItem(2, 3, this._translate[2]);
-
-            // The last row of mm is always (0,0,0,1) for an affine
-            // transformation, so it is set once in the constructor.  It is not
-            // necessary to reset it here.
-        }
-
-        this._inverseNeedsUpdate = true;
-    }
-
-    /**
-     * Invert the 3x3 upper-left block of the input matrix.
-     * @param mat {Matrix}
-     * @param invMat {Matrix}
-     * @private
-     */
-    static invert3x3(mat, invMat) {
-        // Compute the adjoint of M (3x3).
-        invMat.setItem(0, 0, mat.item(1, 1) * mat.item(2, 2) - mat.item(1, 2) * mat.item(2, 1));
-        invMat.setItem(0, 1, mat.item(0, 2) * mat.item(2, 1) - mat.item(0, 1) * mat.item(2, 2));
-        invMat.setItem(0, 2, mat.item(0, 1) * mat.item(1, 2) - mat.item(0, 2) * mat.item(1, 1));
-        invMat.setItem(1, 0, mat.item(1, 2) * mat.item(2, 0) - mat.item(1, 0) * mat.item(2, 2));
-        invMat.setItem(1, 1, mat.item(0, 0) * mat.item(2, 2) - mat.item(0, 2) * mat.item(2, 0));
-        invMat.setItem(1, 2, mat.item(0, 2) * mat.item(1, 0) - mat.item(0, 0) * mat.item(1, 2));
-        invMat.setItem(2, 0, mat.item(1, 0) * mat.item(2, 1) - mat.item(1, 1) * mat.item(2, 0));
-        invMat.setItem(2, 1, mat.item(0, 1) * mat.item(2, 0) - mat.item(0, 0) * mat.item(2, 1));
-        invMat.setItem(2, 2, mat.item(0, 0) * mat.item(1, 1) - mat.item(0, 1) * mat.item(1, 0));
-
-        // Compute the reciprocal of the determinant of M.
-        var invDet = 1 / (
-                mat.item(0, 0) * invMat.item(0, 0) +
-                mat.item(0, 1) * invMat.item(1, 0) +
-                mat.item(0, 2) * invMat.item(2, 0)
-            );
-
-        // inverse(M) = adjoint(M)/determinant(M).
-        invMat.setItem(0, 0, invMat.item(0, 0) * invDet);
-        invMat.setItem(0, 1, invMat.item(0, 1) * invDet);
-        invMat.setItem(0, 2, invMat.item(0, 2) * invDet);
-        invMat.setItem(1, 0, invMat.item(1, 0) * invDet);
-        invMat.setItem(1, 1, invMat.item(1, 1) * invDet);
-        invMat.setItem(1, 2, invMat.item(1, 2) * invDet);
-        invMat.setItem(2, 0, invMat.item(2, 0) * invDet);
-        invMat.setItem(2, 1, invMat.item(2, 1) * invDet);
-        invMat.setItem(2, 2, invMat.item(2, 2) * invDet);
-    }
-
-    static get IDENTITY() {
-        return new Transform$1().makeIdentity();
-    }
-}
-
-class Bound$1 {
-    constructor() {
-        this.center = Point$1.ORIGIN;
-        this.radius = 0;
-    }
-    /**
-     * 复制
-     * @param {Bound} bound
-     * @returns {Bound}
-     */
-    copy(bound) {
-        this.center.copy(bound.center);
-        this.radius = bound.radius;
-        return this;
-    }
-    /**
-     * @param {Plane} plane
-     */
-    whichSide(plane) {
-        let signedDistance = plane.distanceTo(this.center);
-        if (signedDistance <= -this.radius) return -1;
-        if (signedDistance >= this.radius) return +1;
-        return 0;
-    }
-    /**
-     * @param {Bound} bound
-     */
-    growToContain(bound) {
-        if (bound.radius === 0) {
-            // The incoming bound is invalid and cannot affect growth.
-            return;
-        }
-
-        if (this.radius === 0) {
-            // The current bound is invalid, so just assign the incoming bound.
-            this.copy(bound);
-            return;
-        }
-
-        let centerDiff = bound.center.subAsVector(this.center);
-        let lengthSqr = centerDiff.squaredLength();
-        let radiusDiff = bound.radius - this.radius;
-        let radiusDiffSqr = radiusDiff * radiusDiff;
-
-        if (radiusDiffSqr >= lengthSqr) {
-            if (radiusDiff >= 0) {
-                this.center = bound.center;
-                this.radius = bound.radius;
-            }
-            return;
-        }
-
-        let length = _Math.sqrt(lengthSqr);
-        if (length > _Math.ZERO_TOLERANCE) {
-            let coeff = (length + radiusDiff) / (2 * length);
-            this.center = this.center.add(centerDiff.scalar(coeff));
-        }
-        this.radius = 0.5 * (length + this.radius + bound.radius);
-    }
-
-    /**
-     * @param {Transform} transform
-     * @param {Bound} bound
-     */
-    transformBy(transform, bound) {
-        bound.center = transform.mulPoint(this.center);
-        bound.radius = transform.getNorm() * this.radius;
-    }
-
-    /**
-     * 计算物体的球形包围盒
-     *
-     * @param {number} numElements 顶点数量
-     * @param {number} stride 坐标偏移
-     * @param {ArrayBuffer} data 顶点数据
-     */
-    computeFromData(numElements, stride, data) {
-
-        let pos = new Float32Array(3);
-        let t = 0, cx, cy, cz;
-        let i, radiusSqr, dv = new DataView(data);
-
-        // 包围盒的中心是所有坐标的平均值
-        for (i = 0; i < numElements; ++i) {
-            t = i * stride;
-            pos[0] += dv.getFloat32(t, true);
-            pos[1] += dv.getFloat32(t + 4, true);
-            pos[2] += dv.getFloat32(t + 8, true);
-        }
-        t = 1 / numElements;
-        cx = pos[0] * t;
-        cy = pos[1] * t;
-        cz = pos[2] * t;
-        this.center.assign(cx, cy, cz);
-
-        // 半径是到中心点距离最大的物体坐标
-        this.radius = 0;
-        for (i = 0; i < numElements; ++i) {
-            t = i * stride;
-            pos[0] = dv.getFloat32(t, true) - cx;
-            pos[1] = dv.getFloat32(t + 4, true) - cy;
-            pos[2] = dv.getFloat32(t + 8, true) - cz;
-
-            radiusSqr = pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2];
-            if (radiusSqr > this.radius) {
-                this.radius = radiusSqr;
-            }
-        }
-
-        this.radius = _Math.sqrt(this.radius);
-    }
-
-    /**
-     * Test for intersection of linear component and bound (points of
-     * intersection not computed).   
-     * > The linear component is parameterized by
-     *  `P + t*D`
-     * -  P is a point on the component (the origin)
-     * -  D is a unit-length direction vector
-     * 
-     * > The interval `[tmin,tmax]` is
-     *   - line      tmin = -MAX_REAL, tmax = MAX_REAL
-     *   - ray:      tmin = 0.0, tmax = MAX_REAL
-     *   - segment:  tmin >= 0.0, tmax > tmin
-     *
-     * @param {Point} origin
-     * @param {Vector} direction
-     * @param {number} tmin
-     * @param {number} tmax
-     * @returns {boolean}
-     */
-    testIntersection(origin, direction, tmin, tmax) {
-        // 无效的包围盒, 不能计算相交
-        if (this.radius === 0) {
-            return false;
-        }
-
-        let diff;
-        let a0, a1, discr;
-
-        if (tmin === -_Math.MAX_REAL) {
-            console.assert(tmax === _Math.MAX_REAL, 'tmax must be infinity for a line.');
-
-            // Test for sphere-line intersection.
-            diff = origin.sub(this.center);
-            a0 = diff.dot(diff) - this.radius * this.radius;
-            a1 = direction.dot(diff);
-            discr = a1 * a1 - a0;
-            return discr >= 0;
-        }
-
-        if (tmax === _Math.MAX_REAL) {
-            console.assert(tmin === 0, 'tmin must be zero for a ray.');
-
-            // Test for sphere-ray intersection.
-            diff = origin.sub(this.center);
-            a0 = diff.dot(diff) - this.radius * this.radius;
-            if (a0 <= 0) {
-                // The ray origin is inside the sphere.
-                return true;
-            }
-            // else: The ray origin is outside the sphere.
-
-            a1 = direction.dot(diff);
-            if (a1 >= 0) {
-                // The ray forms an acute angle with diff, and so the ray is
-                // directed from the sphere.  Thus, the ray origin is outside
-                // the sphere, and points P+t*D for t >= 0 are even farther
-                // away from the sphere.
-                return false;
-            }
-
-            discr = a1 * a1 - a0;
-            return discr >= 0;
-        }
-
-        console.assert(tmax > tmin, 'tmin < tmax is required for a segment.');
-
-        // Test for sphere-segment intersection.
-        let segExtent = 0.5 * (tmin + tmax);
-        let segOrigin = origin.add(segExtent * direction);
-
-        diff = segOrigin.sub(this.center);
-        a0 = diff.dot(diff) - this.radius * this.radius;
-        a1 = direction.dot(diff);
-        discr = a1 * a1 - a0;
-        if (discr < 0) {
-            return false;
-        }
-
-        let tmp0 = segExtent * segExtent + a0;
-        let tmp1 = 2 * a1 * segExtent;
-        let qm = tmp0 - tmp1;
-        let qp = tmp0 + tmp1;
-        if (qm * qp <= 0) {
-            return true;
-        }
-        return qm > 0 && _Math.abs(a1) < segExtent;
-    }
-    /**
-     * Test for intersection of the two stationary bounds.
-     * @param {Bound} bound
-     * @returns {boolean}
-     */
-    testIntersection1(bound) {
-        // 无效的包围盒, 不能计算相交
-        if (bound.radius === 0 || this.radius === 0) {
-            return false;
-        }
-
-        // Test for staticSphere-staticSphere intersection.
-        let diff = this.center.subAsVector(bound.center);
-        let rSum = this.radius + bound.radius;
-        return diff.squaredLength() <= rSum * rSum;
-    }
-
-    /**
-     * Test for intersection of the two moving bounds.
-     * - Velocity0 is that of the calling Bound
-     * - velocity1 is that of the input bound.
-     *
-     * @param {Bound} bound
-     * @param {number} tmax
-     * @param {Vector} velocity0
-     * @param {Vector} velocity1
-     * @returns {boolean}
-     */
-    testIntersection2(bound, tmax, velocity0, velocity1) {
-        // 无效的包围盒, 不能计算相交
-        if (bound.radius === 0 || this.radius === 0) {
-            return false;
-        }
-
-        // Test for movingSphere-movingSphere intersection.
-        let relVelocity = velocity1.sub(velocity0);
-        let cenDiff = bound.center.subAsVector(this.center);
-        let a = relVelocity.squaredLength();
-        let c = cenDiff.squaredLength();
-        let rSum = bound.radius + this.radius;
-        let rSumSqr = rSum * rSum;
-
-        if (a > 0) {
-            let b = cenDiff.dot(relVelocity);
-            if (b <= 0) {
-                if (-tmax * a <= b) {
-                    return a * c - b * b <= a * rSumSqr;
-                }
-                else {
-                    return tmax * (tmax * a + 2 * b) + c <= rSumSqr;
-                }
-            }
-        }
-
-        return c <= rSumSqr;
-    }
-}
-
-/**
- * Spatial - 场景空间
- */
-class Spatial$1 extends ControlledObject {
-    constructor() {
-        super();
-
-        /** @type {Transform} */
-        this.localTransform = Transform$1.IDENTITY;
-
-        /** @type {Transform} */
-        this.worldTransform = Transform$1.IDENTITY;
-
-        // 在一些情况下直接更新worldTransform而跳过Spatial.update()
-        // 在这种情况下必须将this.worldTransformIsCurrent设置为true
-        this.worldTransformIsCurrent = false;
-
-        /** @type {Bound} */
-        this.worldBound = new Bound$1();
-        // 在一些情况下直接更新worldBound而跳过Spatial.update()
-        // 在这种情况下必须将this.worldBoundIsCurrent设置为true
-        this.worldBoundIsCurrent = false;
-
-        this.culling = Spatial$1.CULLING_DYNAMIC;
-
-        /** @type {Spatial} */
-        this.parent = null;
-    }
-    /**
-     * 在向下遍历场景树或向上遍历世界包围盒时，计算世界变换，
-     *
-     * 更新几何体的状态和控制器
-     *
-     * @param {number} applicationTime
-     * @param {boolean} initiator
-     */
-    update(applicationTime = -_Math.MAX_REAL, initiator=false) {
-        applicationTime = applicationTime;
-        this.updateWorldData(applicationTime);
-        this.updateWorldBound();
-
-        if (initiator === undefined || initiator === true) {
-            this.propagateBoundToRoot();
-        }
-    }
-    /**
-     *
-     * @param applicationTime {number}
-     */
-    updateWorldData(applicationTime) {
-        // 更新当前空间的所有控制器
-        this.updateControllers(applicationTime);
-
-        // 更新世界变换
-        if (!this.worldTransformIsCurrent) {
-            if (this.parent) {
-                this.worldTransform = this.parent.worldTransform.mul(this.localTransform);
-            }
-            else {
-                this.worldTransform = this.localTransform;
-            }
-        }
-    }
-
-    propagateBoundToRoot() {
-        if (this.parent) {
-            this.parent.updateWorldBound();
-            this.parent.propagateBoundToRoot();
-        }
-    }
-
-    /**
-     * 裁剪支持
-     * @param {Culler} culler
-     * @param {boolean} noCull
-     */
-    onGetVisibleSet(culler, noCull) {
-        if (this.culling === Spatial$1.CULLING_ALWAYS) {
-            return;
-        }
-
-        if (this.culling == Spatial$1.CULLING_NEVER) {
-            noCull = true;
-        }
-
-        var savePlaneState = culler.planeState;
-        if (noCull || culler.isVisible(this.worldBound)) {
-            this.getVisibleSet(culler, noCull);
-        }
-        culler.planeState = savePlaneState;
-    }
-
-    // 子类实现， 用于更新世界包围盒
-    updateWorldBound() {
-    }
-
-    load(inStream) {
-        super.load(inStream);
-        this.localTransform = inStream.readTransform();
-        this.worldTransform = inStream.readTransform();
-        this.worldTransformIsCurrent = inStream.readBool();
-        this.worldBound = inStream.readBound();
-        this.worldBoundIsCurrent = inStream.readBool();
-        this.culling = inStream.readEnum();
-    }
-}
-
-DECLARE_ENUM(Spatial$1, {
-    CULLING_DYNAMIC: 0, // 通过比较世界包围盒裁剪平面确定可见状态
-    CULLING_ALWAYS: 1, // 强制裁剪对象, 如果节点被裁剪，那么它的整个子树也被裁剪
-    CULLING_NEVER: 2  // 不裁剪对象， 如果一个节点是不裁剪对象，那么它的整个子树也不被裁剪。
-});
-
-/**
- * @author lonphy
- * @version 2.0
- */
-class Node extends Spatial$1{
-    constructor() {
-        super();
-        this.childs = [];
-    }
-
-    /**
-     * 获取子节点数量
-     * @returns {number}
-     */
-    getChildsNumber() {
-        return this.childs.length;
-    }
-
-    /**
-     * 加载子节点.
-     * 如果执行成功，则返回子节点存储的索引i, 0 <= i < getNumChildren()
-     * 数组中第一个空槽将被用来存储子节点. 如果所有的槽都不为空，则添加到数组末尾[js底层可能需要重新分配空间]
-     *
-     * 以下情况会失败,并返回-1
-     * child === null or child.parent !== null
-     *
-     * @param child {Spatial}
-     * @returns {number}
-     */
-    attachChild(child) {
-        if (child === null) {
-            console.assert(false, 'You cannot attach null children to a node.');
-            return -1;
-        }
-        if (child.parent !== null) {
-            console.assert(false, 'The child already has a parent.');
-            return -1;
-        }
-
-        child.parent = this;
-
-        var nodes = this.childs.slice(),
-            max = nodes.length;
-        for (var idx = 0; idx < max; ++idx) {
-            if (nodes[idx] === null) {
-                this.childs[idx] = child;
-                return idx;
-            }
-        }
-        this.childs[max] = child;
-        return max;
-    }
-
-    /**
-     * 从当前节点卸载子节点
-     * 如果child不为null且在数组中， 则返回存储的索引， 否则返回-1
-     * @param child {Spatial}
-     * @returns {number}
-     */
-    detachChild(child) {
-                if (child !== null) {
-                    var nodes = this.childs.slice(),
-                        max = nodes.length;
-                    for (var idx = 0; idx < max; ++idx) {
-                        if (nodes[idx] === child) {
-                            this.childs[idx] = null;
-                            child.parent = null;
-                            return idx;
-                        }
-                    }
-                }
-                return -1;
-            }
-
-            /**
-             * 从当前节点卸载子节点
-             * 如果 0 <= index < getNumChildren(), 则返回存储在index位置的子节点，否则返回null
-             *
-             * @param index {number}
-             * @returns {Spatial|null}
-             */
-            detachChildAt(index) {
-                var child = null;
-                if (index >= 0 && index < this.childs.length) {
-                    child = this.childs[index];
-                    if (child !== null) {
-                        child.parent = null;
-                this.childs[index] = null;
-            }
-        }
-        return child;
-    }
-
-    /**
-     * 在index位置放入child,并返回被替换的元素
-     * @param index {number}
-     * @param child {Spatial}
-     * @returns {Spatial|null}
-     */
-    setChild(index, child) {
-        if (child && child.parent !== null) return null;
-
-        if (index >= 0 && index < this.childs.length) {
-            var prev = this.childs[index];
-            if (prev !== null) {
-                prev.parent = null;
-            }
-            if (child) {
-                child.parent = this;
-            }
-            this.childs[index] = child;
-            return prev;
-        }
-
-        if (child) {
-            child.parent = this;
-        }
-        this.childs.push(child);
-        return null;
-    }
-
-    /**
-     * 通过索引获取子节点
-     * @param index {number}
-     * @returns {Spatial|null}
-     */
-    getChild(index) {
-        var child = null;
-        if (index >= 0 && index < this.childs.length) {
-            child = this.childs[index];
-        }
-        return child;
-    }
-
-    /**
-     * @param applicationTime {number}
-     */
-    updateWorldData(applicationTime) {
-        super.updateWorldData(applicationTime);
-        var nodes = this.childs.slice(),
-            max = nodes.length;
-        for (var idx = 0; idx < max; ++idx) {
-            if (nodes[idx]) {
-                nodes[idx].update(applicationTime, false);
-            }
-        }
-    }
-
-    updateWorldBound() {
-        if (!this.worldBoundIsCurrent) {
-            // Start with an invalid bound.
-            this.worldBound.center = Point$1.ORIGIN;
-            this.worldBound.radius = 0;
-            var nodes = this.childs.slice(),
-                max = nodes.length;
-            for (var idx = 0; idx < max; ++idx) {
-                if (nodes[idx]) {
-                    this.worldBound.growToContain(nodes[idx].worldBound);
-                }
-            }
-        }
-    }
-
-    /**
-     *
-     * @param culler {Culler}
-     * @param noCull {boolean}
-     */
-    getVisibleSet(culler, noCull) {
-        var nodes = this.childs.slice(),
-            max = nodes.length;
-        for (var idx = 0; idx < max; ++idx) {
-            if (nodes[idx]) {
-                nodes[idx].onGetVisibleSet(culler, noCull);
-            }
-        }
-    }
-    /**
-     * @param inStream {InStream}
-     */
-    load(inStream) {
-        super.load(inStream);
-        var numChildren = inStream.readUint32();
-        if (numChildren > 0) {
-            this.childs = inStream.readSizedPointerArray(numChildren);
-        }
-    }
-    /**
-     * @param inStream {InStream}
-     */
-    link(inStream) {
-        super.link(inStream);
-        this.childs.forEach(function (c, i) {
-            this.childs[i] = inStream.resolveLink(c);
-            this.setChild(i, this.childs[i]);
-        }, this);
-    }
-}
-
-D3Object.Register('L5.Node', Node.factory);
-
-/**
- * CameraNode - 相机节点
- *
- * @param camera {L5.Camera}
- * @class
- *
- * @author lonphy
- * @version 1.0
- */
-
-class VisibleSet {
-    constructor() {
-        this.numVisible = 0;
-        this.visibles = [];
-    }
-
-    getNumVisible() {
-        return this.numVisible;
-    }
-
-    getAllVisible() {
-        return this.visibles;
-    }
-
-    getVisible(index) {
-        console.assert(0 <= index && index < this.numVisible, 'Invalid index to getVisible');
-        return this.visibles[index];
-    }
-
-    insert(visible) {
-        var size = this.visibles.length;
-        if (this.numVisible < size) {
-            this.visibles[this.numVisible] = visible;
-        }
-        else {
-            this.visibles.push(visible);
-        }
-        ++this.numVisible;
-    }
-
-    clear() {
-        this.numVisible = 0;
-    }
-}
-
-/**
- * Culler - 裁剪
- *
- * @version 2.0
- * @author lonphy
- */
-class Culler {
-
-    /**
-     * @param {Camera} camera 
-     */
-    constructor(camera) {
-        // The data members mFrustum, mPlane, and mPlaneState are
-        // uninitialized.  They are initialized in the GetVisibleSet call.
-
-        // The input camera has information that might be needed during the
-        // culling pass over the scene.
-        this._camera = camera || null;
-
-        /**
-         * The potentially visible set for a call to GetVisibleSet.
-         * @type {VisibleSet}
-         * @private
-         */
-        this._visibleSet = new VisibleSet();
-
-        // The world culling planes corresponding to the view frustum plus any
-        // additional user-defined culling planes.  The member m_uiPlaneState
-        // represents bit flags to store whether or not a plane is active in the
-        // culling system.  A bit of 1 means the plane is active, otherwise the
-        // plane is inactive.  An active plane is compared to bounding volumes,
-        // whereas an inactive plane is not.  This supports an efficient culling
-        // of a hierarchy.  For example, if a node's bounding volume is inside
-        // the left plane of the view frustum, then the left plane is set to
-        // inactive because the children of the node are automatically all inside
-        // the left plane.
-        this._planeQuantity = 6;
-        this._plane = new Array(Culler.MAX_PLANE_QUANTITY);
-        for (var i = 0, l = this._plane.length; i < l; ++i) {
-            this._plane[i] = new Plane$1(Vector$1.ZERO, 0);
-        }
-        this._planeState = 0;
-
-        // 传入摄像机的视截体副本
-        // 主要用于在裁剪时供各种子系统修改视截体参数, 而不影响摄像机
-        // 这些内部状态在渲染器中需要
-        this._frustum = new Array(Camera.VF_QUANTITY);
-    }
-    get camera() {
-        return this._camera;
-    }
-    set camera(camera) {
-        this._camera = camera;
-    }
-
-    set frustum(frustum) {
-        if (!this._camera) {
-            console.assert(false, 'set frustum requires the existence of a camera');
-            return;
-        }
-
-        const VF_NEAR = Camera.VF_NEAR,
-            VF_FAR = Camera.VF_FAR,
-            VF_BOTTOM = Camera.VF_BOTTOM,
-            VF_TOP = Camera.VF_TOP,
-            VF_LEFT = Camera.VF_LEFT,
-            VF_RIGHT = Camera.VF_RIGHT;
-
-        let near, far, bottom, top, left, right;
-
-        // 赋值到当前实例.
-        this._frustum[VF_NEAR] = near = frustum[VF_NEAR];
-        this._frustum[VF_FAR] = far = frustum[VF_FAR];
-        this._frustum[VF_BOTTOM] = bottom = frustum[VF_BOTTOM];
-        this._frustum[VF_TOP] = top = frustum[VF_TOP];
-        this._frustum[VF_LEFT] = left = frustum[VF_LEFT];
-        this._frustum[VF_RIGHT] = right = frustum[VF_RIGHT];
-
-        var near2 = near * near;
-        var bottom2 = bottom * bottom;
-        var top2 = top * top;
-        var left2 = left * left;
-        var right2 = right * right;
-
-        // 获取相机坐标结构
-        var position = this._camera.position;
-        var directionVec = this._camera.direction;
-        var upVec = this._camera.up;
-        var rightVec = this._camera.right;
-        var dirDotEye = position.dot(directionVec);
-
-        // 更新近平面
-        this._plane[VF_NEAR].normal = directionVec;
-        this._plane[VF_NEAR].constant = dirDotEye + near;
-
-        // 更新远平面
-        this._plane[VF_FAR].normal = directionVec.negative();
-        this._plane[VF_FAR].constant = -(dirDotEye + far);
-
-        // 更新下平面
-        var invLength = _Math.invSqrt(near2 + bottom2);
-        var c0 = bottom * -invLength;
-        var c1 = near * invLength;
-        var normal = directionVec.scalar(c0).add(upVec.scalar(c1));
-        var constant = position.dot(normal);
-        this._plane[VF_BOTTOM].normal = normal;
-        this._plane[VF_BOTTOM].constant = constant;
-
-        // 更新上平面
-        invLength = _Math.invSqrt(near2 + top2);
-        c0 = top * invLength;
-        c1 = near * -invLength;
-        normal = directionVec.scalar(c0).add(upVec.scalar(c1));
-        constant = position.dot(normal);
-        this._plane[VF_TOP].normal = normal;
-        this._plane[VF_TOP].constant = constant;
-
-        // 更新左平面
-        invLength = _Math.invSqrt(near2 + left2);
-        c0 = left * -invLength;
-        c1 = near * invLength;
-        normal = directionVec.scalar(c0).add(rightVec.scalar(c1));
-        constant = position.dot(normal);
-        this._plane[VF_LEFT].normal = normal;
-        this._plane[VF_LEFT].constant = constant;
-
-        // 更新右平面
-        invLength = _Math.invSqrt(near2 + right2);
-        c0 = right * invLength;
-        c1 = near * -invLength;
-        normal = directionVec.scalar(c0).add(rightVec.scalar(c1));
-        constant = position.dot(normal);
-        this._plane[VF_RIGHT].normal = normal;
-        this._plane[VF_RIGHT].constant = constant;
-
-        // 所有的平面已经初始化
-        this._planeState = 0xFFFFFFFF;
-    }
-
-    get frustum() {
-        return this._frustum;
-    }
-
-    get visibleSet() {
-        return this._visibleSet;
-    }
-
-    get planeState() {
-        return this._planeState;
-    }
-
-    set planeState(val) {
-        this._planeState = val;
-    }
-
-    get planes() {
-        return this._plane;
-    }
-
-    get planeQuantity() {
-        return this._planeQuantity;
-    }
-
-    pushPlan(plane) {
-        if (this._planeQuantity < Culler.MAX_PLANE_QUANTITY) {
-            // The number of user-defined planes is limited.
-            this._plane[this._planeQuantity] = plane;
-            ++this._planeQuantity;
-        }
-    }
-
-    popPlane() {
-        if (this._planeQuantity > Camera.VF_QUANTITY) {
-            // Frustum planes may not be removed from the stack.
-            --this._planeQuantity;
-        }
-    }
-
-    /**
-     * The base class behavior is to append the visible object to the end of
-     * the visible set (stored as an array).  Derived classes may override
-     * this behavior; for example, the array might be maintained as a sorted
-     * array for minimizing render state changes or it might be/ maintained
-     * as a unique list of objects for a portal system.
-     * @param visible {Spatial}
-     */
-    insert(visible) {
-        this._visibleSet.insert(visible);
-    }
-
-    /**
-     * Compare the object's world bound against the culling planes.
-     * Only Spatial calls this function.
-     *
-     * @param bound {Bound}
-     * @returns {boolean}
-     */
-    isVisible(bound) {
-        if (bound.radius === 0) {
-            // 该节点是虚拟节点，不可见
-            return false;
-        }
-
-        // Start with the last pushed plane, which is potentially the most
-        // restrictive plane.
-        var index = this._planeQuantity - 1;
-        var mask = (1 << index);
-
-        for (var i = 0; i < this._planeQuantity; ++i, --index, mask >>= 1) {
-            if (this._planeState & mask) {
-                var side = bound.whichSide(this._plane[index]);
-
-                if (side < 0) {
-                    // 对象在平面的反面, 剔除掉
-                    return false;
-                }
-
-                if (side > 0) {
-                    // 对象在平面的正面
-                    // There is no need to compare subobjects against this plane
-                    // so mark it as inactive.
-                    this._planeState &= ~mask;
-                }
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * Support for Portal.getVisibleSet.
-     * @param numVertices {number}
-     * @param vertices {Array<Point>}
-     * @param ignoreNearPlane {boolean}
-     */
-    isVisible1(numVertices, vertices, ignoreNearPlane) {
-        // The Boolean variable ignoreNearPlane should be set to 'true' when
-        // the test polygon is a portal.  This avoids the situation when the
-        // portal is in the view pyramid (eye+left/right/top/bottom), but is
-        // between the eye and near plane.  In such a situation you do not want
-        // the portal system to cull the portal.  This situation typically occurs
-        // when the camera moves through the portal from current region to
-        // adjacent region.
-
-        // Start with the last pushed plane, which is potentially the most
-        // restrictive plane.
-        var index = this._planeQuantity - 1;
-        for (var i = 0; i < this._planeQuantity; ++i, --index) {
-            var plane = this._plane[index];
-            if (ignoreNearPlane && index == Camera.VF_NEAR) {
-                continue;
-            }
-
-            var j;
-            for (j = 0; j < numVertices; ++j) {
-                var side = plane.whichSide(vertices[j]);
-                if (side >= 0) {
-                    // The polygon is not totally outside this plane.
-                    break;
-                }
-            }
-
-            if (j == numVertices) {
-                // The polygon is totally outside this plane.
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-
-    // Support for BspNode::GetVisibleSet.  Determine whether the view frustum
-    // is fully on one side of a plane.  The "positive side" of the plane is
-    // the half space to which the plane normal points.  The "negative side"
-    // is the other half space.  The function returns +1 if the view frustum
-    // is fully on the positive side of the plane, -1 if the view frustum is
-    // fully on the negative side of the plane, or 0 if the view frustum
-    // straddles the plane.  The input plane is in world coordinates and the
-    // world camera coordinate system is used for the test.
-    /**
-     * @param plane {Plane}
-     * @returns {number}
-     */
-    whichSide(plane) {
-        // The plane is N*(X-C) = 0 where the * indicates dot product.  The signed
-        // distance from the camera location E to the plane is N*(E-C).
-        var NdEmC = plane.distanceTo(this._camera.position);
-
-        var normal = plane.normal;
-        var NdD = normal.dot(this._camera.direction);
-        var NdU = normal.dot(this._camera.up);
-        var NdR = normal.dot(this._camera.right);
-        var FdN = this._frustum[Camera.VF_FAR] / this._frustum[Camera.VF_NEAR];
-
-        var positive = 0, negative = 0, sgnDist;
-
-        // Check near-plane vertices.
-        var PDMin = this._frustum[Camera.VF_NEAR] * NdD;
-        var NUMin = this._frustum[Camera.VF_BOTTOM] * NdU;
-        var NUMax = this._frustum[Camera.VF_TOP] * NdU;
-        var NRMin = this._frustum[Camera.VF_LEFT] * NdR;
-        var NRMax = this._frustum[Camera.VF_RIGHT] * NdR;
-
-        // V = E + dmin*D + umin*U + rmin*R
-        // N*(V-C) = N*(E-C) + dmin*(N*D) + umin*(N*U) + rmin*(N*R)
-        sgnDist = NdEmC + PDMin + NUMin + NRMin;
-        if (sgnDist > 0) {
-            positive++;
-        }
-        else if (sgnDist < 0) {
-            negative++;
-        }
-
-        // V = E + dmin*D + umin*U + rmax*R
-        // N*(V-C) = N*(E-C) + dmin*(N*D) + umin*(N*U) + rmax*(N*R)
-        sgnDist = NdEmC + PDMin + NUMin + NRMax;
-        if (sgnDist > 0) {
-            positive++;
-        }
-        else if (sgnDist < 0) {
-            negative++;
-        }
-
-        // V = E + dmin*D + umax*U + rmin*R
-        // N*(V-C) = N*(E-C) + dmin*(N*D) + umax*(N*U) + rmin*(N*R)
-        sgnDist = NdEmC + PDMin + NUMax + NRMin;
-        if (sgnDist > 0) {
-            positive++;
-        }
-        else if (sgnDist < 0) {
-            negative++;
-        }
-
-        // V = E + dmin*D + umax*U + rmax*R
-        // N*(V-C) = N*(E-C) + dmin*(N*D) + umax*(N*U) + rmax*(N*R)
-        sgnDist = NdEmC + PDMin + NUMax + NRMax;
-        if (sgnDist > 0) {
-            positive++;
-        }
-        else if (sgnDist < 0) {
-            negative++;
-        }
-
-        // check far-plane vertices (s = dmax/dmin)
-        var PDMax = this._frustum[Camera.VF_FAR] * NdD;
-        var FUMin = FdN * NUMin;
-        var FUMax = FdN * NUMax;
-        var FRMin = FdN * NRMin;
-        var FRMax = FdN * NRMax;
-
-        // V = E + dmax*D + umin*U + rmin*R
-        // N*(V-C) = N*(E-C) + dmax*(N*D) + s*umin*(N*U) + s*rmin*(N*R)
-        sgnDist = NdEmC + PDMax + FUMin + FRMin;
-        if (sgnDist > 0) {
-            positive++;
-        }
-        else if (sgnDist < 0) {
-            negative++;
-        }
-
-        // V = E + dmax*D + umin*U + rmax*R
-        // N*(V-C) = N*(E-C) + dmax*(N*D) + s*umin*(N*U) + s*rmax*(N*R)
-        sgnDist = NdEmC + PDMax + FUMin + FRMax;
-        if (sgnDist > 0) {
-            positive++;
-        }
-        else if (sgnDist < 0) {
-            negative++;
-        }
-
-        // V = E + dmax*D + umax*U + rmin*R
-        // N*(V-C) = N*(E-C) + dmax*(N*D) + s*umax*(N*U) + s*rmin*(N*R)
-        sgnDist = NdEmC + PDMax + FUMax + FRMin;
-        if (sgnDist > 0) {
-            positive++;
-        }
-        else if (sgnDist < 0) {
-            negative++;
-        }
-
-        // V = E + dmax*D + umax*U + rmax*R
-        // N*(V-C) = N*(E-C) + dmax*(N*D) + s*umax*(N*U) + s*rmax*(N*R)
-        sgnDist = NdEmC + PDMax + FUMax + FRMax;
-        if (sgnDist > 0) {
-            positive++;
-        }
-        else if (sgnDist < 0) {
-            negative++;
-        }
-
-        if (positive > 0) {
-            if (negative > 0) {
-                // Frustum straddles the plane.
-                return 0;
-            }
-
-            // Frustum is fully on the positive side.
-            return +1;
-        }
-
-        // Frustum is fully on the negative side.
-        return -1;
-    }
-
-    /**
-     * 计算裁剪后的可见物体
-     * @param scene {Spatial}
-     */
-    computeVisibleSet(scene) {
-        if (this._camera && scene) {
-            this.frustum = this.camera.frustum;
-            this._visibleSet.clear();
-            scene.onGetVisibleSet(this, false);
-            return;
-        }
-        console.assert(false, 'A camera and a scene are required for culling');
-    }
-
-}
-
-DECLARE_ENUM(Culler, {
-    MAX_PLANE_QUANTITY: 32
-});
+D3Object.Register('KeyframeController', KeyframeController.factory);
 
 // @ts-check
-class Light$1 extends D3Object {
-    constructor(type) {
-        super();
-        this.type = type;
-
-        // 灯光颜色属性
-        this.ambient = new Float32Array([0, 0, 0, 1]);
-        this.diffuse = new Float32Array([0, 0, 0, 1]);
-        this.specular = new Float32Array([0, 0, 0, 1]);
-
-        // 衰减系数
-        //     m = 1/(C + L*d + Q*d*d)
-        // C : 常量系数
-        // L : 线性系数
-        // Q : 2次系数
-        // d : 从光源位置到顶点的距离
-        // 使用线性衰减光强,可用:m = I/(C + L*d + Q*d*d)替代, I是强度系数
-        this.constant = 1.0;
-        this.linear = 0.0;
-        this.quadratic = 0.0;
-        this.intensity = 1.0;
-
-        // 聚光灯参数
-        // 椎体夹角为弧度制, 范围为: 0 < angle <= Math.PI.
-        this.angle = _Math.PI;
-        this.cosAngle = -1.0;
-        this.sinAngle = 0.0;
-        this.exponent = 1.0;
-
-        this.position = Point$1.ORIGIN;
-        this.direction = Vector$1.UNIT_Z.negative();
-        this.up = Vector$1.UNIT_Y;
-        this.right = Vector$1.UNIT_X;
-    }
-
-    /**
-     * 设置光源[聚光灯]角度
-     * @param angle {number} 弧度有效值 0< angle <= PI
-     */
-    setAngle(angle) {
-        console.assert(0 < angle && angle <= _Math.PI, 'Angle out of range in SetAngle');
-        this.angle = angle;
-        this.cosAngle = _Math.cos(angle);
-        this.sinAngle = _Math.sin(angle);
-    }
-
-    /**
-     * 设置光源方向
-     * @param dir{Vector} 方向向量
-     */
-    setDirection(dir) {
-        dir.normalize();
-        this.direction.copy(dir);
-        Vector$1.generateComplementBasis(this.up, this.right, this.direction);
-    }
-
-    /**
-     * 设置光源位置
-     *
-     * 只对点光源以及聚光灯有效
-     * @param pos {Point} 位置
-     */
-    setPosition(pos) {
-        this.position.copy(pos);
-    }
-
-    load(inStream) {
-        super.load(inStream);
-        this.type = inStream.readEnum();
-        this.ambient.set(inStream.readFloat32Range(4));
-        this.diffuse.set(inStream.readFloat32Range(4));
-        this.specular.set(inStream.readFloat32Range(4));
-        this.constant = inStream.readFloat32();
-        this.linear = inStream.readFloat32();
-        this.quadratic = inStream.readFloat32();
-        this.intensity = inStream.readFloat32();
-        this.angle = inStream.readFloat32();
-        this.cosAngle = inStream.readFloat32();
-        this.sinAngle = inStream.readFloat32();
-        this.exponent = inStream.readFloat32();
-        this.position = inStream.readPoint();
-        this.direction.copy(inStream.readFloat32Range(4));
-        this.up.copy(inStream.readFloat32Range(4));
-        this.right.copy(inStream.readFloat32Range(4));
-    }
-
-    save(outStream) {
-        super.save(outStream);
-        outStream.writeEnum(this.type);
-        outStream.writeFloat32Array(4, this.ambient);
-        outStream.writeFloat32Array(4, this.diffuse);
-        outStream.writeFloat32Array(4, this.specular);
-        outStream.writeFloat32(this.constant);
-        outStream.writeFloat32(this.linear);
-        outStream.writeFloat32(this.quadratic);
-        outStream.writeFloat32(this.intensity);
-        outStream.writeFloat32(this.angle);
-        outStream.writeFloat32(this.cosAngle);
-        outStream.writeFloat32(this.sinAngle);
-        outStream.writeFloat32(this.exponent);
-        outStream.writeFloat32Array(4, this.position);
-        outStream.writeFloat32Array(4, this.direction);
-        outStream.writeFloat32Array(4, this.up);
-        outStream.writeFloat32Array(4, this.right);
-    }
-
-    /**
-     * 文件解析工厂方法
-     * @param inStream {InStream}
-     * @returns {Light}
-     */
-    static factory(inStream) {
-        var l = new Light$1(Light$1.LT_INVALID);
-        l.load(inStream);
-        return l;
-    }
-}
-
-DECLARE_ENUM(Light$1, {
-    LT_AMBIENT:     0,  // 环境光
-    LT_DIRECTIONAL: 1, // 方向光
-    LT_POINT:       2, // 点光源
-    LT_SPOT:        3, // 聚光等
-    LT_INVALID:     4 // 无效光源
-});
-
-D3Object.Register('Light', Light$1.factory);
-
-// @ts-check
-
 /**
- * Material 材质
+ * Buffer - 缓冲基础类
+ * @abstract
  */
-class Material$1 extends D3Object {
-
-    constructor(opts = {}) {
-        super();
-        opts = Material$1.parseOption(opts);
-
-        let val = opts.emissive;
-        this.emissive = new Float32Array([val[0], val[1], val[2], 1]);
-        val = opts.ambient;
-        this.ambient = new Float32Array([val[0], val[1], val[2], 1]);
-
-        val = opts.diffuse;
-        // 材质透明度在反射颜色的alpha通道
-        this.diffuse = new Float32Array([val[0], val[1], val[2], opts.alpha]);
-
-        val = opts.specular;
-        // 镜面高光指数存储在alpha通道
-        this.specular = new Float32Array([val[0], val[1], val[2], opts.exponent]);
-    }
-
-    static get defaultOptions() {
-        return {
-            alpha: 1,
-            exponent: 32,
-            ambient: new Float32Array([0, 0, 0]),
-            emissive: new Float32Array([0, 0, 0]),
-            diffuse: new Float32Array([0, 0, 0]),
-            specular: new Float32Array([0, 0, 0])
-        };
-    }
-
-    static parseOption(opts) {
-        let defOption = Object.assign({}, Material$1.defaultOptions);
-        if (opts.alpha && opts.alpha >= 0 && opts.alpha <= 1) {
-            defOption.alpha = opts.alpha;
-        }
-        if (opts.exponent) {
-            defOption.exponent = opts.exponent;
-        }
-        if (opts.ambient) {
-            defOption.ambient.set(opts.ambient);
-        }
-        if (opts.emissive) {
-            defOption.emissive.set(opts.emissive);
-        }
-        if (opts.diffuse) {
-            defOption.diffuse.set(opts.diffuse);
-        }
-        if (opts.specular) {
-            defOption.specular.set(opts.specular);
-        }
-        return defOption;
-    }
-
-    static factory(inStream) {
-        var obj = new Material$1();
-        obj.emissive[3] = 0;
-        obj.ambient[3] = 0;
-        obj.diffuse[3] = 0;
-        obj.load(inStream);
-        return obj;
-    }
-}
-
-D3Object.Register('L5.Material', Material$1.factory);
-
-// @ts-check
-class Buffer$1 extends D3Object {
+class Buffer extends D3Object {
     /**
      * @param {number} numElements - 元素数量
      * @param {number} elementSize - 一个元素的尺寸，单位比特
@@ -5638,43 +3741,34 @@ class Buffer$1 extends D3Object {
     }
 }
 
-DECLARE_ENUM(Buffer$1, {
+DECLARE_ENUM(Buffer, {
     BU_STATIC: 0,
     BU_DYNAMIC: 1,
     BU_RENDER_TARGET: 2,
     BU_DEPTH_STENCIL: 3
 });
 
-/**
- * IndexBuffer 索引缓冲
- *
- * @author lonphy
- * @version 2.0
- *
- * @type {IndexBuffer}
- * @extends {Buffer}
- */
-class IndexBuffer$1 extends Buffer$1 {
+class IndexBuffer$1 extends Buffer {
 
     /**
-     * @param numElements {number}
-     * @param elementSize {number}
-     * @param usage {number} 缓冲用途， 参照L5.BU_XXX
+     * @param {number} numElements
+     * @param {number} elementSize
+     * @param {number} usage - 缓冲用途， 参照Buffer.BU_XXX
      */
-    constructor(numElements = 0, elementSize = 0, usage = Buffer$1.BU_STATIC) {
+    constructor(numElements = 0, elementSize = 0, usage = Buffer.BU_STATIC) {
         super(numElements, elementSize, usage);
         this.offset = 0;
     }
 
     /**
-     * @param inStream {InStream}
+     * @param {InStream} inStream
      */
     load(inStream) {
         super.load(inStream);
         this.offset = inStream.readUint32();
     }
 }
-D3Object.Register('L5.IndexBuffer', IndexBuffer$1.factory);
+D3Object.Register('IndexBuffer', IndexBuffer$1.factory);
 
 /**
  * VertexBuffer 顶点缓冲
@@ -5685,14 +3779,14 @@ D3Object.Register('L5.IndexBuffer', IndexBuffer$1.factory);
  * @type VertexBuffer
  * @extends {Buffer}
  */
-class VertexBuffer extends Buffer$1 {
+class VertexBuffer extends Buffer {
 
     /**
      * @param numElements
      * @param elementSize
      * @param usage {number} 缓冲用途， 参照Buffer.BU_XXX
      */
-    constructor(numElements, elementSize, usage = Buffer$1.BU_STATIC) {
+    constructor(numElements, elementSize, usage = Buffer.BU_STATIC) {
         super(numElements, elementSize, usage);
     }
 
@@ -5709,21 +3803,6 @@ class VertexBuffer extends Buffer$1 {
 }
 D3Object.Register('L5.VertexBuffer', VertexBuffer.factory);
 
-/**
- * 渲染对象
- *
- * @param numTargets {number}
- * @param format {number}
- * @param width {number}
- * @param height {number}
- * @param hasMipmaps {boolean}
- * @param hasDepthStencil {boolean}
- * @type {RenderTarget}
- */
-
-/**
- * Texture 纹理基类
- */
 class Texture extends D3Object {
 
     /**
@@ -5788,12 +3867,12 @@ class Texture extends D3Object {
 
     /**
      *
-     * @param buffer {ArrayBuffer}
-     * @returns {Promise}
+     * @param {ArrayBuffer} buffer
+     * @param {Texture} texture
      */
-    static unpack(buffer) {
+    static unpackTo(buffer, texture) {
 
-        var io = new BinDataView(buffer);
+        let io = new BinDataView(buffer);
         let format = io.int8();
         let type = io.int8();
         let hasMipMaps = (io.int8() == 1);
@@ -5802,35 +3881,40 @@ class Texture extends D3Object {
         let height = io.int16();
         let depth = io.int16();
         let numTotalBytes = io.int32();
-
-        let texture;
-        switch (type) {
-            case Texture.TT_2D:
-                texture = new Texture2D(format, width, height, hasMipMaps);
-                break;
-            case Texture.TT_CUBE:
-                texture = new TextureCube(format, width, hasMipMaps);
-                break;
-            default:
-                console.assert(false, 'Unknown texture type.');
-                return Promise.reject(null);
+        if (type !== texture.type) {
+            return new Error('Invalid type for ' + texture.name);
         }
-        texture.data.set(io.bytes(numTotalBytes));
+
+        texture.format = format;
+        texture.hasMipmaps = hasMipMaps;
         texture.numDimensions = numDimensions;
         texture.depth = depth;
+
+        switch (type) {
+            case Texture.TT_2D:
+                texture.width = width;
+                texture.height = height;
+                break;
+            case Texture.TT_CUBE:
+                texture.width = width;
+                break;
+        }
+        texture.enableMipMaps = hasMipMaps;
+        texture._update();
+        texture.data.set(io.bytes(numTotalBytes));
         io = null;
-        return Promise.resolve(texture);
+        return null;
     }
 
     /**
      * 将纹理对象处理成文件形式
-     * @param texture {Texture}
+     * @param {Texture} texture
      * @returns {ArrayBuffer}
      */
     static pack(texture) {
         let size = texture.getFileSize();
         let buffer = new ArrayBuffer(size);
-        var io = new L5.Util.DataView(buffer);
+        var io = new Util.DataView(buffer);
 
         io.setInt8(texture.format);
         io.setInt8(texture.type);
@@ -5845,62 +3929,62 @@ class Texture extends D3Object {
     }
 }
 
-//////////////////////////////// 纹理格式定义 /////////////////////////////////
+// 纹理格式定义
 DECLARE_ENUM(Texture, {
-    TF_NONE:          0,
-    TF_R5G6B5:        1,
-    TF_A1R5G5B5:      2,
-    TF_A4R4G4B4:      3,
-    TF_A8:            4,
-    TF_L8:            5,
-    TF_A8L8:          6,
-    TF_R8G8B8:        7,
-    TF_A8R8G8B8:      8,
-    TF_A8B8G8R8:      9,
-    TF_L16:           10,
-    TF_G16R16:        11,
-    TF_A16B16G16R16:  12,
-    TF_R16F:          13,  // not support
-    TF_G16R16F:       14,  // not support
+    TF_NONE: 0,
+    TF_R5G6B5: 1,
+    TF_A1R5G5B5: 2,
+    TF_A4R4G4B4: 3,
+    TF_A8: 4,
+    TF_L8: 5,
+    TF_A8L8: 6,
+    TF_R8G8B8: 7,
+    TF_A8R8G8B8: 8,
+    TF_A8B8G8R8: 9,
+    TF_L16: 10,
+    TF_G16R16: 11,
+    TF_A16B16G16R16: 12,
+    TF_R16F: 13,  // not support
+    TF_G16R16F: 14,  // not support
     TF_A16B16G16R16F: 15,  // not support
-    TF_R32F:          16,
-    TF_G32R32F:       17,
+    TF_R32F: 16,
+    TF_G32R32F: 17,
     TF_A32B32G32R32F: 18,
-    TF_DXT1:          19,
-    TF_DXT3:          20,
-    TF_DXT5:          21,
-    TF_D24S8:         22,
-    TF_QUANTITY:      23
+    TF_DXT1: 19,
+    TF_DXT3: 20,
+    TF_DXT5: 21,
+    TF_D24S8: 22,
+    TF_QUANTITY: 23
 }, false);
 
-////////////////////////// 每种格式纹理是否支持生成MipMaps /////////////////////
+// 每种格式纹理是否支持生成MipMaps
 DECLARE_ENUM(Texture, {
-    TT_2D:      1,
-    TT_CUBE:    3,
+    TT_2D: 1,
+    TT_CUBE: 3,
     MIPMAPABLE: [
-        false,  // L5.Texture.TF_NONE
-        true,   // L5.Texture.TF_R5G6B5
-        true,   // L5.Texture.TF_A1R5G5B5
-        true,   // L5.Texture.TF_A4R4G4B4
-        true,   // L5.Texture.TF_A8
-        true,   // L5.Texture.TF_L8
-        true,   // L5.Texture.TF_A8L8
-        true,   // L5.Texture.TF_R8G8B8
-        true,   // L5.Texture.TF_A8R8G8B8
-        true,   // L5.Texture.TF_A8B8G8R8
-        true,   // L5.Texture.TF_L16
-        true,   // L5.Texture.TF_G16R16
-        true,   // L5.Texture.TF_A16B16G16R16
-        false,   // L5.Texture.TF_R16F
-        false,   // L5.Texture.TF_G16R16F
-        false,   // L5.Texture.TF_A16B16G16R16F
-        false,  // L5.Texture.TF_R32F
-        false,  // L5.Texture.TF_G32R32F
-        false,  // L5.Texture.TF_A32B32G32R32F,
-        true,   // L5.Texture.TF_DXT1 (special handling)
-        true,   // L5.Texture.TF_DXT3 (special handling)
-        true,   // L5.Texture.TF_DXT5 (special handling)
-        false   // L5.Texture.TF_D24S8
+        false,  // Texture.TF_NONE
+        true,   // Texture.TF_R5G6B5
+        true,   // Texture.TF_A1R5G5B5
+        true,   // Texture.TF_A4R4G4B4
+        true,   // Texture.TF_A8
+        true,   // Texture.TF_L8
+        true,   // Texture.TF_A8L8
+        true,   // Texture.TF_R8G8B8
+        true,   // Texture.TF_A8R8G8B8
+        true,   // Texture.TF_A8B8G8R8
+        true,   // Texture.TF_L16
+        true,   // Texture.TF_G16R16
+        true,   // Texture.TF_A16B16G16R16
+        false,   // Texture.TF_R16F
+        false,   // Texture.TF_G16R16F
+        false,   // Texture.TF_A16B16G16R16F
+        false,  // Texture.TF_R32F
+        false,  // Texture.TF_G32R32F
+        false,  // Texture.TF_A32B32G32R32F,
+        true,   // Texture.TF_DXT1 (special handling)
+        true,   // Texture.TF_DXT3 (special handling)
+        true,   // Texture.TF_DXT5 (special handling)
+        false   // Texture.TF_D24S8
     ],
 
     /////////////////////////    纹理类型维度    //////////////////////////////////
@@ -5910,32 +3994,32 @@ DECLARE_ENUM(Texture, {
     ]
 }, false);
 
-////////////////// 每种像素格式单个像素占用的尺寸单位，字节  //////////////////////
+// 每种像素格式单个像素占用的尺寸单位，字节
 DECLARE_ENUM(Texture, {
     PIXEL_SIZE: [
-        0,              // L5.Texture.TF_NONE
-        2,              // L5.Texture.TF_R5G6B5
-        2,              // L5.Texture.TF_A1R5G5B5
-        2,              // L5.Texture.TF_A4R4G4B4
-        1,              // L5.Texture.TF_A8
-        1,              // L5.Texture.TF_L8
-        2,              // L5.Texture.TF_A8L8
-        3,              // L5.Texture.TF_R8G8B8
-        4,              // L5.Texture.TF_A8R8G8B8
-        4,              // L5.Texture.TF_A8B8G8R8
-        2,              // L5.Texture.TF_L16
-        4,              // L5.Texture.TF_G16R16
-        8,              // L5.Texture.TF_A16B16G16R16
-        2,              // L5.Texture.TF_R16F
-        4,              // L5.Texture.TF_G16R16F
-        8,              // L5.Texture.TF_A16B16G16R16F
-        4,              // L5.Texture.TF_R32F
-        8,              // L5.Texture.TF_G32R32F
-        16,             // L5.Texture.TF_A32B32G32R32F,
-        0,              // L5.Texture.TF_DXT1 (special handling)
-        0,              // L5.Texture.TF_DXT3 (special handling)
-        0,              // L5.Texture.TF_DXT5 (special handling)
-        4               // L5.Texture.TF_D24S8
+        0,              // Texture.TF_NONE
+        2,              // Texture.TF_R5G6B5
+        2,              // Texture.TF_A1R5G5B5
+        2,              // Texture.TF_A4R4G4B4
+        1,              // Texture.TF_A8
+        1,              // Texture.TF_L8
+        2,              // Texture.TF_A8L8
+        3,              // Texture.TF_R8G8B8
+        4,              // Texture.TF_A8R8G8B8
+        4,              // Texture.TF_A8B8G8R8
+        2,              // Texture.TF_L16
+        4,              // Texture.TF_G16R16
+        8,              // Texture.TF_A16B16G16R16
+        2,              // Texture.TF_R16F
+        4,              // Texture.TF_G16R16F
+        8,              // Texture.TF_A16B16G16R16F
+        4,              // Texture.TF_R32F
+        8,              // Texture.TF_G32R32F
+        16,             // Texture.TF_A32B32G32R32F,
+        0,              // Texture.TF_DXT1 (special handling)
+        0,              // Texture.TF_DXT3 (special handling)
+        0,              // Texture.TF_DXT5 (special handling)
+        4               // Texture.TF_D24S8
     ]
 });
 
@@ -6511,6 +4595,7 @@ mapping.DEPTH_STENCIL_ATTACHMENT = 0x821A;
 mapping.DEPTH_STENCIL = 0x84F9;
 mapping.UNSIGNED_INT_24_8 = 0x84FA;
 mapping.DEPTH24_STENCIL8 = 0x88F0;
+
 mapping.UNSIGNED_NORMALIZED = 0x8C17;
 mapping.DRAW_FRAMEBUFFER_BINDING = 0x8CA6; /* Same as FRAMEBUFFER_BINDING */
 mapping.READ_FRAMEBUFFER = 0x8CA8;
@@ -6626,6 +4711,21 @@ mapping.TEXTURE_IMMUTABLE_LEVELS = 0x82DF;
 mapping.TIMEOUT_IGNORED = -1;
 mapping.MAX_CLIENT_WAIT_TIMEOUT_WEBGL = 0x9247;
 
+// ext ENUM for WEBGL_compressed_texture_s3tc
+mapping.COMPRESSED_RGB_S3TC_DXT1_EXT = 0x83F0;
+mapping.COMPRESSED_RGBA_S3TC_DXT1_EXT = 0x83F1;
+mapping.COMPRESSED_RGBA_S3TC_DXT3_EXT = 0x83F2;
+mapping.COMPRESSED_RGBA_S3TC_DXT5_EXT = 0x83F3;
+
+// ext ENUM for WEBGL_compressed_texture_s3tc_srgb
+mapping.COMPRESSED_SRGB_S3TC_DXT1_EXT = 0x8C4C;
+mapping.COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT = 0x8C4D;
+mapping.COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT = 0x8C4E;
+mapping.COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT = 0x8C4F;
+
+// ext ENUM for EXT_texture_filter_anisotropic
+mapping.TEXTURE_MAX_ANISOTROPY_EXT = 0x84FE;
+mapping.MAX_TEXTURE_MAX_ANISOTROPY_EXT = 0x84FF;
 
 let NS = mapping;
 
@@ -6741,6 +4841,32 @@ mapping.TextureFilter = [
     NS.LINEAR_MIPMAP_LINEAR     // SF_LINEAR_MIPMAP_LINEAR
 ];
 
+mapping.TextureInternalFormat = [
+    0,                                  // TF_NONE
+    NS.RGB,                             // TF_R5G6B5
+    NS.RGB5_A1,                         // TF_A1R5G5B5
+    NS.RGBA4,                           // TF_A4R4G4B4
+    NS.ALPHA,                           // TF_A8
+    NS.LUMINANCE,                      // TF_L8
+    NS.LUMINANCE_ALPHA,                 // TF_A8L8
+    NS.RGB8,                            // TF_R8G8B8
+    NS.RGBA,                            // TF_A8R8G8B8
+    NS.RGBA,                            // TF_A8B8G8R8
+    NS.LUMINANCE,                       // TF_L16
+    NS.RG16I,                           // TF_G16R16
+    NS.RGBA,                            // TF_A16B16G16R16
+    NS.R16F,                            // TF_R16F
+    NS.RG16F,                           // TF_G16R16F
+    NS.RGBA16F_ARB,                     // TF_A16B16G16R16F
+    NS.R32F,                            // TF_R32F
+    NS.RG32F,                           // TF_G32R32F
+    NS.RGBA32F_ARB,                     // TF_A32B32G32R32F
+    NS.COMPRESSED_RGBA_S3TC_DXT1_EXT,   // TF_DXT1
+    NS.COMPRESSED_RGBA_S3TC_DXT3_EXT,   // TF_DXT3
+    NS.COMPRESSED_RGBA_S3TC_DXT5_EXT,   // TF_DXT5
+    NS.DEPTH24_STENCIL8                 // TF_D24S8
+];
+
 mapping.TextureFormat = [
     0,                                  // TF_NONE
     NS.RGB,                             // TF_R5G6B5
@@ -6753,13 +4879,13 @@ mapping.TextureFormat = [
     NS.RGBA,                            // TF_A8R8G8B8
     NS.RGBA,                            // TF_A8B8G8R8
     NS.LUMINANCE,                       // TF_L16
-    0,                                  // TF_G16R16
+    NS.RG,                              // TF_G16R16
     NS.RGBA,                            // TF_A16B16G16R16
-    0,                                  // TF_R16F
-    0,                                  // TF_G16R16F
+    NS.RED,                             // TF_R16F
+    NS.RG,                              // TF_G16R16F
     NS.RGBA,                            // TF_A16B16G16R16F
-    0,                                  // TF_R32F
-    0,                                  // TF_G32R32F
+    NS.RED,                             // TF_R32F
+    NS.RG,                              // TF_G32R32F
     NS.RGBA,                            // TF_A32B32G32R32F
     NS.COMPRESSED_RGBA_S3TC_DXT1_EXT,   // TF_DXT1
     NS.COMPRESSED_RGBA_S3TC_DXT3_EXT,   // TF_DXT3
@@ -6804,6 +4930,13 @@ mapping.PrimitiveType = [
     NS.TRIANGLE_FAN     // PT_TRIFAN
 ];
 
+/**
+ * 着色器基类  
+ * 该类是顶点着色器和片元着色器的基类
+ * >类成员定义了着色器, 但不持有任何uniform以及纹理实例,
+ * 因此每一个着色器实例也许是单例方式存在, 通过name属性标识.
+ * 一个需要渲染的几何体包含 Shader实例 和 ShaderParameters 实例(包含uniform, 采样器实例)
+ */
 class Shader extends D3Object {
 
     /**
@@ -7329,18 +5462,13 @@ DECLARE_ENUM(Shader, {
     SF_LINEAR_MIPMAP_LINEAR: 6
 });
 
-/**
- * Shader 底层包装
- * @author lonphy
- * @version 2.0
- */
 class GLShader {
     /**
+     * @param {Renderer} renderer
      * @param {Shader} shader
      * @param {ShaderParameters} parameters
      * @param {number} maxSamplers
-     * @param {Renderer} renderer
-     * @param {number} currentSS RendererData::SamplerState
+     * @param {number} currentSS - RendererData::SamplerState
      */
     setSamplerState(renderer, shader, parameters, maxSamplers, currentSS) {
         let gl = renderer.gl;
@@ -7472,12 +5600,6 @@ class GLShader {
     }
 }
 
-/**
- * VertexShader 底层包装
- *
- * @author lonphy
- * @version 2.0
- */
 class GLVertexShader extends GLShader {
 
     /**
@@ -7486,10 +5608,10 @@ class GLVertexShader extends GLShader {
      */
     constructor(renderer, shader) {
         super();
-        var gl = renderer.gl;
+        let gl = renderer.gl;
         this.shader = gl.createShader(gl.VERTEX_SHADER);
 
-        var programText = shader.getProgram();
+        let programText = shader.getProgram();
 
         gl.shaderSource(this.shader, programText);
         gl.compileShader(this.shader);
@@ -7500,23 +5622,23 @@ class GLVertexShader extends GLShader {
         );
     }
     /**
-     * @param shader {VertexShader}
-     * @param mapping {Map}
-     * @param parameters {ShaderParameters}
-     * @param renderer {Renderer}
+     * @param {Renderer} renderer
+     * @param {Map} mapping
+     * @param {VertexShader} shader
+     * @param {ShaderParameters} parameters
      */
-    enable (renderer, mapping, shader, parameters) {
-        var gl = renderer.gl;
+    enable(renderer, mapping, shader, parameters) {
+        let gl = renderer.gl;
 
         // 更新uniform 变量
 
         // step1. 遍历顶点着色器常量
-        var numConstants = shader.numConstants;
-        for (var i = 0; i < numConstants; ++i) {
-            var locating = mapping.get(shader.getConstantName(i));
-            var funcName = shader.getConstantFuncName(i);
-            var size = shader.getConstantSize(i);
-            var data = parameters.getConstant(i).data;
+        let numConstants = shader.numConstants;
+        for (let i = 0; i < numConstants; ++i) {
+            let locating = mapping.get(shader.getConstantName(i));
+            let funcName = shader.getConstantFuncName(i);
+            let size = shader.getConstantSize(i);
+            let data = parameters.getConstant(i).data;
             if (size > 4) {
                 gl[funcName](locating, false, data);
             } else {
@@ -7527,21 +5649,15 @@ class GLVertexShader extends GLShader {
         this.setSamplerState(renderer, shader, parameters, renderer.data.maxVShaderImages, renderer.data.currentSS);
     }
     /**
-     * @param shader {VertexShader}
-     * @param parameters {ShaderParameters}
-     * @param renderer {Renderer}
+     * @param {VertexShader} shader
+     * @param {ShaderParameters} parameters
+     * @param {Renderer} renderer
      */
-    disable (renderer, shader, parameters) {
+    disable(renderer, shader, parameters) {
         this.disableTexture(renderer, shader, parameters, renderer.data.maxVShaderImages);
     }
 }
 
-/**
- * FragShader 底层包装
- * 
- * @author lonphy
- * @version 2.0
- */
 class GLFragShader extends GLShader {
 
     /**
@@ -7599,9 +5715,9 @@ class GLFragShader extends GLShader {
     }
 
     /**
-     * @param renderer {Renderer}
-     * @param shader {FragShader}
-     * @param parameters {ShaderParameters}
+     * @param {Renderer} renderer
+     * @param {FragShader} shader
+     * @param {ShaderParameters} parameters
      */
     disable(renderer, shader, parameters) {
         let gl = renderer.gl;
@@ -7992,14 +6108,6 @@ DECLARE_ENUM(VertexFormat$1, {
     ]
 });
 
-/**
- * VertexFormat 底层包装
- *
- * @author lonphy
- * @version 2.0
- *
- * @type {GLVertexFormat}
- */
 class GLVertexFormat {
     /**
      * @param {Renderer} renderer
@@ -8010,7 +6118,7 @@ class GLVertexFormat {
 
         let type;
 
-        var i = format.getIndex(VertexFormat$1.AU_POSITION);
+        let i = format.getIndex(VertexFormat$1.AU_POSITION);
         if (i >= 0) {
             this.hasPosition = 1;
             type = format.getAttributeType(i);
@@ -8067,7 +6175,7 @@ class GLVertexFormat {
             this.binormalOffset = 0;
         }
 
-        var unit;
+        let unit;
         const AM_MAX_TCOORD_UNITS = VertexFormat$1.MAX_TCOORD_UNITS;
 
         this.hasTCoord = new Array(AM_MAX_TCOORD_UNITS);
@@ -8244,7 +6352,7 @@ class GLVertexFormat {
      * @param {Renderer} renderer
      */
     disable(renderer) {
-        var gl = renderer.gl;
+        let gl = renderer.gl;
         if (this.hasPosition) {
             gl.disableVertexAttribArray(0);
         }
@@ -8261,12 +6369,12 @@ class GLVertexFormat {
             gl.disableVertexAttribArray(15);
         }
 
-        var unit;
+        let unit;
         for (unit = 0; unit < VertexFormat$1.MAX_TCOORD_UNITS; ++unit) {
             if (this.hasTCoord[unit]) {
                 gl.disableVertexAttribArray(8 + unit);
                 gl.activeTexture(gl.TEXTURE0 + unit);
-                gl.bindTexture(gl.TEXTURE_2D, null);
+                // gl.bindTexture(gl.TEXTURE_2D, null);
             }
         }
 
@@ -8296,12 +6404,6 @@ class GLVertexFormat {
     }
 }
 
-/**
- * VertexBuffer 底层包装
- *
- * @author lonphy
- * @version 2.0
- */
 class GLVertexBuffer {
 
     /**
@@ -8309,47 +6411,41 @@ class GLVertexBuffer {
      * @param {VertexBuffer} buffer
      */
     constructor(renderer, buffer) {
-        let gl      = renderer.gl;
-        this.buffer = gl.createBuffer ();
-        gl.bindBuffer (gl.ARRAY_BUFFER, this.buffer);
-        gl.bufferData (gl.ARRAY_BUFFER, buffer.getData (), mapping.BufferUsage[ buffer.usage ]);
-        gl.bindBuffer (gl.ARRAY_BUFFER, null);
+        let gl = renderer.gl;
+        this.buffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, buffer.getData(), mapping.BufferUsage[buffer.usage]);
+        // gl.bindBuffer(gl.ARRAY_BUFFER, null);
     }
 
     /**
      * @param {Renderer} renderer 
      */
-    enable (renderer) {
+    enable(renderer) {
         let gl = renderer.gl;
-        gl.bindBuffer (gl.ARRAY_BUFFER, this.buffer);
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
     }
 
     /**
      * @param {Renderer} renderer 
      */
-    disable (renderer) {
-        let gl = renderer.gl;
-        gl.bindBuffer (gl.ARRAY_BUFFER, null);
+    disable(renderer) {
+        // let gl = renderer.gl;
+        // gl.bindBuffer(gl.ARRAY_BUFFER, null);
     }
 
     /**
      * @param {Renderer} renderer 
      * @param {VertexBuffer} buffer 
      */
-    update (renderer, buffer) {
+    update(renderer, buffer) {
         let gl = renderer.gl;
         gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer);
         gl.bufferData(gl.ARRAY_BUFFER, buffer.getData(), mapping.BufferUsage[buffer.usage]);
-        gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        // gl.bindBuffer(gl.ARRAY_BUFFER, null);
     }
 }
 
-/**
- * IndexBuffer 底层包装
- *
- * @author lonphy
- * @version 2.0
- */
 class GLIndexBuffer {
 
     /**
@@ -8382,103 +6478,74 @@ class GLIndexBuffer {
 }
 
 class GLTexture2D {
-    constructor(renderer, texture) {
-        let gl = renderer.gl;
-        let _format = texture.format;
-        this.internalFormat = mapping.TextureFormat[_format];
 
+    /**
+     * @param {WebGL2RenderingContext} gl 
+     * @param {Texture2D} texture
+     */
+    constructor(gl, texture) {
+        const _format = texture.format;
+
+        this.internalFormat = mapping.TextureInternalFormat[_format];
         this.format = mapping.TextureFormat[_format];
         this.type = mapping.TextureType[_format];
+
         this.hasMipMap = texture.hasMipmaps;
 
         this.width = texture.width;
         this.height = texture.height;
-        this.depth = texture.depth;
+        this.isCompressed = texture.isCompressed();
 
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0); // 纹理垂直翻转
+        // gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0); // 纹理垂直翻转
 
         // Create a texture structure.
         this.texture = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, this.texture);
 
-        let width, height;
-        // Create the mipmap level structures.  No image initialization occurs.
-        // this.isCompressed = texture.isCompressed();
-        // if (this.isCompressed) {
-        // for (level = 0; level < levels; ++level) {
-        //     width = this.dimension[0][level];
-        //     height = this.dimension[1][level];
-        //
-        //     gl.compressedTexImage2D(
-        //         gl.TEXTURE_2D,
-        //         level,
-        //         this.internalFormat,
-        //         width,
-        //         height,
-        //         0,
-        //         this.numLevelBytes[level],
-        //         0);
-        // }
-        //} else {
-        gl.texImage2D(
-            gl.TEXTURE_2D,             // target
-            0,                         // level
-            this.internalFormat,       // internalformat
-            this.width,      // width
-            this.height,      // height
-            0,                         // border
-            this.format,               // format
-            this.type,                 // type
-            texture.getData()         // pixels
-        );
-        if (this.hasMipMap) {
-            gl.generateMipmap(gl.TEXTURE_2D);
+        // upload pixel with pbo
+        let pbo = gl.createBuffer();
+        gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, pbo);
+        gl.bufferData(gl.PIXEL_UNPACK_BUFFER, texture.getData(), gl.STATIC_DRAW, 0);
+        if (this.isCompressed) {
+            gl.compressedTexImage2D(gl.TEXTURE_2D, 0, this.internalFormat, this.width, this.height, 0, 0);
+        } else {
+            gl.texImage2D(gl.TEXTURE_2D, /*level*/0, this.internalFormat, this.width, this.height, 0, this.format, this.type, 0);
         }
-        //}
+        gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, null);
+        gl.deleteBuffer(pbo);
+        this.hasMipMap && gl.generateMipmap(gl.TEXTURE_2D);
     }
 
     update(renderer, textureUnit, data) {
         let gl = renderer.gl;
         gl.activeTexture(gl.TEXTURE0 + textureUnit);
         gl.bindTexture(gl.TEXTURE_2D, this.texture);
-        gl.texImage2D(
-            gl.TEXTURE_2D,             // target
-            0,                         // level
-            this.internalFormat,       // internalformat
-            this.width,      // width
-            this.height,      // height
-            0,                         // border
-            this.format,               // format
-            this.type,                 // type
-            data         // pixels
-        );
-        if (this.hasMipMap) {
-            gl.generateMipmap(gl.TEXTURE_2D);
+
+        let pbo = gl.createBuffer();
+        gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, pbo);
+        gl.bufferData(gl.PIXEL_UNPACK_BUFFER, data, gl.STATIC_DRAW, 0);
+        if (this.isCompressed) {
+            gl.compressedTexImage2D(gl.TEXTURE_2D, 0, this.internalFormat, this.width, this.height, 0, 0);
+        } else {
+            gl.texImage2D(gl.TEXTURE_2D, /*level*/0, this.internalFormat, this.width, this.height, 0, this.format, this.type, 0);
         }
+        gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, null);
+        gl.deleteBuffer(pbo);
+        this.hasMipMap && gl.generateMipmap(gl.TEXTURE_2D);
     }
+
     enable(renderer, textureUnit) {
         let gl = renderer.gl;
         gl.activeTexture(gl.TEXTURE0 + textureUnit);
         gl.bindTexture(gl.TEXTURE_2D, this.texture);
     }
+
     disable(renderer, textureUnit) {
-        let gl = renderer.gl;
-        gl.activeTexture(gl.TEXTURE0 + textureUnit);
-        gl.bindTexture(gl.TEXTURE_2D, null);
+        // let gl = renderer.gl;
+        // gl.activeTexture(gl.TEXTURE0 + textureUnit);
+        // gl.bindTexture(gl.TEXTURE_2D, null);
     }
 }
-
-/**
- * TextureCube 底层封装
- * @author lonphy
- * @version 2.0
- */
-
-/**
- * 渲染目标
- * @author lonphy
- * @version 2.0
- */
 
 class AlphaState extends D3Object {
 
@@ -8544,18 +6611,9 @@ DECLARE_ENUM(AlphaState, {
 
 D3Object.Register('L5.AlphaState', AlphaState.factory);
 
-/**
- * 剔除表面 状态
- *
- * @author lonphy
- * @version 2.0
- *
- * @type {CullState}
- * @extends {D3Object}
- */
-class CullState extends D3Object{
+class CullState extends D3Object {
 
-    constructor(){
+    constructor() {
         super();
         this.enabled = true;
         this.CCWOrder = true;
@@ -8587,7 +6645,7 @@ class CullState extends D3Object{
     }
 }
 
-D3Object.Register('L5.CullState', CullState.factory);
+D3Object.Register('CullState', CullState.factory);
 
 /**
  * DepthState - 深度测试状态
@@ -8766,14 +6824,6 @@ DECLARE_ENUM(StencilState, {
 
 D3Object.Register('L5.StencilState', StencilState.factory);
 
-/**
- * maintain current render states to avoid redundant state changes.
- *
- * @class
- *
- * @author lonphy
- * @version 2.0
- */
 class GLRenderState {
 	constructor() {
 		// AlphaState
@@ -8872,18 +6922,12 @@ class GLRenderState {
 	}
 }
 
-/**
- * SamplerState 采样器状态
- * 
- * @author lonphy
- * @version 2.0
- */
 class GLSamplerState {
     constructor() {
         this.anisotropy = 1;
         this.magFilter = mapping.LINEAR;
         this.minFilter = mapping.NEAREST_MIPMAP_LINEAR;
-        this.wrap = [mapping.REPEAT,mapping.REPEAT,mapping.REPEAT];
+        this.wrap = [mapping.REPEAT, mapping.REPEAT, mapping.REPEAT];
     }
     /**
      * Get the state of the currently enabled texture.  This state appears
@@ -8891,7 +6935,7 @@ class GLSamplerState {
      * relate to the sampler state?  In my opinion, OpenGL needs to have
      * the sampler state separate from the texture object state.
      *
-     * @param renderer {L5.Renderer}
+     * @param {Renderer} renderer
      * @param target
      */
     getCurrent(renderer, target) {
@@ -8904,16 +6948,12 @@ class GLSamplerState {
         this.minFilter = gl.getTexParameter(target, gl.TEXTURE_MIN_FILTER);
         this.wrap[0] = gl.getTexParameter(target, gl.TEXTURE_WRAP_S);
         this.wrap[1] = gl.getTexParameter(target, gl.TEXTURE_WRAP_T);
-
-        // WebGL 2.0
-        // this.wrap[2] = gl.getTexParameter(target, gl.TEXTURE_WRAP_R);
+        this.wrap[2] = gl.getTexParameter(target, gl.TEXTURE_WRAP_R);
     }
 }
 
 /**
- * GL渲染数据包装
- * @author lonphy
- * @version 2.0
+ * Display list base indices for fonts/characters.
  */
 class DisplayListInfo {
     constructor() {
@@ -8990,11 +7030,6 @@ class GLRenderData {
 GLRenderData.MAX_NUM_VSAMPLERS = 4;  // VSModel 3 has 4, VSModel 2 has 0.
 GLRenderData.MAX_NUM_PSAMPLERS = 16;  // PSModel 2 and PSModel 3 have 16.
 
-/**
- * Program 底层包装
- * @author lonphy
- * @version 2.0
- */
 class GLProgram {
 
     /**
@@ -9044,103 +7079,14 @@ class GLProgram {
     }
 }
 
-/**
- * WebGL 扩展处理
- * @author lonphy
- * @version 2.0
- */
-let extensions = [];
-
 class GLExtensions {
     static init(gl) {
-        let exts = extensions;
         gl.getSupportedExtensions().forEach(function (name) {
             if (name.match(/^(?:WEBKIT_)|(?:MOZ_)/)) {
                 return;
             }
-            exts[name] = gl.getExtension(name);
+            gl.getExtension(name);
         });
-
-        if (exts.ANGLE_instanced_arrays) {
-            mapping.VERTEX_ATTRIB_ARRAY_DIVISOR_ANGLE = 0x88FE;
-        }
-
-        if (exts.EXT_blend_minmax) {
-            mapping.MIN_EXT = 0x8007;
-            mapping.MAX_EXT = 0x8008;
-        }
-
-        if (exts.EXT_sRGB) {
-            mapping.FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING_EXT = 0x8210;
-            mapping.SRGB_EXT = 0x8C40;
-            mapping.SRGB_ALPHA_EXT = 0x8C42;
-            mapping.SRGB8_ALPHA8_EXT = 0x8C43;
-        }
-
-        if (exts.EXT_texture_filter_anisotropic) {
-            mapping.TEXTURE_MAX_ANISOTROPY_EXT = 0x84FE;
-            mapping.MAX_TEXTURE_MAX_ANISOTROPY_EXT = 0x84FF;
-        }
-
-        if (exts.OES_standard_derivatives) {
-            mapping.FRAGMENT_SHADER_DERIVATIVE_HINT_OES = 0x8B8B;
-        }
-
-        if (exts.OES_texture_half_float) {
-            mapping.HALF_FLOAT_OES = 0x8D61;
-        }
-
-        if (exts.OES_vertex_array_object) {
-            mapping.VERTEX_ARRAY_BINDING_OES = 0x85B5;
-        }
-
-        if (exts.WEBGL_compressed_texture_s3tc) {
-            mapping.COMPRESSED_RGB_S3TC_DXT1_EXT = 0x83F0;
-            mapping.COMPRESSED_RGBA_S3TC_DXT1_EXT = 0x83F1;
-            mapping.COMPRESSED_RGBA_S3TC_DXT3_EXT = 0x83F2;
-            mapping.COMPRESSED_RGBA_S3TC_DXT5_EXT = 0x83F3;
-        }
-
-        if (exts.WEBGL_depth_texture) {
-            mapping.UNSIGNED_INT_24_8_WEBGL = 0x84FA;
-        }
-
-        if (exts.WEBGL_draw_buffers) {
-            mapping.MAX_COLOR_ATTACHMENTS_WEBGL = 0x8CDF;
-            mapping.COLOR_ATTACHMENT0_WEBGL = 0x8CE0;
-            mapping.COLOR_ATTACHMENT1_WEBGL = 0x8CE1;
-            mapping.COLOR_ATTACHMENT2_WEBGL = 0x8CE2;
-            mapping.COLOR_ATTACHMENT3_WEBGL = 0x8CE3;
-            mapping.COLOR_ATTACHMENT4_WEBGL = 0x8CE4;
-            mapping.COLOR_ATTACHMENT5_WEBGL = 0x8CE5;
-            mapping.COLOR_ATTACHMENT6_WEBGL = 0x8CE6;
-            mapping.COLOR_ATTACHMENT7_WEBGL = 0x8CE7;
-            mapping.COLOR_ATTACHMENT8_WEBGL = 0x8CE8;
-            mapping.COLOR_ATTACHMENT9_WEBGL = 0x8CE9;
-            mapping.COLOR_ATTACHMENT10_WEBGL = 0x8CEA;
-            mapping.COLOR_ATTACHMENT11_WEBGL = 0x8CEB;
-            mapping.COLOR_ATTACHMENT12_WEBGL = 0x8CEC;
-            mapping.COLOR_ATTACHMENT13_WEBGL = 0x8CED;
-            mapping.COLOR_ATTACHMENT14_WEBGL = 0x8CEF;
-            mapping.COLOR_ATTACHMENT15_WEBGL = 0x8CF0;
-            mapping.MAX_DRAW_BUFFERS_WEBGL = 0x8824;
-            mapping.DRAW_BUFFER0_WEBGL = 0x8825;
-            mapping.DRAW_BUFFER1_WEBGL = 0x8826;
-            mapping.DRAW_BUFFER2_WEBGL = 0x8827;
-            mapping.DRAW_BUFFER3_WEBGL = 0x8828;
-            mapping.DRAW_BUFFER4_WEBGL = 0x8829;
-            mapping.DRAW_BUFFER5_WEBGL = 0x882A;
-            mapping.DRAW_BUFFER6_WEBGL = 0x882B;
-            mapping.DRAW_BUFFER7_WEBGL = 0x882C;
-            mapping.DRAW_BUFFER8_WEBGL = 0x882D;
-            mapping.DRAW_BUFFER9_WEBGL = 0x882E;
-            mapping.DRAW_BUFFER10_WEBGL = 0x882F;
-            mapping.DRAW_BUFFER11_WEBGL = 0x8830;
-            mapping.DRAW_BUFFER12_WEBGL = 0x8831;
-            mapping.DRAW_BUFFER13_WEBGL = 0x8832;
-            mapping.DRAW_BUFFER14_WEBGL = 0x8833;
-            mapping.DRAW_BUFFER15_WEBGL = 0x8834;
-        }
     }
 }
 
@@ -10200,10 +8146,1179 @@ class VisualTechnique extends D3Object {
 D3Object.Register('VisualTechnique', VisualTechnique.factory.bind(VisualTechnique));
 
 /**
- * Renderer
- * @author lonphy
- * @version 2.0
+ * 变换用公式 Y= M*X+T 表示:  
+ * - M  3\*3 Matrix, 大部分情况下为
+ *  - 旋转矩阵
+ *  - 或者 `M = R*S`:
+ *   - R = 旋转矩阵
+ *   - S = 正缩放对角矩阵  
+ *     为支持模型包,允许普通仿射变换  
+ *      M可以是任意可逆3*3矩阵
+ * - T 平移向量
+ * - X 前方向为Y轴的向量  
+ * 从Y翻转至X, 一般情况下记做: `X = M^{-1}*(Y-T)`
+ *
+ * 在 M = R*S 的特殊情况下:
+ * `X = S^{-1}*R^t*(Y-T)`
+ * - `S^{-1}` S的逆
+ * - `R^t` R的转置矩阵
+ *
+ * 构造默认是个单位变换
  */
+class Transform$1 {
+    constructor() {
+        // The full 4x4 homogeneous matrix H = {{M,T},{0,1}} and its inverse
+        // H^{-1} = {M^{-1},-M^{-1}*T},{0,1}}.  The inverse is computed only
+        // on demand.
+        // 变换矩阵
+        this.__matrix = Matrix$1.IDENTITY;
+        // 变换矩阵的逆矩阵
+        this._invMatrix = Matrix$1.IDENTITY;
+
+
+        this._matrix = Matrix$1.IDENTITY;     // M (general) or R (rotation)
+
+
+        this._scale = new Point$1(1, 1, 1);        // S
+        this._translate = Point$1.ORIGIN;          // T
+
+        this._isIdentity = true;
+        this._isRSMatrix = true;
+        this._isUniformScale = true;
+        this._inverseNeedsUpdate = false;
+    }
+
+    /**
+     * depth copy a Transform
+     * @param {Transform} transform 
+     */
+    copy(transform) {
+        this.__matrix.copy(transform.__matrix);
+        this._invMatrix.copy(transform._invMatrix);
+        this._matrix.copy(transform._matrix);
+        this._scale.copy(transform._scale);
+        this._translate.copy(transform._translate);
+        this._isIdentity = transform._isIdentity;
+        this._isRSMatrix = transform._isRSMatrix;
+        this._isUniformScale = transform._isUniformScale;
+        this._inverseNeedsUpdate = transform._inverseNeedsUpdate;
+    }
+
+    /**
+     * 置单位变换
+     */
+    makeIdentity() {
+        this._matrix = Matrix$1.IDENTITY;
+        this._translate.fill(0);
+        this._scale.fill(1);
+        this._isIdentity = true;
+        this._isRSMatrix = true;
+        this._isUniformScale = true;
+        this._updateMatrix();
+        return this;
+    }
+
+    /**
+     * 缩放置1
+     */
+    makeUnitScale() {
+        console.assert(this._isRSMatrix, 'Matrix is not a rotation');
+        this._scale.fill(1);
+        this._isUniformScale = true;
+        this._updateMatrix();
+        return this;
+    }
+
+    /**
+     * I
+     * @returns {boolean}
+     */
+    isIdentity() {
+        return this._isIdentity;
+    }
+
+    /**
+     * R*S
+     * @returns {boolean}
+     */
+    isRSMatrix() {
+        return this._isRSMatrix;
+    }
+
+    /**
+     * R*S, S = c*I
+     * @returns {boolean}
+     */
+    isUniformScale() {
+        return this._isRSMatrix && this._isUniformScale;
+    }
+
+
+    // Member access.
+    // (1) The set* functions set the is-identity hint to false.
+    // (2) The setRotate function sets the is-rsmatrix hint to true.  If this
+    //     hint is false,  GetRotate fires an "assert" in debug mode.
+    // (3) The setMatrix function sets the is-rsmatrix and is-uniform-scale
+    //     hints to false.
+    // (4) The setScale function sets the is-uniform-scale hint to false.
+    //     The setUniformScale function sets the is-uniform-scale hint to
+    //     true.  If this hint is false, GetUniformScale fires an "assert" in
+    //     debug mode.
+    // (5) All set* functions set the inverse-needs-update to true.  When
+    //     getInverse is called, the inverse must be computed in this case and
+    //     the inverse-needs-update is reset to false.
+    /**
+     * @param {Matrix} rotate
+     */
+    setRotate(rotate) {
+        this._matrix.copy(rotate);
+        this._isIdentity = false;
+        this._isRSMatrix = true;
+        this._updateMatrix();
+        return this;
+    }
+
+    /**
+     * @param {Matrix} matrix
+     */
+    setMatrix(matrix) {
+        this._matrix.copy(matrix);
+        this._isIdentity = false;
+        this._isRSMatrix = false;
+        this._isUniformScale = false;
+        this._updateMatrix();
+        return this;
+    }
+
+    /**
+     * @param {Point} translate
+     */
+    setTranslate(translate) {
+        this._translate.copy(translate);
+        this._isIdentity = false;
+        this._updateMatrix();
+        return this;
+    }
+
+    /**
+     * @param {Point} scale
+     */
+    setScale(scale) {
+        console.assert(this._isRSMatrix, 'Matrix is not a rotation');
+        console.assert(!this._scale.equals(Point$1.ORIGIN), 'Scales must be nonzero');
+        this._scale.copy(scale);
+        this._isIdentity = false;
+        this._isUniformScale = false;
+        this._updateMatrix();
+        return this;
+    }
+
+    /**
+     * @param {number} scale
+     */
+    setUniformScale(scale) {
+        console.assert(this._isRSMatrix, 'Matrix is not a rotation');
+        console.assert(scale !== 0, 'Scale must be nonzero');
+
+        this._scale.fill(scale);
+        this._isIdentity = false;
+        this._isUniformScale = true;
+        this._updateMatrix();
+        return this;
+    }
+
+    /**
+     * @returns {Matrix}
+     */
+    getRotate() {
+        console.assert(this._isRSMatrix, 'Matrix is not a rotation');
+        return this._matrix;
+    }
+
+    /**
+     * @returns {Matrix}
+     */
+    getMatrix() {
+        return this._matrix;
+    }
+
+    /**
+     * @returns {Point}
+     */
+    getTranslate() {
+        return this._translate;
+    }
+
+    /**
+     * @returns {Point}
+     */
+    getScale() {
+        console.assert(this._isRSMatrix, 'Matrix is not a rotation-scale');
+        return this._scale;
+    }
+
+    /**
+     * @returns {number}
+     */
+    getUniformScale() {
+        console.assert(this._isRSMatrix, 'Matrix is not a rotation-scale');
+        console.assert(this._isUniformScale, 'Matrix is not uniform scale');
+        return this._scale[0];
+    }
+
+
+    /**
+     * For M = R*S, the largest value of S in absolute value is returned.
+     * For general M, the max-row-sum norm is returned, which is a reasonable
+     * measure of maximum scale of the transformation.
+     * @returns {number}
+     */
+    getNorm() {
+        const abs = _Math.abs;
+        if (this._isRSMatrix) {
+            let maxValue = abs(this._scale[0]);
+            if (abs(this._scale[1]) > maxValue) {
+                maxValue = abs(this._scale[1]);
+            }
+            if (abs(this._scale[2]) > maxValue) {
+                maxValue = abs(this._scale[2]);
+            }
+            return maxValue;
+        }
+
+        // A general matrix.  Use the max-row-sum matrix norm.  The spectral
+        // norm (the maximum absolute value of the eigenvalues) is smaller or
+        // equal to this norm.  Therefore, this function returns an approximation
+        // to the maximum scale.
+        let m = this._matrix;
+        let maxRowSum = abs(m.item(0, 0)) + abs(m.item(0, 1)) + abs(m.item(0, 2));
+        let rowSum = abs(m.item(1, 0)) + abs(m.item(1, 1)) + abs(m.item(1, 2));
+
+        if (rowSum > maxRowSum) {
+            maxRowSum = rowSum;
+        }
+        rowSum = abs(m.item(2, 0)) + abs(m.item(2, 1)) + abs(m.item(2, 2));
+        if (rowSum > maxRowSum) {
+            maxRowSum = rowSum;
+        }
+
+        return maxRowSum;
+    }
+
+    /**
+     * Matrix-point/vector 乘法, M*p.
+     * @param {Point|Vector} p
+     */
+    mulPoint(p) {
+        return this.__matrix.mulPoint(p);
+    }
+
+    /**
+     * Matrix-matrix multiplication.
+     * @param {Transform} transform
+     * @returns {Transform}
+     */
+    mul(transform) {
+        if (this._isIdentity) {
+            return transform;
+        }
+
+        if (transform.isIdentity()) {
+            return this;
+        }
+        const IsRS = this._isRSMatrix;
+        let product = new Transform$1();
+
+        if (IsRS && transform.isRSMatrix()) {
+            if (this._isUniformScale) {
+                let scale0 = this._scale[0];
+                product.setRotate(this._matrix.mul(transform.getMatrix()));
+
+                product.setTranslate(
+                    this._matrix.mulPoint(transform.getTranslate())
+                        .scalar(scale0)
+                        .add(this._translate)
+                );
+
+                if (transform.isUniformScale()) {
+                    product.setUniformScale(scale0 * transform.getUniformScale());
+                } else {
+                    product.setScale(transform.getScale().scalar(scale0));
+                }
+
+                return product;
+            }
+        }
+
+        // In all remaining cases, the matrix cannot be written as R*S*X+T.
+        let matMA = (IsRS ? this._matrix.timesDiagonal(this._scale) : this._matrix);
+        let matMB = (
+            transform.isRSMatrix() ?
+                transform.getMatrix().timesDiagonal(transform.getScale()) :
+                transform.getMatrix()
+        );
+
+        product.setMatrix(matMA.mul(matMB));
+        product.setTranslate(matMA.mulPoint(transform.getTranslate()).add(this._translate));
+        return product;
+    }
+
+    /**
+     * Get the homogeneous matrix.
+     */
+    toMatrix() {
+        return this.__matrix;
+    }
+
+    /**
+     * Get the inverse homogeneous matrix, recomputing it when necessary.
+     * If H = {{M,T},{0,1}}, then H^{-1} = {{M^{-1},-M^{-1}*T},{0,1}}.
+     * @returns {Matrix}
+     */
+    inverse() {
+        if (!this._inverseNeedsUpdate) {
+            return this._invMatrix;
+        }
+        if (this._isIdentity) {
+            this._invMatrix.copy(Matrix$1.IDENTITY);
+            this._inverseNeedsUpdate = false;
+            return this._invMatrix;
+        }
+
+        let im = this._invMatrix,
+            m = this._matrix;
+
+        if (this._isRSMatrix) {
+            let s0 = this._scale[0],
+                s1 = this._scale[1],
+                s2 = this._scale[2];
+
+            if (this._isUniformScale) {
+                let invScale = 1 / s0;
+                im.setItem(0, 0, invScale * m.item(0, 0));
+                im.setItem(0, 1, invScale * m.item(1, 0));
+                im.setItem(0, 2, invScale * m.item(2, 0));
+                im.setItem(1, 0, invScale * m.item(0, 1));
+                im.setItem(1, 1, invScale * m.item(1, 1));
+                im.setItem(1, 2, invScale * m.item(2, 1));
+                im.setItem(2, 0, invScale * m.item(0, 2));
+                im.setItem(2, 1, invScale * m.item(1, 2));
+                im.setItem(2, 2, invScale * m.item(2, 2));
+            } else {
+                // Replace 3 reciprocals by 6 multiplies and 1 reciprocal.
+                let s01 = s0 * s1;
+                let s02 = s0 * s2;
+                let s12 = s1 * s2;
+                let invs012 = 1 / (s01 * s2);
+                let invS0 = s12 * invs012;
+                let invS1 = s02 * invs012;
+                let invS2 = s01 * invs012;
+                im.setItem(0, 0, invS0 * m.item(0, 0));
+                im.setItem(0, 1, invS0 * m.item(1, 0));
+                im.setItem(0, 2, invS0 * m.item(2, 0));
+                im.setItem(1, 0, invS1 * m.item(0, 1));
+                im.setItem(1, 1, invS1 * m.item(1, 1));
+                im.setItem(1, 2, invS1 * m.item(2, 1));
+                im.setItem(2, 0, invS2 * m.item(0, 2));
+                im.setItem(2, 1, invS2 * m.item(1, 2));
+                im.setItem(2, 2, invS2 * m.item(2, 2));
+            }
+        } else {
+            Transform$1.invert3x3(this.__matrix, im);
+        }
+
+        let t0 = this._translate[0],
+            t1 = this._translate[1],
+            t2 = this._translate[2];
+        im.setItem(0, 3, -(im.item(0, 0) * t0 + im.item(0, 1) * t1 + im.item(0, 2) * t2));
+        im.setItem(1, 3, -(im.item(1, 0) * t0 + im.item(1, 1) * t1 + im.item(1, 2) * t2));
+        im.setItem(2, 3, -(im.item(2, 0) * t0 + im.item(2, 1) * t1 + im.item(2, 2) * t2));
+
+        this._inverseNeedsUpdate = false;
+        return this._invMatrix;
+    }
+
+    /**
+     * Get the inversion transform.  No test is performed to determine whether
+     * the caller transform is invertible.
+     * @returns {Transform}
+     */
+    inverseTransform() {
+        if (this._isIdentity) {
+            return Transform$1.IDENTITY;
+        }
+
+        let inverse = new Transform$1();
+        let invTrn = Point$1.ORIGIN;
+
+        if (this._isRSMatrix) {
+            let invRot = this._matrix.transpose();
+            let invScale;
+            inverse.setRotate(invRot);
+            if (this._isUniformScale) {
+                invScale = 1 / this._scale[0];
+                inverse.setUniformScale(invScale);
+                invTrn = invRot.mulPoint(this._translate).scalar(-invScale);
+            }
+            else {
+                invScale = new Point$1(1 / this._scale[0], 1 / this._scale[1], 1 / this._scale[2]);
+                inverse.setScale(invScale);
+                invTrn = invRot.mulPoint(this._translate);
+                invTrn[0] *= -invScale[0];
+                invTrn[1] *= -invScale[1];
+                invTrn[2] *= -invScale[2];
+            }
+        }
+        else {
+            let invMat = new Matrix$1();
+            Transform$1.invert3x3(this._matrix, invMat);
+            inverse.setMatrix(invMat);
+            invTrn = invMat.mulPoint(this._translate).negative();
+        }
+        inverse.setTranslate(invTrn);
+
+        return inverse;
+    }
+
+    /**
+     * Fill in the entries of mm whenever one of the components
+     * m, mTranslate, or mScale changes.
+     * @private
+     */
+    _updateMatrix() {
+        if (this._isIdentity) {
+            this.__matrix = Matrix$1.IDENTITY;
+        }
+        else {
+            let mm = this.__matrix;
+            let m = this._matrix;
+
+            if (this._isRSMatrix) {
+                let s0 = this._scale[0],
+                    s1 = this._scale[1],
+                    s2 = this._scale[2];
+
+                mm.setItem(0, 0, m.item(0, 0) * s0);
+                mm.setItem(0, 1, m.item(0, 1) * s1);
+                mm.setItem(0, 2, m.item(0, 2) * s2);
+                mm.setItem(1, 0, m.item(1, 0) * s0);
+                mm.setItem(1, 1, m.item(1, 1) * s1);
+                mm.setItem(1, 2, m.item(1, 2) * s2);
+                mm.setItem(2, 0, m.item(2, 0) * s0);
+                mm.setItem(2, 1, m.item(2, 1) * s1);
+                mm.setItem(2, 2, m.item(2, 2) * s2);
+            }
+            else {
+                mm.setItem(0, 0, m.item(0, 0));
+                mm.setItem(0, 1, m.item(0, 1));
+                mm.setItem(0, 2, m.item(0, 2));
+                mm.setItem(1, 0, m.item(1, 0));
+                mm.setItem(1, 1, m.item(1, 1));
+                mm.setItem(1, 2, m.item(1, 2));
+                mm.setItem(2, 0, m.item(2, 0));
+                mm.setItem(2, 1, m.item(2, 1));
+                mm.setItem(2, 2, m.item(2, 2));
+            }
+
+            mm.setItem(0, 3, this._translate[0]);
+            mm.setItem(1, 3, this._translate[1]);
+            mm.setItem(2, 3, this._translate[2]);
+
+            // The last row of mm is always (0,0,0,1) for an affine
+            // transformation, so it is set once in the constructor.  It is not
+            // necessary to reset it here.
+        }
+
+        this._inverseNeedsUpdate = true;
+    }
+
+    /**
+     * Invert the 3x3 upper-left block of the input matrix.
+     * @param {Matrix} mat
+     * @param {Matrix} invMat
+     * @private
+     */
+    static invert3x3(mat, invMat) {
+        // Compute the adjoint of M (3x3).
+        invMat.setItem(0, 0, mat.item(1, 1) * mat.item(2, 2) - mat.item(1, 2) * mat.item(2, 1));
+        invMat.setItem(0, 1, mat.item(0, 2) * mat.item(2, 1) - mat.item(0, 1) * mat.item(2, 2));
+        invMat.setItem(0, 2, mat.item(0, 1) * mat.item(1, 2) - mat.item(0, 2) * mat.item(1, 1));
+        invMat.setItem(1, 0, mat.item(1, 2) * mat.item(2, 0) - mat.item(1, 0) * mat.item(2, 2));
+        invMat.setItem(1, 1, mat.item(0, 0) * mat.item(2, 2) - mat.item(0, 2) * mat.item(2, 0));
+        invMat.setItem(1, 2, mat.item(0, 2) * mat.item(1, 0) - mat.item(0, 0) * mat.item(1, 2));
+        invMat.setItem(2, 0, mat.item(1, 0) * mat.item(2, 1) - mat.item(1, 1) * mat.item(2, 0));
+        invMat.setItem(2, 1, mat.item(0, 1) * mat.item(2, 0) - mat.item(0, 0) * mat.item(2, 1));
+        invMat.setItem(2, 2, mat.item(0, 0) * mat.item(1, 1) - mat.item(0, 1) * mat.item(1, 0));
+
+        // Compute the reciprocal of the determinant of M.
+        let invDet = 1 / (
+            mat.item(0, 0) * invMat.item(0, 0) +
+            mat.item(0, 1) * invMat.item(1, 0) +
+            mat.item(0, 2) * invMat.item(2, 0)
+        );
+
+        // inverse(M) = adjoint(M)/determinant(M).
+        invMat.setItem(0, 0, invMat.item(0, 0) * invDet);
+        invMat.setItem(0, 1, invMat.item(0, 1) * invDet);
+        invMat.setItem(0, 2, invMat.item(0, 2) * invDet);
+        invMat.setItem(1, 0, invMat.item(1, 0) * invDet);
+        invMat.setItem(1, 1, invMat.item(1, 1) * invDet);
+        invMat.setItem(1, 2, invMat.item(1, 2) * invDet);
+        invMat.setItem(2, 0, invMat.item(2, 0) * invDet);
+        invMat.setItem(2, 1, invMat.item(2, 1) * invDet);
+        invMat.setItem(2, 2, invMat.item(2, 2) * invDet);
+    }
+
+    static get IDENTITY() {
+        return new Transform$1().makeIdentity();
+    }
+}
+
+class Bound$1 {
+    constructor() {
+        this.center = Point$1.ORIGIN;
+        this.radius = 0;
+    }
+    /**
+     * 复制
+     * @param {Bound} bound
+     * @returns {Bound}
+     */
+    copy(bound) {
+        this.center.copy(bound.center);
+        this.radius = bound.radius;
+        return this;
+    }
+    /**
+     * @param {Plane} plane
+     */
+    whichSide(plane) {
+        let signedDistance = plane.distanceTo(this.center);
+        if (signedDistance <= -this.radius) return -1;
+        if (signedDistance >= this.radius) return +1;
+        return 0;
+    }
+    /**
+     * @param {Bound} bound
+     */
+    growToContain(bound) {
+        if (bound.radius === 0) {
+            // The incoming bound is invalid and cannot affect growth.
+            return;
+        }
+
+        if (this.radius === 0) {
+            // The current bound is invalid, so just assign the incoming bound.
+            this.copy(bound);
+            return;
+        }
+
+        let centerDiff = bound.center.subAsVector(this.center);
+        let lengthSqr = centerDiff.squaredLength();
+        let radiusDiff = bound.radius - this.radius;
+        let radiusDiffSqr = radiusDiff * radiusDiff;
+
+        if (radiusDiffSqr >= lengthSqr) {
+            if (radiusDiff >= 0) {
+                this.center = bound.center;
+                this.radius = bound.radius;
+            }
+            return;
+        }
+
+        let length = _Math.sqrt(lengthSqr);
+        if (length > _Math.ZERO_TOLERANCE) {
+            let coeff = (length + radiusDiff) / (2 * length);
+            this.center = this.center.add(centerDiff.scalar(coeff));
+        }
+        this.radius = 0.5 * (length + this.radius + bound.radius);
+    }
+
+    /**
+     * @param {Transform} transform
+     * @param {Bound} bound
+     */
+    transformBy(transform, bound) {
+        bound.center = transform.mulPoint(this.center);
+        bound.radius = transform.getNorm() * this.radius;
+    }
+
+    /**
+     * 计算物体的球形包围盒
+     *
+     * @param {number} numElements 顶点数量
+     * @param {number} stride 坐标偏移
+     * @param {ArrayBuffer} data 顶点数据
+     */
+    computeFromData(numElements, stride, data) {
+
+        let pos = new Float32Array(3);
+        let t = 0, cx, cy, cz;
+        let i, radiusSqr, dv = new DataView(data);
+
+        // 包围盒的中心是所有坐标的平均值
+        for (i = 0; i < numElements; ++i) {
+            t = i * stride;
+            pos[0] += dv.getFloat32(t, true);
+            pos[1] += dv.getFloat32(t + 4, true);
+            pos[2] += dv.getFloat32(t + 8, true);
+        }
+        t = 1 / numElements;
+        cx = pos[0] * t;
+        cy = pos[1] * t;
+        cz = pos[2] * t;
+        this.center.assign(cx, cy, cz);
+
+        // 半径是到中心点距离最大的物体坐标
+        this.radius = 0;
+        for (i = 0; i < numElements; ++i) {
+            t = i * stride;
+            pos[0] = dv.getFloat32(t, true) - cx;
+            pos[1] = dv.getFloat32(t + 4, true) - cy;
+            pos[2] = dv.getFloat32(t + 8, true) - cz;
+
+            radiusSqr = pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2];
+            if (radiusSqr > this.radius) {
+                this.radius = radiusSqr;
+            }
+        }
+
+        this.radius = _Math.sqrt(this.radius);
+    }
+
+    /**
+     * Test for intersection of linear component and bound (points of
+     * intersection not computed).   
+     * > The linear component is parameterized by
+     *  `P + t*D`
+     * -  P is a point on the component (the origin)
+     * -  D is a unit-length direction vector
+     * 
+     * > The interval `[tmin,tmax]` is
+     *   - line      tmin = -MAX_REAL, tmax = MAX_REAL
+     *   - ray:      tmin = 0.0, tmax = MAX_REAL
+     *   - segment:  tmin >= 0.0, tmax > tmin
+     *
+     * @param {Point} origin
+     * @param {Vector} direction
+     * @param {number} tmin
+     * @param {number} tmax
+     * @returns {boolean}
+     */
+    testIntersection(origin, direction, tmin, tmax) {
+        // 无效的包围盒, 不能计算相交
+        if (this.radius === 0) {
+            return false;
+        }
+
+        let diff;
+        let a0, a1, discr;
+
+        if (tmin === -_Math.MAX_REAL) {
+            console.assert(tmax === _Math.MAX_REAL, 'tmax must be infinity for a line.');
+
+            // Test for sphere-line intersection.
+            diff = origin.sub(this.center);
+            a0 = diff.dot(diff) - this.radius * this.radius;
+            a1 = direction.dot(diff);
+            discr = a1 * a1 - a0;
+            return discr >= 0;
+        }
+
+        if (tmax === _Math.MAX_REAL) {
+            console.assert(tmin === 0, 'tmin must be zero for a ray.');
+
+            // Test for sphere-ray intersection.
+            diff = origin.sub(this.center);
+            a0 = diff.dot(diff) - this.radius * this.radius;
+            if (a0 <= 0) {
+                // The ray origin is inside the sphere.
+                return true;
+            }
+            // else: The ray origin is outside the sphere.
+
+            a1 = direction.dot(diff);
+            if (a1 >= 0) {
+                // The ray forms an acute angle with diff, and so the ray is
+                // directed from the sphere.  Thus, the ray origin is outside
+                // the sphere, and points P+t*D for t >= 0 are even farther
+                // away from the sphere.
+                return false;
+            }
+
+            discr = a1 * a1 - a0;
+            return discr >= 0;
+        }
+
+        console.assert(tmax > tmin, 'tmin < tmax is required for a segment.');
+
+        // Test for sphere-segment intersection.
+        let segExtent = 0.5 * (tmin + tmax);
+        let segOrigin = origin.add(segExtent * direction);
+
+        diff = segOrigin.sub(this.center);
+        a0 = diff.dot(diff) - this.radius * this.radius;
+        a1 = direction.dot(diff);
+        discr = a1 * a1 - a0;
+        if (discr < 0) {
+            return false;
+        }
+
+        let tmp0 = segExtent * segExtent + a0;
+        let tmp1 = 2 * a1 * segExtent;
+        let qm = tmp0 - tmp1;
+        let qp = tmp0 + tmp1;
+        if (qm * qp <= 0) {
+            return true;
+        }
+        return qm > 0 && _Math.abs(a1) < segExtent;
+    }
+    /**
+     * Test for intersection of the two stationary bounds.
+     * @param {Bound} bound
+     * @returns {boolean}
+     */
+    testIntersection1(bound) {
+        // 无效的包围盒, 不能计算相交
+        if (bound.radius === 0 || this.radius === 0) {
+            return false;
+        }
+
+        // Test for staticSphere-staticSphere intersection.
+        let diff = this.center.subAsVector(bound.center);
+        let rSum = this.radius + bound.radius;
+        return diff.squaredLength() <= rSum * rSum;
+    }
+
+    /**
+     * Test for intersection of the two moving bounds.
+     * - Velocity0 is that of the calling Bound
+     * - velocity1 is that of the input bound.
+     *
+     * @param {Bound} bound
+     * @param {number} tmax
+     * @param {Vector} velocity0
+     * @param {Vector} velocity1
+     * @returns {boolean}
+     */
+    testIntersection2(bound, tmax, velocity0, velocity1) {
+        // 无效的包围盒, 不能计算相交
+        if (bound.radius === 0 || this.radius === 0) {
+            return false;
+        }
+
+        // Test for movingSphere-movingSphere intersection.
+        let relVelocity = velocity1.sub(velocity0);
+        let cenDiff = bound.center.subAsVector(this.center);
+        let a = relVelocity.squaredLength();
+        let c = cenDiff.squaredLength();
+        let rSum = bound.radius + this.radius;
+        let rSumSqr = rSum * rSum;
+
+        if (a > 0) {
+            let b = cenDiff.dot(relVelocity);
+            if (b <= 0) {
+                if (-tmax * a <= b) {
+                    return a * c - b * b <= a * rSumSqr;
+                }
+                else {
+                    return tmax * (tmax * a + 2 * b) + c <= rSumSqr;
+                }
+            }
+        }
+
+        return c <= rSumSqr;
+    }
+}
+
+class Spatial extends ControlledObject {
+    constructor() {
+        super();
+
+        this.localTransform = Transform$1.IDENTITY;
+        this.worldTransform = Transform$1.IDENTITY;
+
+        // 在一些情况下直接更新worldTransform而跳过Spatial.update()
+        // 在这种情况下必须将this.worldTransformIsCurrent设置为true
+        this.worldTransformIsCurrent = false;
+
+        this.worldBound = new Bound$1();
+        // 在一些情况下直接更新worldBound而跳过Spatial.update()
+        // 在这种情况下必须将this.worldBoundIsCurrent设置为true
+        this.worldBoundIsCurrent = false;
+
+        this.culling = Spatial.CULLING_DYNAMIC;
+
+        /** @type {Spatial} */
+        this.parent = null;
+    }
+    /**
+     * 在向下遍历场景树或向上遍历世界包围盒时，计算世界变换，
+     *
+     * 更新几何体的状态和控制器
+     *
+     * @param {number} applicationTime
+     * @param {boolean} initiator
+     */
+    update(applicationTime = -_Math.MAX_REAL, initiator = false) {
+        applicationTime = applicationTime;
+        this.updateWorldData(applicationTime);
+        this.updateWorldBound();
+
+        if (initiator === undefined || initiator === true) {
+            this.propagateBoundToRoot();
+        }
+    }
+    /**
+     * @param {number} applicationTime
+     */
+    updateWorldData(applicationTime) {
+        // 更新当前空间的所有控制器
+        this.updateControllers(applicationTime);
+
+        // 更新世界变换
+        if (!this.worldTransformIsCurrent) {
+            if (this.parent) {
+                this.worldTransform.copy(this.parent.worldTransform.mul(this.localTransform));
+            }
+            else {
+                this.worldTransform.copy(this.localTransform);
+            }
+        }
+    }
+
+    propagateBoundToRoot() {
+        if (this.parent) {
+            this.parent.updateWorldBound();
+            this.parent.propagateBoundToRoot();
+        }
+    }
+
+    /**
+     * 裁剪支持
+     * @param {Culler} culler
+     * @param {boolean} noCull
+     */
+    onGetVisibleSet(culler, noCull) {
+        if (this.culling === Spatial.CULLING_ALWAYS) {
+            return;
+        }
+
+        if (this.culling == Spatial.CULLING_NEVER) {
+            noCull = true;
+        }
+
+        var savePlaneState = culler.planeState;
+        if (noCull || culler.isVisible(this.worldBound)) {
+            this.getVisibleSet(culler, noCull);
+        }
+        culler.planeState = savePlaneState;
+    }
+
+    // 子类实现， 用于更新世界包围盒
+    updateWorldBound() {
+    }
+
+    load(inStream) {
+        super.load(inStream);
+        this.localTransform = inStream.readTransform();
+        this.worldTransform = inStream.readTransform();
+        this.worldTransformIsCurrent = inStream.readBool();
+        this.worldBound = inStream.readBound();
+        this.worldBoundIsCurrent = inStream.readBool();
+        this.culling = inStream.readEnum();
+    }
+}
+
+DECLARE_ENUM(Spatial, {
+    CULLING_DYNAMIC: 0, // 通过比较世界包围盒裁剪平面确定可见状态
+    CULLING_ALWAYS: 1, // 强制裁剪对象, 如果节点被裁剪，那么它的整个子树也被裁剪
+    CULLING_NEVER: 2  // 不裁剪对象， 如果一个节点是不裁剪对象，那么它的整个子树也不被裁剪。
+});
+
+class Visual$1 extends Spatial {
+
+    /**
+     * @param {number} type - primitiveType
+     * @param {VertexFormat} format
+     * @param {VertexBuffer} vertexBuffer
+     * @param {IndexBuffer} indexBuffer
+     */
+    constructor(type, format, vertexBuffer, indexBuffer) {
+        super();
+        this.primitiveType = type || Visual$1.PT_NONE;
+
+        /**
+         * @type {VertexFormat}
+         */
+        this.format = format;
+
+        /**
+         * @type {VertexBuffer}
+         */
+        this.vertexBuffer = vertexBuffer;
+
+        /**
+         * @type {IndexBuffer}
+         */
+        this.indexBuffer = indexBuffer;
+        this.modelBound = new Bound$1();
+
+        /**
+         * Shader effect used to draw the Visual.
+         * @type {VisualEffectInstance}
+         * @private
+         */
+        this.effect = null;
+
+        // true则以线框模式渲染
+        this.wire = false;
+
+        if (format && vertexBuffer && indexBuffer) {
+            this.updateModelSpace(Spatial.GU_MODEL_BOUND_ONLY);
+        }
+    }
+
+    updateModelSpace(type) {
+        this.updateModelBound();
+    }
+
+    updateWorldBound() {
+        this.modelBound.transformBy(this.worldTransform, this.worldBound);
+    }
+
+    updateModelBound() {
+        const numVertices = this.vertexBuffer.numElements;
+        const format = this.format;
+        const stride = format.stride;
+
+        let posIndex = format.getIndex(VertexFormat$1.AU_POSITION);
+        if (posIndex === -1) {
+            console.assert(false, 'update requires vertex positions');
+            return;
+        }
+
+        let posType = format.getAttributeType(posIndex);
+        if (posType !== VertexFormat$1.AT_FLOAT3 && posType !== VertexFormat$1.AT_FLOAT4) {
+            console.assert(false, 'Positions must be 3-tuples or 4-tuples');
+            return;
+        }
+
+        let data = this.vertexBuffer.getData();
+        let posOffset = format.getOffset(posIndex);
+        this.modelBound.computeFromData(numVertices, stride, data.slice(posOffset).buffer);
+    }
+
+    /**
+     * Support for hierarchical culling.
+     * @param {Culler} culler
+     * @param {boolean} noCull
+     */
+    getVisibleSet(culler, noCull) {
+        culler.insert(this);
+    }
+
+    /**
+     * @param {string} fileName - 文件名
+     */
+    static loadWMVF(fileName) {
+        return new Promise(function (resolve, reject) {
+            let load = new L5.XhrTask(fileName, 'arraybuffer');
+            load.then(function (data) {
+                let inFile = new DataView(data);
+                let ret = {};
+                inFile.offset = 0;
+                ret.primitiveType = inFile.getInt32(inFile.offset, true);
+                inFile.offset += 4;
+
+                ret.format = Visual$1.loadVertexFormat(inFile); // ok
+                ret.vertexBuffer = Visual$1.loadVertexBuffer(inFile, ret.format);
+                ret.indexBuffer = Visual$1.loadIndexBuffer(inFile);
+
+                console.log(data.byteLength);
+                console.log(inFile.offset);
+
+                resolve(ret);
+            }).catch(function (err) {
+                console.log(err);
+                reject(err);
+            });
+        }).catch(function (err) {
+            console.assert(false, "Failed to open file :" + fileName);
+        });
+    }
+
+    /**
+     * 解析顶点格式
+     * @param {BinDataView} inFile
+     * @returns {VertexFormat}
+     */
+    static loadVertexFormat(inFile) {
+        let numAttributes = inFile.getInt32(inFile.offset, true);
+        inFile.offset += 4;
+
+        let format = new VertexFormat$1(numAttributes);
+        let streamIndex, offset, usageIndex, type, usage;
+
+        for (let i = 0; i < numAttributes; ++i) {
+            streamIndex = inFile.getUint32(inFile.offset, true);
+            inFile.offset += 4;
+
+            offset = inFile.getUint32(inFile.offset, true);
+            inFile.offset += 4;
+
+            type = inFile.getInt32(inFile.offset, true);
+            inFile.offset += 4;
+
+            usage = inFile.getInt32(inFile.offset, true);
+            inFile.offset += 4;
+
+            usageIndex = inFile.getUint32(inFile.offset, true);
+            inFile.offset += 4;
+
+            format.setAttribute(i, streamIndex, offset, type, usage, usageIndex);
+        }
+
+        format.stride = inFile.getInt32(inFile.offset, true);
+        inFile.offset += 4;
+
+        return format;
+    }
+
+    /**
+     * 解析顶点缓冲对象
+     * @param {BinDataView} inFile
+     * @param {VertexFormat} format
+     * @returns {VertexBuffer}
+     */
+    static loadVertexBuffer(inFile, format) {
+        let numElements = inFile.getInt32(inFile.offset, true);
+        inFile.offset += 4;
+
+        let elementSize = inFile.getInt32(inFile.offset, true);
+        inFile.offset += 4;
+
+        let usage = inFile.getInt32(inFile.offset, true);
+        inFile.offset += 4;
+
+        let buffer = new VertexBuffer(numElements, elementSize, usage);
+        let vba = new VertexBufferAccessor(format, buffer);
+        // end ok
+
+        vba.read(inFile);
+
+        return buffer;
+    }
+
+    /**
+     * @param {BinDataView} inFile
+     * @returns {IndexBuffer}
+     */
+    static loadIndexBuffer(inFile) {
+        let numElements = inFile.getInt32(inFile.offset, true);
+        inFile.offset += 4;
+
+        if (numElements > 0) {
+            let elementSize = inFile.getInt32(inFile.offset, true);
+            inFile.offset += 4;
+            let usage = inFile.getInt32(inFile.offset, true);
+            inFile.offset += 4;
+            let offset = inFile.getInt32(inFile.offset, true);
+            inFile.offset += 4;
+
+            let buffer = new IndexBuffer(numElements, elementSize, usage);
+            buffer.offset = offset;
+            //let start = inFile.offset;
+            // let end = start + buffer.numBytes;
+            buffer.getData().set(new Uint8Array(inFile.buffer, inFile.offset, buffer.numBytes));
+
+            inFile.offset += buffer.numBytes;
+
+            return buffer;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param {InStream} inStream
+     */
+    load(inStream) {
+        super.load(inStream);
+        this.type = inStream.readEnum();
+        this.modelBound = inStream.readBound();
+        this.format = inStream.readPointer();
+        this.vertexBuffer = inStream.readPointer();
+        this.indexBuffer = inStream.readPointer();
+        this.effect = inStream.readPointer();
+    }
+
+    link(inStream) {
+        super.link(inStream);
+        this.format = inStream.resolveLink(this.format);
+        this.vertexBuffer = inStream.resolveLink(this.vertexBuffer);
+        this.indexBuffer = inStream.resolveLink(this.indexBuffer);
+        this.effect = inStream.resolveLink(this.effect);
+    }
+}
+
+/////////////////// 绘制类型 //////////////////////////////
+DECLARE_ENUM(Visual$1, {
+    PT_NONE: 0,  // 默认
+    PT_POLYPOINT: 1,   // 点
+    PT_POLYSEGMENTS_DISJOINT: 2,
+    PT_POLYSEGMENTS_CONTIGUOUS: 3,
+    PT_TRIANGLES: 4,  // abstract
+    PT_TRIMESH: 5,
+    PT_TRISTRIP: 6,
+    PT_TRIFAN: 7,
+    PT_MAX_QUANTITY: 8
+}, false);
+
+// Geometric updates.  If the positions in the vertex buffer have been
+// modified, you might want to update the surface frames (normals,
+// tangents, and bitangents) for indexed-triangle primitives.  It is
+// assumed that the positions have been updated and the vertex buffer is
+// unlocked.  The argument of UpdateModelSpace specifies the update
+// algorithm:
+//
+//   GU_MODEL_BOUND_ONLY:
+//      Update only the model-space bound of the new positions.
+//
+// For the other options, the model-space bound is always recomputed,
+// regardless of type of primitive.  For the surface frames to be updated,
+// the Visual must represent an indexed-triangle primitive and must have
+// the relevant channels (normal, tangents, bitangents).  If the primitive
+// is not indexed triangles, the update call does nothing to the frames.
+// An update occurs only for those channels present in the vertex buffer.
+// For example, if the vertex buffer has no normals, GU_NORMALS will
+// have no effect on the vertex buffer.  As another example, if you
+// specify GU_USE_GEOMETRY and the vertex buffer has normals and tangents
+// but not bitangents, only normals and tangents are updated (i.e. the
+// vertex buffer is not regenerated to have bitangents).
+//
+//   GU_NORMALS:
+//      Update the normals.
+//
+//   GU_USE_GEOMETRY:
+//      Use the mesh topology to determine the surface frames.  The
+//      algorithm uses a least-squares method, which is expensive.
+//
+//   GU_USE_TCOORD_CHANNEL + nonnegative_integer:
+//      The standard way to generate surface frames is to use a texture
+//      coordinate unit from the vertex buffer.
+//
+// To reduce video memory usage by the vertex buffers, if your vertex
+// shaders use normals, tangents, and bitangents, consider passing in
+// normals and tangents, and then have the shader compute the bitangent as
+//    bitangent = Cross(normal, tangent)
+DECLARE_ENUM(Visual$1, {
+    GU_MODEL_BOUND_ONLY: -3,
+    GU_NORMALS: -2,
+    GU_USE_GEOMETRY: -1,
+    GU_USE_TCOORD_CHANNEL: 0
+});
+
 class Renderer$1 {
     /**
      * @param {HTMLCanvasElement} canvas
@@ -10218,7 +9333,7 @@ class Renderer$1 {
         /**
          * @type {WebGLRenderingContext}
          */
-		let gl = canvas.getContext(WebGL_VERSION, {
+		let gl = canvas.getContext('webgl2', {
 			alpha: true,
 			depth: true,
 			stencil: true,
@@ -11073,7 +10188,7 @@ class Renderer$1 {
 	_enableTexture2D(texture, textureUnit) {
 		var glTexture2D = this.texture2Ds.get(texture);
 		if (!glTexture2D) {
-			glTexture2D = new GLTexture2D(this, texture);
+			glTexture2D = new GLTexture2D(this.gl, texture);
 			this.texture2Ds.set(texture, glTexture2D);
 		}
 		glTexture2D.enable(this, textureUnit);
@@ -11096,10 +10211,10 @@ class Renderer$1 {
      * @param {number} level
      * @private
      */
-	_updateTexture2D(texture, level=0) {
+	_updateTexture2D(texture, level = 0) {
 		let glTexture2D = this.texture2Ds.get(texture);
 		if (!glTexture2D) {
-			glTexture2D = new GLTexture2D(this, texture);
+			glTexture2D = new GLTexture2D(this.gl, texture);
 			this.texture2Ds.set(texture, glTexture2D);
 		} else {
 			glTexture2D.update(this, level, texture.getData());
@@ -11459,7 +10574,7 @@ class Renderer$1 {
 	}
 
 	/**
-	 * @param offsetState {OffsetState}
+	 * @param {OffsetState} offsetState
 	 */
 	setOffsetState(offsetState) {
 		var os;
@@ -11560,9 +10675,8 @@ class Renderer$1 {
 	resize(width, height) {
 		this.width = width;
 		this.height = height;
-		var gl = this.gl;
-
-		var param = gl.getParameter(gl.VIEWPORT);
+		const gl = this.gl;
+		const param = gl.getParameter(gl.VIEWPORT);
 		gl.viewport(param[0], param[1], width, height);
 	}
 
@@ -11573,7 +10687,7 @@ class Renderer$1 {
 		gl.clear(gl.COLOR_BUFFER_BIT);
 	}
 	clearDepthBuffer() {
-		var gl = this.gl;
+		const gl = this.gl;
 		gl.clearDepth(this.clearDepth);
 		gl.clear(gl.DEPTH_BUFFER_BIT);
 	}
@@ -11583,46 +10697,40 @@ class Renderer$1 {
 		gl.clear(gl.STENCIL_BUFFER_BIT);
 	}
 
-	/**
-	 * @param x {number}
-	 * @param y {number}
-	 * @param w {number}
-	 * @param h {number}
-	 */
-	clearColorBuffer(x, y, w, h) {
-		var gl = this.gl;
-		var cc = this.clearColor;
+	clearColorBuffer(x, y, width, height) {
+		const gl = this.gl;
+		const cc = this.clearColor;
 		gl.clearColor(cc[0], cc[1], cc[2], cc[3]);
 		gl.enable(gl.SCISSOR_TEST);
-		gl.scissor(x, y, w, h);
+		gl.scissor(x, y, width, height);
 		gl.clear(gl.COLOR_BUFFER_BIT);
 		gl.disable(gl.SCISSOR_TEST);
 	}
 	/**
-	 * @param x {number}
-	 * @param y {number}
-	 * @param w {number}
-	 * @param h {number}
+	 * @param {number} x
+	 * @param {number} y
+	 * @param {number} width
+	 * @param {number} height
 	 */
-	clearDepthBuffer(x, y, w, h) {
-		var gl = this.gl;
+	clearDepthBuffer(x, y, width, height) {
+		const gl = this.gl;
 		gl.clearDepth(this.clearDepth);
 		gl.enable(gl.SCISSOR_TEST);
-		gl.scissor(x, y, w, h);
+		gl.scissor(x, y, width, height);
 		gl.clear(gl.DEPTH_BUFFER_BIT);
 		gl.disable(gl.SCISSOR_TEST);
 	}
 	/**
-	 * @param x {number}
-	 * @param y {number}
-	 * @param w {number}
-	 * @param h {number}
+	 * @param {number} x
+	 * @param {number} y
+	 * @param {number} width
+	 * @param {number} height
 	 */
-	clearStencilBuffer(x, y, w, h) {
-		var gl = this.gl;
+	clearStencilBuffer(x, y, width, height) {
+		const gl = this.gl;
 		gl.clearStencil(this.clearStencil);
 		gl.enable(gl.SCISSOR_TEST);
-		gl.scissor(x, y, w, h);
+		gl.scissor(x, y, width, height);
 		gl.clear(gl.STENCIL_BUFFER_BIT);
 		gl.disable(gl.SCISSOR_TEST);
 	}
@@ -11651,28 +10759,14 @@ class Renderer$1 {
 	 * @param {boolean} allowBlue
 	 * @param {boolean} allowAlpha
 	 */
-	setColorMask(allowRed, allowGreen, allowBlue, allowAlpha) {
-		this.allowRed = allowRed || false;
-		this.allowGreen = allowGreen || false;
-		this.allowBlue = allowBlue || false;
-		this.allowAlpha = allowAlpha || false;
+	setColorMask(allowRed = false, allowGreen = false, allowBlue = false, allowAlpha = false) {
+		this.allowRed = allowRed;
+		this.allowGreen = allowGreen;
+		this.allowBlue = allowBlue;
+		this.allowAlpha = allowAlpha;
 		this.gl.colorMask(allowRed, allowGreen, allowBlue, allowBlue);
 	}
 }
-
-/**
- * Texture2D 2D纹理构造
- */
-
-/**
- * TextureCube 立方纹理构造
- * @param format {number} 纹理格式， 参考L5.Texture.TT_XXX
- * @param dimension {number} 相当于宽度、高度， 宽=高
- * @param numLevels {number} 纹理级数 0 为最大值
- *
- * @author lonphy
- * @version 1.0
- */
 
 let VBAAttr = {
     offset: -1, // 偏移
@@ -11687,7 +10781,7 @@ let VBAAttr = {
 /**
  * VertexBufferAccessor 顶点缓冲访问器
  */
-class VertexBufferAccessor$1 {
+class VertexBufferAccessor {
 
     /**
      * @param {VertexFormat} format
@@ -11772,11 +10866,11 @@ class VertexBufferAccessor$1 {
     }
 
     /**
-     * @param visual {Visual}
+     * @param {Visual} visual
      * @returns {VertexBufferAccessor}
      */
     static fromVisual(visual) {
-        return new VertexBufferAccessor$1(visual.format, visual.vertexBuffer);
+        return new VertexBufferAccessor(visual.format, visual.vertexBuffer);
     }
 
     /**
@@ -11791,13 +10885,20 @@ class VertexBufferAccessor$1 {
         return this.data;
     }
 
-    ////////////////// 顶点 ///////////////////////////////
+    /**
+     * @param {number} index
+     * @return {ArrayBufferView}
+     */
     getPosition(index) {
         let t = this.position;
         let startOffset = t.offset + index * this.stride;
         return new t.eType(this.data.buffer.slice(startOffset, startOffset + t.eNum * t.eType.BYTES_PER_ELEMENT));
     }
 
+    /**
+     * @param {number} index 
+     * @param {ArrayBuffer} dataArr 
+     */
     setPosition(index, dataArr) {
         let t = this.position;
         let startOffset = t.offset + index * this.stride;
@@ -11968,291 +11069,1318 @@ class VertexBufferAccessor$1 {
     }
 }
 
-/**
- * Visual
- */
-class Visual$1 extends Spatial$1 {
+class Camera extends D3Object {
 
     /**
-     * @param {number} type primitiveType
-     * @param {VertexFormat} format
-     * @param {VertexBuffer} vertexBuffer
-     * @param {IndexBuffer} indexBuffer
+     * @param {boolean} isPerspective - 是否是透视相机, true-透视, false-正交
      */
-    constructor(type, format, vertexBuffer, indexBuffer) {
+    constructor(isPerspective = false) {
         super();
-        this.primitiveType = type || Visual$1.PT_NONE;
 
-        /**
-         * @type {VertexFormat}
-         */
-        this.format = format;
+        this.isPerspective = isPerspective;
 
-        /**
-         * @type {VertexBuffer}
-         */
-        this.vertexBuffer = vertexBuffer;
+        this.position = Point$1.ORIGIN;
+        this.direction = Vector$1.UNIT_Z.negative(); //-z
+        this.up = Vector$1.UNIT_Y;
+        this.right = Vector$1.UNIT_X;
 
-        /**
-         * @type {IndexBuffer}
-         */
-        this.indexBuffer = indexBuffer;
-        this.modelBound = new Bound$1();
+        // 摄像机视图矩阵
+        this.viewMatrix = Matrix$1.IDENTITY;
 
-        /**
-         * Shader effect used to draw the Visual.
-         * @type {VisualEffectInstance}
-         * @private
-         */
-        this.effect = null;
+        // 视截体存储结构, 存储顺序 NEAR-FAR-BOTTOM-TOP-LEFT-RIGHT
+        this.frustum = new Float32Array(6);
 
-        // true则以线框模式渲染
-        this.wire = false;
+        // 摄像机投影矩阵
+        this.projectionMatrix = Matrix$1.IDENTITY;
 
-        if (format && vertexBuffer && indexBuffer) {
-            this.updateModelSpace(Spatial$1.GU_MODEL_BOUND_ONLY);
+        // 投影视图矩阵， 即投影矩阵和视图矩阵的乘积
+        // 当视图前置/后置矩阵不为空时会包含它们
+        this.projectionViewMatrix = Matrix$1.IDENTITY;
+
+        // 视图前置矩阵，位置在模型矩阵之后，但在视图矩阵之前
+        // 用于对物体的变换， 例如反射等，默认为单位矩阵
+        this.preViewMatrix = Matrix$1.IDENTITY;
+        this.preViewIsIdentity = true;
+
+        // 视图后置矩阵，用于屏幕空间转换，例如反射渲染后的图像等，默认为单位矩阵
+        this.postProjectionMatrix = Matrix$1.IDENTITY;
+        this.postProjectionIsIdentity = true;
+
+        // 初始化
+        this.setFrame(this.position, this.direction, this.up, this.right);
+        this.setPerspective(90, 1, 1, 1000);
+    }
+
+
+    /**
+     * 所有参数均为世界坐标系
+     *
+     * @param eye {Point} 相机位置
+     * @param center {Point} 场景中心
+     * @param up {Vector} 相机上方向
+     */
+    lookAt(eye, center, up) {
+
+        if (eye.equals(center)) {
+            this.position.copy(Point$1.ORIGIN);
+            this.up.copy(up);
+            this.direction.copy(Vector$1.UNIT_Z.negative());
+            this.right.copy(Vector$1.UNIT_X);
+            return;
+        }
+
+        this.position.copy(eye);
+
+        // 这里可直接计算正-Z方向, 上面已经做过判断
+        let z = eye.subAsVector(center);
+        z.normalize();
+
+        // 计算右方向
+        let x = up.cross(z);
+        x.normalize();
+
+        // 计算右方向
+        let y = z.cross(x);
+        y.normalize();
+
+        this.direction.copy(z);
+        this.up.copy(y);
+        this.right.copy(x);
+
+        this.onFrameChange();
+    }
+
+    /**
+     * 摄像机的向量使用世界坐标系.
+     *
+     * @param position  {Point } 位置 default (0, 0,  0; 1)
+     * @param direction {Vector} 观察方向 default (0, 0, -1; 0)
+     * @param up        {Vector} 上方向 default default (0, 1, 0; 0)
+     * @returns {void}
+     */
+    setFrame(position, direction, up) {
+        this.position.copy(position);
+        let right = direction.cross(up);
+        this.setAxes(direction, up, right);
+    }
+
+    /**
+     * 设置摄像机位置
+     * @param position {Point}
+     * @returns {void}
+     */
+    setPosition(position) {
+        this.position.copy(position);
+        this.onFrameChange();
+    }
+
+    /**
+     * 设置摄像机坐标系的3个轴
+     *
+     * @param direction {Vector} 观察方向
+     * @param up        {Vector} 上方向
+     * @param right     {Vector} 右方向
+     * @returns {void}
+     */
+    setAxes(direction, up, right) {
+        this.direction.copy(direction);
+        this.up.copy(up);
+        this.right.copy(right);
+
+        // 判断3个轴是否正交, 否则需要校正
+        let det = direction.dot(up.cross(right));
+        if (_Math.abs(1 - det) > 0.00001) {
+            Vector$1.orthoNormalize(this.direction, this.up, this.right);
+        }
+        this.onFrameChange();
+    }
+
+    /**
+     * 设置透视矩阵参数
+     * @param fov {float} 垂直视角, 单位: 度
+     * @param aspect {float} 高宽比
+     * @param near {float} 近平面
+     * @param far {float} 远平面
+     */
+    setPerspective(fov, aspect, near, far) {
+        let top = near * _Math.tan(fov * _Math.PI / 360);
+        let right = top * aspect;
+
+        this.frustum[Camera.VF_TOP] = top;
+        this.frustum[Camera.VF_BOTTOM] = -top;
+        this.frustum[Camera.VF_RIGHT] = right;
+        this.frustum[Camera.VF_LEFT] = -right;
+        this.frustum[Camera.VF_NEAR] = near;
+        this.frustum[Camera.VF_FAR] = far;
+
+        this.onFrustumChange();
+    }
+
+    /**
+     * 返回透视图的4个参数
+     * returns {Float32Array} [fov, aspect, near, far]
+     */
+    getPerspective() {
+        let ret = new Float32Array(4);
+
+        if (
+            this.frustum[Camera.VF_LEFT] == -this.frustum[Camera.VF_RIGHT] &&
+            this.frustum[Camera.VF_BOTTOM] == -this.frustum[Camera.VF_TOP]
+        ) {
+            let tmp = this.frustum[Camera.VF_TOP] / this.frustum[Camera.VF_NEAR];
+            ret[0] = _Math.atan(tmp) * 360 / _Math.PI;
+            ret[1] = this.frustum[Camera.VF_RIGHT] / this.frustum[Camera.VF_TOP];
+            ret[2] = this.frustum[Camera.VF_NEAR];
+            ret[3] = this.frustum[Camera.VF_FAR];
+        }
+        return ret;
+    }
+
+    /**
+     * 通过6个面的参数设置视截体
+     * @param near   {number} 近平面
+     * @param far    {number} 远平面
+     * @param bottom {number} 底面
+     * @param top    {number} 顶面
+     * @param left   {number} 左面
+     * @param right  {number} 右面
+     * @returns {void}
+     */
+    setFrustum(near, far, bottom, top, left, right) {
+        this.frustum[Camera.VF_NEAR] = near;
+        this.frustum[Camera.VF_FAR] = far;
+        this.frustum[Camera.VF_BOTTOM] = bottom;
+        this.frustum[Camera.VF_TOP] = top;
+        this.frustum[Camera.VF_LEFT] = left;
+        this.frustum[Camera.VF_RIGHT] = right;
+
+        this.onFrustumChange();
+    }
+
+    /**
+     * p00 {Point}
+     * p10 {Point}
+     * p11 {Point}
+     * p01 {Point}
+     * nearExtrude {number}
+     * farExtrude {number}
+     *
+     */
+    setProjectionMatrix(p00, p10, p11, p01,
+        nearExtrude, farExtrude) {
+
+        let // 计算近平面
+            q000 = p00.scalar(nearExtrude),
+            q100 = p01.scalar(nearExtrude),
+            q110 = p11.scalar(nearExtrude),
+            q010 = p01.scalar(nearExtrude),
+
+            // 计算远平面
+            q001 = p00.scalar(farExtrude),
+            q101 = p10.scalar(farExtrude),
+            q111 = p11.scalar(farExtrude),
+            q011 = p01.scalar(farExtrude);
+
+        // Compute the representation of q111.
+        let u0 = q100.sub(q000),
+            u1 = q010.sub(q000),
+            u2 = q001.sub(q000);
+
+        let m = Matrix$1.IPMake(u0, u1, u2, q000);
+        let invM = m.inverse(0.001);
+        let a = invM.mulPoint(q111);
+
+        // Compute the coeffients in the fractional linear transformation.
+        //   y[i] = n[i]*x[i]/(d[0]*x[0] + d[1]*x[1] + d[2]*x[2] + d[3])
+        let n0 = 2 * a.x;
+        let n1 = 2 * a.y;
+        let n2 = 2 * a.z;
+        let d0 = +a.x - a.y - a.z + 1;
+        let d1 = -a.x + a.y - a.z + 1;
+        let d2 = -a.x - a.y + a.z + 1;
+        let d3 = +a.x + a.y + a.z - 1;
+
+        // 从规范正方体[-1,1]^2 x [0,1]计算透视投影
+        let n20 = n2 / n0,
+            n21 = n2 / n1,
+            n20d0 = n20 * d0,
+            n21d1 = n21 * d1,
+            d32 = 2 * d3,
+            project = new Matrix$1(
+                n20 * d32 + n20d0, n21d1, d2, -n2,
+                n20d0, n21 * d32 + n21d1, d2, -n2,
+                n20d0, n21d1, d2, -n2,
+                -n20d0, -n21d1, -d2, n2
+            );
+
+        this.postProjectionMatrix.copy(project.mul(invM));
+        this.postProjectionIsIdentity = Matrix$1.isIdentity(this.postProjectionMatrix);
+        this.updatePVMatrix();
+    }
+
+    /**
+     * 设置视图前置矩阵
+     *
+     * @param mat {Matrix}
+     * @returns {void}
+     */
+    setPreViewMatrix(mat) {
+        this.preViewMatrix.copy(mat);
+        this.preViewIsIdentity = Matrix$1.isIdentity(mat);
+        this.updatePVMatrix();
+    }
+
+    /**
+     * 设置视图后置矩阵
+     *
+     * @param mat {Matrix}
+     * @returns {void}
+     */
+    setPostProjectionMatrix(mat) {
+        this.postProjectionMatrix.copy(mat);
+        this.postProjectionIsIdentity = Matrix$1.isIdentity(mat);
+        this.updatePVMatrix();
+    }
+
+    /**
+     * 在归一化后的显示空间[-1,1]x[-1,1]计算物体轴对齐包围盒
+     *
+     * @param numVertices  {number}       顶点数量
+     * @param vertices     {Float32Array} 顶点数组
+     * @param stride       {number}       步幅
+     * @param worldMatrix  {Matrix}   物体变换矩阵
+     * @returns {object}
+     */
+    computeBoundingAABB(numVertices, vertices, stride, worldMatrix) {
+        // 计算当前物体，世界视图投影矩阵.
+        let vpMatrix = this.projectionMatrix.mul(this.viewMatrix);
+        if (!this.postProjectionIsIdentity) {
+            vpMatrix.copy(this.postProjectionMatrix.mul(vpMatrix));
+        }
+        let wvpMatrix = vpMatrix.mul(worldMatrix);
+        let xmin, xmax, ymin, ymax;
+        // 计算规范化后的显示坐标包围盒
+        xmin = ymin = Infinity;
+        xmax = ymax = -Infinity;
+
+        for (let i = 0; i < numVertices; ++i) {
+            let pos = new Point$1(vertices[i + stride], vertices[i + stride + 1], vertices[i + stride + 2]);
+            let hpos = wvpMatrix.mulPoint(pos);
+            let invW = 1 / hpos.w;
+            let xNDC = hpos.x * invW;
+            let yNDC = hpos.y * invW;
+            if (xNDC < xmin) {
+                xmin = xNDC;
+            }
+            if (xNDC > xmax) {
+                xmax = xNDC;
+            }
+            if (yNDC < ymin) {
+                ymin = yNDC;
+            }
+            if (yNDC > ymax) {
+                ymax = yNDC;
+            }
+        }
+        return { xmin: xmin, xmax: xmax, ymin: ymin, ymax: ymax };
+    }
+
+    /**
+     * 计算变更后的视图矩阵
+     * @returns {void}
+     */
+    onFrameChange() {
+        let nPos = this.position;
+        let x = this.right, y = this.up, z = this.direction;
+
+        this.viewMatrix[0] = x[0];
+        this.viewMatrix[1] = y[0];
+        this.viewMatrix[2] = z[0];
+        this.viewMatrix[3] = 0;
+
+        this.viewMatrix[4] = x[1];
+        this.viewMatrix[5] = y[1];
+        this.viewMatrix[6] = z[1];
+        this.viewMatrix[7] = 0;
+
+        this.viewMatrix[8] = x[2];
+        this.viewMatrix[9] = y[2];
+        this.viewMatrix[10] = z[2];
+        this.viewMatrix[11] = 0;
+
+        this.viewMatrix[12] = -nPos.dot(x);
+        this.viewMatrix[13] = -nPos.dot(y);
+        this.viewMatrix[14] = -nPos.dot(z);
+        this.viewMatrix[15] = 1;
+
+        this.updatePVMatrix();
+    }
+
+    /**
+     * 视截体变化后计算投影矩阵
+     * @returns {void}
+     */
+    onFrustumChange() {
+        let f = this.frustum;
+        let near = f[Camera.VF_NEAR],
+            far = f[Camera.VF_FAR],
+            bottom = f[Camera.VF_BOTTOM],
+            top = f[Camera.VF_TOP],
+            left = f[Camera.VF_LEFT],
+            right = f[Camera.VF_RIGHT],
+
+            rl = right - left,
+            tb = top - bottom,
+            fn = far - near;
+
+        this.projectionMatrix.zero();
+
+        if (this.isPerspective) {
+            let near2 = 2 * near;
+            this.projectionMatrix[0] = near2 / rl;
+            this.projectionMatrix[5] = near2 / tb;
+            this.projectionMatrix[8] = (right + left) / rl;
+            this.projectionMatrix[9] = (top + bottom) / tb;
+            this.projectionMatrix[10] = -(far + near) / fn;
+            this.projectionMatrix[11] = -1;
+            this.projectionMatrix[14] = -(far * near2) / fn;
+        }
+        else {
+            this.projectionMatrix[0] = 2 / rl;
+            this.projectionMatrix[5] = 2 / tb;
+            this.projectionMatrix[10] = -2 / fn;
+            this.projectionMatrix[12] = -(left + right) / rl;
+            this.projectionMatrix[13] = -(top + bottom) / tb;
+            this.projectionMatrix[14] = -(far + near) / fn;
+            this.projectionMatrix[15] = 1;
+        }
+
+        this.updatePVMatrix();
+    }
+
+    /**
+     * 计算postproj-proj-view-preview的乘积
+     */
+    updatePVMatrix() {
+        this.projectionViewMatrix.copy(this.projectionMatrix.mul(this.viewMatrix));
+        if (!this.postProjectionIsIdentity) {
+            this.projectionViewMatrix.copy(this.postProjectionMatrix.mul(this.projectionViewMatrix));
+        }
+        if (!this.preViewIsIdentity) {
+            this.projectionViewMatrix.copy(this.projectionViewMatrix.mul(this.preViewMatrix));
         }
     }
 
-    updateModelSpace(type) {
-        this.updateModelBound();
+    debug() {
+        if (!this.output) {
+            this.output = document.createElement('div');
+            document.querySelector('.nodes-info').appendChild(this.output);
+        }
+        let pos = this.position;
+        let dir = this.direction;
+        this.output.innerHTML = `pos:[${pos.x.toFixed(4)}, ${pos.y.toFixed(4)}, ${pos.z.toFixed(4)}]<br/>
+                        dir:[${dir.x.toFixed(4)}, ${dir.y.toFixed(4)}, ${dir.z.toFixed(4)}]<br/>`;
+    }
+}
+
+DECLARE_ENUM(Camera, {
+    VF_NEAR: 0,
+    VF_FAR: 1,
+    VF_BOTTOM: 2,
+    VF_TOP: 3,
+    VF_LEFT: 4,
+    VF_RIGHT: 5,
+    VF_QUANTITY: 6
+});
+
+class Node extends Spatial {
+    constructor() {
+        super();
+        this.childs = [];
+    }
+
+    /**
+     * 获取子节点数量
+     * @returns {number}
+     */
+    getChildsNumber() {
+        return this.childs.length;
+    }
+
+    /**
+     * 加载子节点.
+     * 如果执行成功，则返回子节点存储的索引i, 0 <= i < getNumChildren()
+     * 数组中第一个空槽将被用来存储子节点. 如果所有的槽都不为空，则添加到数组末尾[js底层可能需要重新分配空间]
+     *
+     * 以下情况会失败,并返回-1
+     * child === null or child.parent !== null
+     *
+     * @param {Spatial} child
+     * @returns {number}
+     */
+    attachChild(child) {
+        if (child === null) {
+            console.assert(false, 'You cannot attach null children to a node.');
+            return -1;
+        }
+        if (child.parent !== null) {
+            console.assert(false, 'The child already has a parent.');
+            return -1;
+        }
+
+        child.parent = this;
+
+        let nodes = this.childs.slice(),
+            max = nodes.length;
+        for (let idx = 0; idx < max; ++idx) {
+            if (nodes[idx] === null) {
+                this.childs[idx] = child;
+                return idx;
+            }
+        }
+        this.childs[max] = child;
+        return max;
+    }
+
+    /**
+     * 从当前节点卸载子节点
+     * 如果child不为null且在数组中， 则返回存储的索引， 否则返回-1
+     * @param {Spatial} child
+     * @returns {number}
+     */
+    detachChild(child) {
+        if (child !== null) {
+            let nodes = this.childs.slice(),
+                max = nodes.length;
+            for (let idx = 0; idx < max; ++idx) {
+                if (nodes[idx] === child) {
+                    this.childs[idx] = null;
+                    child.parent = null;
+                    return idx;
+                }
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * 从当前节点卸载子节点
+     * 如果 0 <= index < getNumChildren(), 则返回存储在index位置的子节点，否则返回null
+     *
+     * @param {number} index
+     * @returns {Spatial|null}
+     */
+    detachChildAt(index) {
+        let child = null;
+        if (index >= 0 && index < this.childs.length) {
+            child = this.childs[index];
+            if (child !== null) {
+                child.parent = null;
+                this.childs[index] = null;
+            }
+        }
+        return child;
+    }
+
+    /**
+     * 在index位置放入child,并返回被替换的元素
+     * @param {number} index
+     * @param {Spatial} child
+     * @returns {Spatial|null}
+     */
+    setChild(index, child) {
+        if (child && child.parent !== null) return null;
+
+        if (index >= 0 && index < this.childs.length) {
+            let prev = this.childs[index];
+            if (prev !== null) {
+                prev.parent = null;
+            }
+            if (child) {
+                child.parent = this;
+            }
+            this.childs[index] = child;
+            return prev;
+        }
+
+        if (child) {
+            child.parent = this;
+        }
+        this.childs.push(child);
+        return null;
+    }
+
+    /**
+     * 通过索引获取子节点
+     * @param {number} index
+     * @returns {Spatial|null}
+     */
+    getChild(index) {
+        let child = null;
+        if (index >= 0 && index < this.childs.length) {
+            child = this.childs[index];
+        }
+        return child;
+    }
+
+    /**
+     * @param {number} applicationTime
+     */
+    updateWorldData(applicationTime) {
+        super.updateWorldData(applicationTime);
+        let nodes = this.childs.slice(),
+            max = nodes.length;
+        for (let idx = 0; idx < max; ++idx) {
+            if (nodes[idx]) {
+                nodes[idx].update(applicationTime, false);
+            }
+        }
     }
 
     updateWorldBound() {
-        this.modelBound.transformBy(this.worldTransform, this.worldBound);
-    }
-
-    updateModelBound() {
-        var numVertices = this.vertexBuffer.numElements;
-        const format = this.format;
-        var stride = format.stride;
-
-        var posIndex = format.getIndex(VertexFormat$1.AU_POSITION);
-        if (posIndex == -1) {
-            console.assert(false, 'Update requires vertex positions');
-            return;
+        if (!this.worldBoundIsCurrent) {
+            // Start with an invalid bound.
+            this.worldBound.center = Point$1.ORIGIN;
+            this.worldBound.radius = 0;
+            let nodes = this.childs.slice(),
+                max = nodes.length;
+            for (let idx = 0; idx < max; ++idx) {
+                if (nodes[idx]) {
+                    this.worldBound.growToContain(nodes[idx].worldBound);
+                }
+            }
         }
-
-        var posType = format.getAttributeType(posIndex);
-        if (posType != VertexFormat$1.AT_FLOAT3 && posType != VertexFormat$1.AT_FLOAT4) {
-            console.assert(false, 'Positions must be 3-tuples or 4-tuples');
-            return;
-        }
-
-        var data = this.vertexBuffer.getData();
-        var posOffset = format.getOffset(posIndex);
-        this.modelBound.computeFromData(numVertices, stride, data.slice(posOffset).buffer);
     }
 
     /**
-     * Support for hierarchical culling.
      * @param {Culler} culler
      * @param {boolean} noCull
      */
     getVisibleSet(culler, noCull) {
-        culler.insert(this);
-    }
-
-    /**
-     * @param fileName {string} 文件
-     */
-    static loadWMVF(fileName) {
-        return new Promise(function (resolve, reject) {
-            var load = new L5.XhrTask(fileName, 'arraybuffer');
-            load.then(function (data) {
-                var inFile = new DataView(data);
-                var ret = {};
-                inFile.offset = 0;
-                ret.primitiveType = inFile.getInt32(inFile.offset, true);
-                inFile.offset += 4;
-
-                ret.format = Visual$1.loadVertexFormat(inFile); // ok
-                ret.vertexBuffer = Visual$1.loadVertexBuffer(inFile, ret.format);
-                ret.indexBuffer = Visual$1.loadIndexBuffer(inFile);
-
-                console.log(data.byteLength);
-                console.log(inFile.offset);
-
-                resolve(ret);
-            }).catch(function (err) {
-                console.log(err);
-                reject(err);
-            });
-        }).catch(function (err) {
-            console.assert(false, "Failed to open file :" + fileName);
-        });
-    }
-
-    /**
-     * 解析顶点格式
-     * @param inFile {DataView}
-     * @returns {VertexFormat}
-     */
-    static loadVertexFormat(inFile) {
-        var numAttributes = inFile.getInt32(inFile.offset, true);
-        inFile.offset += 4;
-
-        var format = new VertexFormat$1(numAttributes);
-        var streamIndex, offset, usageIndex, type, usage;
-
-        for (var i = 0; i < numAttributes; ++i) {
-            streamIndex = inFile.getUint32(inFile.offset, true);
-            inFile.offset += 4;
-
-            offset = inFile.getUint32(inFile.offset, true);
-            inFile.offset += 4;
-
-            type = inFile.getInt32(inFile.offset, true);
-            inFile.offset += 4;
-
-            usage = inFile.getInt32(inFile.offset, true);
-            inFile.offset += 4;
-
-            usageIndex = inFile.getUint32(inFile.offset, true);
-            inFile.offset += 4;
-
-            format.setAttribute(i, streamIndex, offset, type, usage, usageIndex);
+        let nodes = this.childs.slice(),
+            max = nodes.length;
+        for (let idx = 0; idx < max; ++idx) {
+            if (nodes[idx]) {
+                nodes[idx].onGetVisibleSet(culler, noCull);
+            }
         }
-
-        format.stride = inFile.getInt32(inFile.offset, true);
-        inFile.offset += 4;
-
-        return format;
     }
-
-    /**
-     * 解析顶点缓冲对象
-     * @param {BinDataView} inFile
-     * @param {VertexFormat} format
-     * @returns {VertexBuffer}
-     */
-    static loadVertexBuffer(inFile, format) {
-        var numElements = inFile.getInt32(inFile.offset, true);
-        inFile.offset += 4;
-
-        var elementSize = inFile.getInt32(inFile.offset, true);
-        inFile.offset += 4;
-
-        var usage = inFile.getInt32(inFile.offset, true);
-        inFile.offset += 4;
-
-        var buffer = new VertexBuffer(numElements, elementSize, usage);
-        var vba = new VertexBufferAccessor$1(format, buffer);
-        // end ok
-
-        vba.read(inFile);
-
-        return buffer;
-    }
-
-    /**
-     * @param {BinDataView} inFile
-     * @returns {IndexBuffer}
-     */
-    static loadIndexBuffer(inFile) {
-        var numElements = inFile.getInt32(inFile.offset, true);
-        inFile.offset += 4;
-
-        if (numElements > 0) {
-            var elementSize = inFile.getInt32(inFile.offset, true);
-            inFile.offset += 4;
-            var usage = inFile.getInt32(inFile.offset, true);
-            inFile.offset += 4;
-            var offset = inFile.getInt32(inFile.offset, true);
-            inFile.offset += 4;
-
-            var buffer = new IndexBuffer(numElements, elementSize, usage);
-            buffer.offset = offset;
-            //var start = inFile.offset;
-            // var end = start + buffer.numBytes;
-            buffer.getData().set(new Uint8Array(inFile.buffer, inFile.offset, buffer.numBytes));
-
-            inFile.offset += buffer.numBytes;
-
-            return buffer;
-        }
-
-        return null;
-    }
-
     /**
      * @param {InStream} inStream
      */
     load(inStream) {
         super.load(inStream);
-        this.type = inStream.readEnum();
-        this.modelBound = inStream.readBound();
-        this.format = inStream.readPointer();
-        this.vertexBuffer = inStream.readPointer();
-        this.indexBuffer = inStream.readPointer();
-        this.effect = inStream.readPointer();
+        let numChildren = inStream.readUint32();
+        if (numChildren > 0) {
+            this.childs = inStream.readSizedPointerArray(numChildren);
+        }
     }
-
+    /**
+     * @param {InStream} inStream
+     */
     link(inStream) {
         super.link(inStream);
-        this.format = inStream.resolveLink(this.format);
-        this.vertexBuffer = inStream.resolveLink(this.vertexBuffer);
-        this.indexBuffer = inStream.resolveLink(this.indexBuffer);
-        this.effect = inStream.resolveLink(this.effect);
+        this.childs.forEach(function (c, i) {
+            this.childs[i] = inStream.resolveLink(c);
+            this.setChild(i, this.childs[i]);
+        }, this);
     }
 }
 
-/////////////////// 绘制类型 //////////////////////////////
-DECLARE_ENUM(Visual$1, {
-    PT_NONE: 0,  // 默认
-    PT_POLYPOINT: 1,   // 点
-    PT_POLYSEGMENTS_DISJOINT: 2,
-    PT_POLYSEGMENTS_CONTIGUOUS: 3,
-    PT_TRIANGLES: 4,  // abstract
-    PT_TRIMESH: 5,
-    PT_TRISTRIP: 6,
-    PT_TRIFAN: 7,
-    PT_MAX_QUANTITY: 8
-}, false);
+D3Object.Register('Node', Node.factory);
 
-// Geometric updates.  If the positions in the vertex buffer have been
-// modified, you might want to update the surface frames (normals,
-// tangents, and bitangents) for indexed-triangle primitives.  It is
-// assumed that the positions have been updated and the vertex buffer is
-// unlocked.  The argument of UpdateModelSpace specifies the update
-// algorithm:
-//
-//   GU_MODEL_BOUND_ONLY:
-//      Update only the model-space bound of the new positions.
-//
-// For the other options, the model-space bound is always recomputed,
-// regardless of type of primitive.  For the surface frames to be updated,
-// the Visual must represent an indexed-triangle primitive and must have
-// the relevant channels (normal, tangents, bitangents).  If the primitive
-// is not indexed triangles, the update call does nothing to the frames.
-// An update occurs only for those channels present in the vertex buffer.
-// For example, if the vertex buffer has no normals, GU_NORMALS will
-// have no effect on the vertex buffer.  As another example, if you
-// specify GU_USE_GEOMETRY and the vertex buffer has normals and tangents
-// but not bitangents, only normals and tangents are updated (i.e. the
-// vertex buffer is not regenerated to have bitangents).
-//
-//   GU_NORMALS:
-//      Update the normals.
-//
-//   GU_USE_GEOMETRY:
-//      Use the mesh topology to determine the surface frames.  The
-//      algorithm uses a least-squares method, which is expensive.
-//
-//   GU_USE_TCOORD_CHANNEL + nonnegative_integer:
-//      The standard way to generate surface frames is to use a texture
-//      coordinate unit from the vertex buffer.
-//
-// To reduce video memory usage by the vertex buffers, if your vertex
-// shaders use normals, tangents, and bitangents, consider passing in
-// normals and tangents, and then have the shader compute the bitangent as
-//    bitangent = Cross(normal, tangent)
-DECLARE_ENUM(Visual$1, {
-    GU_MODEL_BOUND_ONLY: -3,
-    GU_NORMALS: -2,
-    GU_USE_GEOMETRY: -1,
-    GU_USE_TCOORD_CHANNEL: 0
+class Projector extends Camera {
+	constructor(isPerspective = true) {
+		super(isPerspective);
+	}
+}
+
+DECLARE_ENUM(Projector, {
+	biasScaleMatrix: [new Matrix$1(
+		0.5, 0.0, 0.0, 0.5,
+		0.0, -0.5, 0.0, 0.5,
+		0.0, 0.0, 1.0, 0.0,
+		0.0, 0.0, 0.0, 1.0
+	), new Matrix$1(
+		0.5, 0.0, 0.0, 0.5,
+		0.0, -0.5, 0.0, 0.5,
+		0.0, 0.0, 1.0, 0.0,
+		0.0, 0.0, 0.0, 1.0
+	)]
 });
+
+class VisibleSet {
+    constructor() {
+        this.numVisible = 0;
+        this.visibles = [];
+    }
+
+    getNumVisible() {
+        return this.numVisible;
+    }
+
+    getAllVisible() {
+        return this.visibles;
+    }
+
+    getVisible(index) {
+        console.assert(0 <= index && index < this.numVisible, 'Invalid index to getVisible');
+        return this.visibles[index];
+    }
+
+    insert(visible) {
+        let size = this.visibles.length;
+        if (this.numVisible < size) {
+            this.visibles[this.numVisible] = visible;
+        }
+        else {
+            this.visibles.push(visible);
+        }
+        ++this.numVisible;
+    }
+
+    clear() {
+        this.numVisible = 0;
+    }
+}
+
+class Culler {
+
+    /**
+     * construction.  Culling requires a camera model.  If the camera is 
+     * not passed to the constructor, you should set it using camera setter
+     *  before calling ComputeVisibleSet.
+     * @param {Camera|null} camera 
+     */
+    constructor(camera = null) {
+        // The input camera has information that might be needed during the
+        // culling pass over the scene.
+        this._camera = camera;
+
+        /**
+         * The potentially visible set for a call to getVisibleSet.
+         * @type {VisibleSet}
+         * @private
+         */
+        this._visibleSet = new VisibleSet();
+
+        // The data members _frustum, _plane, and _planeState are
+        // uninitialized.  They are initialized in the getVisibleSet call.
+
+        // The world culling planes corresponding to the view frustum plus any
+        // additional user-defined culling planes.  The member m_uiPlaneState
+        // represents bit flags to store whether or not a plane is active in the
+        // culling system.  A bit of 1 means the plane is active, otherwise the
+        // plane is inactive.  An active plane is compared to bounding volumes,
+        // whereas an inactive plane is not.  This supports an efficient culling
+        // of a hierarchy.  For example, if a node's bounding volume is inside
+        // the left plane of the view frustum, then the left plane is set to
+        // inactive because the children of the node are automatically all inside
+        // the left plane.
+        this._planeQuantity = 6;
+        this._plane = new Array(Culler.MAX_PLANE_QUANTITY);
+        for (let i = 0, l = this._plane.length; i < l; ++i) {
+            this._plane[i] = new Plane$1(Vector$1.ZERO, 0);
+        }
+        this._planeState = 0;
+
+        // 传入摄像机的视截体副本
+        // 主要用于在裁剪时供各种子系统修改视截体参数, 而不影响摄像机
+        // 渲染器需要这些内部状态
+        this._frustum = new Array(Camera.VF_QUANTITY);
+    }
+    get camera() {
+        return this._camera;
+    }
+    set camera(camera) {
+        this._camera = camera;
+    }
+
+    set frustum(frustum) {
+        if (!this._camera) {
+            console.assert(false, 'set frustum requires the existence of a camera');
+            return;
+        }
+
+        const VF_NEAR = Camera.VF_NEAR,
+            VF_FAR = Camera.VF_FAR,
+            VF_BOTTOM = Camera.VF_BOTTOM,
+            VF_TOP = Camera.VF_TOP,
+            VF_LEFT = Camera.VF_LEFT,
+            VF_RIGHT = Camera.VF_RIGHT;
+
+        let near, far, bottom, top, left, right;
+
+        // 赋值到当前实例.
+        this._frustum[VF_NEAR] = near = frustum[VF_NEAR];
+        this._frustum[VF_FAR] = far = frustum[VF_FAR];
+        this._frustum[VF_BOTTOM] = bottom = frustum[VF_BOTTOM];
+        this._frustum[VF_TOP] = top = frustum[VF_TOP];
+        this._frustum[VF_LEFT] = left = frustum[VF_LEFT];
+        this._frustum[VF_RIGHT] = right = frustum[VF_RIGHT];
+
+        let near2 = near * near;
+        let bottom2 = bottom * bottom;
+        let top2 = top * top;
+        let left2 = left * left;
+        let right2 = right * right;
+
+        // 获取相机坐标结构
+        let position = this._camera.position;
+        let directionVec = this._camera.direction;
+        let upVec = this._camera.up;
+        let rightVec = this._camera.right;
+        let dirDotEye = position.dot(directionVec);
+
+        // 更新近平面
+        this._plane[VF_NEAR].normal = Vector$1.ZERO.copy(directionVec);
+        this._plane[VF_NEAR].constant = dirDotEye + near;
+
+        // 更新远平面
+        this._plane[VF_FAR].normal = directionVec.negative();
+        this._plane[VF_FAR].constant = -(dirDotEye + far);
+
+        // 更新下平面
+        let invLength = _Math.invSqrt(near2 + bottom2);
+        let c0 = -bottom * invLength;
+        let c1 = near * invLength;
+        let normal = directionVec.scalar(c0).add(upVec.scalar(c1));
+        let constant = position.dot(normal);
+        this._plane[VF_BOTTOM].normal = normal;
+        this._plane[VF_BOTTOM].constant = constant;
+
+        // 更新上平面
+        invLength = _Math.invSqrt(near2 + top2);
+        c0 = top * invLength;
+        c1 = -near * invLength;
+        normal = directionVec.scalar(c0).add(upVec.scalar(c1));
+        constant = position.dot(normal);
+        this._plane[VF_TOP].normal = normal;
+        this._plane[VF_TOP].constant = constant;
+
+        // 更新左平面
+        invLength = _Math.invSqrt(near2 + left2);
+        c0 = -left * invLength;
+        c1 = near * invLength;
+        normal = directionVec.scalar(c0).add(rightVec.scalar(c1));
+        constant = position.dot(normal);
+        this._plane[VF_LEFT].normal = normal;
+        this._plane[VF_LEFT].constant = constant;
+
+        // 更新右平面
+        invLength = _Math.invSqrt(near2 + right2);
+        c0 = right * invLength;
+        c1 = -near * invLength;
+        normal = directionVec.scalar(c0).add(rightVec.scalar(c1));
+        constant = position.dot(normal);
+        this._plane[VF_RIGHT].normal = normal;
+        this._plane[VF_RIGHT].constant = constant;
+
+        // 所有的平面已经初始化
+        this._planeState = 0xFFFFFFFF;
+    }
+
+    get frustum() {
+        return this._frustum;
+    }
+
+    get visibleSet() {
+        return this._visibleSet;
+    }
+
+    get planeState() {
+        return this._planeState;
+    }
+
+    set planeState(val) {
+        this._planeState = val;
+    }
+
+    get planes() {
+        return this._plane;
+    }
+
+    get planeQuantity() {
+        return this._planeQuantity;
+    }
+
+    pushPlan(plane) {
+        if (this._planeQuantity < Culler.MAX_PLANE_QUANTITY) {
+            // The number of user-defined planes is limited.
+            this._plane[this._planeQuantity] = plane;
+            ++this._planeQuantity;
+        }
+    }
+
+    popPlane() {
+        if (this._planeQuantity > Camera.VF_QUANTITY) {
+            // Frustum planes may not be removed from the stack.
+            --this._planeQuantity;
+        }
+    }
+
+    /**
+     * The base class behavior is to append the visible object to the end of
+     * the visible set (stored as an array).  Derived classes may override
+     * this behavior; for example, the array might be maintained as a sorted
+     * array for minimizing render state changes or it might be/ maintained
+     * as a unique list of objects for a portal system.
+     * @param {Spatial} visible
+     */
+    insert(visible) {
+        this._visibleSet.insert(visible);
+    }
+
+    /**
+     * Compare the object's world bound against the culling planes.
+     * Only Spatial calls this function.
+     *
+     * @param {Bound} bound
+     * @returns {boolean}
+     */
+    isVisible(bound) {
+        if (bound.radius === 0) {
+            // 该节点是虚拟节点，不可见
+            return false;
+        }
+
+        // Start with the last pushed plane, which is potentially the most
+        // restrictive plane.
+        let index = this._planeQuantity - 1;
+        let mask = (1 << index);
+
+        for (let i = 0; i < this._planeQuantity; ++i, --index, mask >>= 1) {
+            if (this._planeState & mask) {
+                let side = bound.whichSide(this._plane[index]);
+
+                if (side < 0) {
+                    // 对象在平面的反面, 剔除掉
+                    return false;
+                }
+
+                if (side > 0) {
+                    // 对象在平面的正面
+                    // There is no need to compare subobjects against this plane
+                    // so mark it as inactive.
+                    this._planeState &= ~mask;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Support for Portal.getVisibleSet.
+     * @param {number} numVertices
+     * @param {Array<Point>} vertices
+     * @param {boolean} ignoreNearPlane
+     */
+    isVisible1(numVertices, vertices, ignoreNearPlane) {
+        // The Boolean letiable ignoreNearPlane should be set to 'true' when
+        // the test polygon is a portal.  This avoids the situation when the
+        // portal is in the view pyramid (eye+left/right/top/bottom), but is
+        // between the eye and near plane.  In such a situation you do not want
+        // the portal system to cull the portal.  This situation typically occurs
+        // when the camera moves through the portal from current region to
+        // adjacent region.
+
+        // Start with the last pushed plane, which is potentially the most
+        // restrictive plane.
+        let index = this._planeQuantity - 1;
+        for (let i = 0; i < this._planeQuantity; ++i, --index) {
+            let plane = this._plane[index];
+            if (ignoreNearPlane && (index === Camera.VF_NEAR)) {
+                continue;
+            }
+
+            let j;
+            for (j = 0; j < numVertices; ++j) {
+                let side = plane.whichSide(vertices[j]);
+                if (side >= 0) {
+                    // The polygon is not totally outside this plane.
+                    break;
+                }
+            }
+
+            if (j === numVertices) {
+                // The polygon is totally outside this plane.
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // Support for BspNode.getVisibleSet.  Determine whether the view frustum
+    // is fully on one side of a plane.  The "positive side" of the plane is
+    // the half space to which the plane normal points.  The "negative side"
+    // is the other half space.  The function returns +1 if the view frustum
+    // is fully on the positive side of the plane, -1 if the view frustum is
+    // fully on the negative side of the plane, or 0 if the view frustum
+    // straddles the plane.  The input plane is in world coordinates and the
+    // world camera coordinate system is used for the test.
+    /**
+     * @param {Plane} plane
+     * @returns {number}
+     */
+    whichSide(plane) {
+        // The plane is N*(X-C) = 0 where the * indicates dot product.  The signed
+        // distance from the camera location E to the plane is N*(E-C).
+        let NdEmC = plane.distanceTo(this._camera.position);
+
+        let normal = plane.normal;
+        let NdD = normal.dot(this._camera.direction);
+        let NdU = normal.dot(this._camera.up);
+        let NdR = normal.dot(this._camera.right);
+        let FdN = this._frustum[Camera.VF_FAR] / this._frustum[Camera.VF_NEAR];
+
+        let positive = 0, negative = 0, sgnDist;
+
+        // Check near-plane vertices.
+        let PDMin = this._frustum[Camera.VF_NEAR] * NdD;
+        let NUMin = this._frustum[Camera.VF_BOTTOM] * NdU;
+        let NUMax = this._frustum[Camera.VF_TOP] * NdU;
+        let NRMin = this._frustum[Camera.VF_LEFT] * NdR;
+        let NRMax = this._frustum[Camera.VF_RIGHT] * NdR;
+
+        // V = E + dmin*D + umin*U + rmin*R
+        // N*(V-C) = N*(E-C) + dmin*(N*D) + umin*(N*U) + rmin*(N*R)
+        sgnDist = NdEmC + PDMin + NUMin + NRMin;
+        if (sgnDist > 0) {
+            positive++;
+        }
+        else if (sgnDist < 0) {
+            negative++;
+        }
+
+        // V = E + dmin*D + umin*U + rmax*R
+        // N*(V-C) = N*(E-C) + dmin*(N*D) + umin*(N*U) + rmax*(N*R)
+        sgnDist = NdEmC + PDMin + NUMin + NRMax;
+        if (sgnDist > 0) {
+            positive++;
+        }
+        else if (sgnDist < 0) {
+            negative++;
+        }
+
+        // V = E + dmin*D + umax*U + rmin*R
+        // N*(V-C) = N*(E-C) + dmin*(N*D) + umax*(N*U) + rmin*(N*R)
+        sgnDist = NdEmC + PDMin + NUMax + NRMin;
+        if (sgnDist > 0) {
+            positive++;
+        }
+        else if (sgnDist < 0) {
+            negative++;
+        }
+
+        // V = E + dmin*D + umax*U + rmax*R
+        // N*(V-C) = N*(E-C) + dmin*(N*D) + umax*(N*U) + rmax*(N*R)
+        sgnDist = NdEmC + PDMin + NUMax + NRMax;
+        if (sgnDist > 0) {
+            positive++;
+        }
+        else if (sgnDist < 0) {
+            negative++;
+        }
+
+        // check far-plane vertices (s = dmax/dmin)
+        let PDMax = this._frustum[Camera.VF_FAR] * NdD;
+        let FUMin = FdN * NUMin;
+        let FUMax = FdN * NUMax;
+        let FRMin = FdN * NRMin;
+        let FRMax = FdN * NRMax;
+
+        // V = E + dmax*D + umin*U + rmin*R
+        // N*(V-C) = N*(E-C) + dmax*(N*D) + s*umin*(N*U) + s*rmin*(N*R)
+        sgnDist = NdEmC + PDMax + FUMin + FRMin;
+        if (sgnDist > 0) {
+            positive++;
+        }
+        else if (sgnDist < 0) {
+            negative++;
+        }
+
+        // V = E + dmax*D + umin*U + rmax*R
+        // N*(V-C) = N*(E-C) + dmax*(N*D) + s*umin*(N*U) + s*rmax*(N*R)
+        sgnDist = NdEmC + PDMax + FUMin + FRMax;
+        if (sgnDist > 0) {
+            positive++;
+        }
+        else if (sgnDist < 0) {
+            negative++;
+        }
+
+        // V = E + dmax*D + umax*U + rmin*R
+        // N*(V-C) = N*(E-C) + dmax*(N*D) + s*umax*(N*U) + s*rmin*(N*R)
+        sgnDist = NdEmC + PDMax + FUMax + FRMin;
+        if (sgnDist > 0) {
+            positive++;
+        }
+        else if (sgnDist < 0) {
+            negative++;
+        }
+
+        // V = E + dmax*D + umax*U + rmax*R
+        // N*(V-C) = N*(E-C) + dmax*(N*D) + s*umax*(N*U) + s*rmax*(N*R)
+        sgnDist = NdEmC + PDMax + FUMax + FRMax;
+        if (sgnDist > 0) {
+            positive++;
+        }
+        else if (sgnDist < 0) {
+            negative++;
+        }
+
+        if (positive > 0) {
+            if (negative > 0) {
+                // Frustum straddles the plane.
+                return 0;
+            }
+
+            // Frustum is fully on the positive side.
+            return +1;
+        }
+
+        // Frustum is fully on the negative side.
+        return -1;
+    }
+
+    /**
+     * 计算裁剪后的可见物体
+     * @param {Spatial} scene
+     */
+    computeVisibleSet(scene) {
+        if (this._camera && scene) {
+            this.frustum = this.camera.frustum;
+            this._visibleSet.clear();
+            scene.onGetVisibleSet(this, false);
+            return;
+        }
+        console.assert(false, 'A camera and a scene are required for culling');
+    }
+
+}
+
+DECLARE_ENUM(Culler, { MAX_PLANE_QUANTITY: 32 });
+
+class Light extends D3Object {
+    constructor(type) {
+        super();
+        this.type = type;
+
+        // 灯光颜色属性
+        this.ambient = new Float32Array([0, 0, 0, 1]);
+        this.diffuse = new Float32Array([0, 0, 0, 1]);
+        this.specular = new Float32Array([0, 0, 0, 1]);
+
+        // 衰减系数
+        //     m = 1/(C + L*d + Q*d*d)
+        // C : 常量系数
+        // L : 线性系数
+        // Q : 2次系数
+        // d : 从光源位置到顶点的距离
+        // 使用线性衰减光强,可用:m = I/(C + L*d + Q*d*d)替代, I是强度系数
+        this.constant = 1.0;
+        this.linear = 0.0;
+        this.quadratic = 0.0;
+        this.intensity = 1.0;
+
+        // 聚光灯参数
+        // 椎体夹角为弧度制, 范围为: 0 < angle <= Math.PI.
+        this.angle = _Math.PI;
+        this.cosAngle = -1.0;
+        this.sinAngle = 0.0;
+        this.exponent = 1.0;
+
+        this.position = Point$1.ORIGIN;
+        this.direction = Vector$1.UNIT_Z.negative();
+        this.up = Vector$1.UNIT_Y;
+        this.right = Vector$1.UNIT_X;
+    }
+
+    /**
+     * 设置光源[聚光灯]角度
+     * @param {number} angle - 弧度有效值 0< angle <= PI
+     */
+    setAngle(angle) {
+        console.assert(0 < angle && angle <= _Math.PI, 'Angle out of range in SetAngle');
+        this.angle = angle;
+        this.cosAngle = _Math.cos(angle);
+        this.sinAngle = _Math.sin(angle);
+    }
+
+    /**
+     * 设置光源方向
+     * @param {Vector} dir - 方向向量
+     */
+    setDirection(dir) {
+        dir.normalize();
+        this.direction.copy(dir);
+        Vector$1.generateComplementBasis(this.up, this.right, this.direction);
+    }
+
+    /**
+     * 设置光源位置
+     *
+     * 只对点光源以及聚光灯有效
+     * @param {Point} pos - 位置
+     */
+    setPosition(pos) {
+        this.position.copy(pos);
+    }
+
+    load(inStream) {
+        super.load(inStream);
+        this.type = inStream.readEnum();
+        this.ambient.set(inStream.readFloat32Range(4));
+        this.diffuse.set(inStream.readFloat32Range(4));
+        this.specular.set(inStream.readFloat32Range(4));
+        this.constant = inStream.readFloat32();
+        this.linear = inStream.readFloat32();
+        this.quadratic = inStream.readFloat32();
+        this.intensity = inStream.readFloat32();
+        this.angle = inStream.readFloat32();
+        this.cosAngle = inStream.readFloat32();
+        this.sinAngle = inStream.readFloat32();
+        this.exponent = inStream.readFloat32();
+        this.position = inStream.readPoint();
+        this.direction.copy(inStream.readFloat32Range(4));
+        this.up.copy(inStream.readFloat32Range(4));
+        this.right.copy(inStream.readFloat32Range(4));
+    }
+
+    save(outStream) {
+        super.save(outStream);
+        outStream.writeEnum(this.type);
+        outStream.writeFloat32Array(4, this.ambient);
+        outStream.writeFloat32Array(4, this.diffuse);
+        outStream.writeFloat32Array(4, this.specular);
+        outStream.writeFloat32(this.constant);
+        outStream.writeFloat32(this.linear);
+        outStream.writeFloat32(this.quadratic);
+        outStream.writeFloat32(this.intensity);
+        outStream.writeFloat32(this.angle);
+        outStream.writeFloat32(this.cosAngle);
+        outStream.writeFloat32(this.sinAngle);
+        outStream.writeFloat32(this.exponent);
+        outStream.writeFloat32Array(4, this.position);
+        outStream.writeFloat32Array(4, this.direction);
+        outStream.writeFloat32Array(4, this.up);
+        outStream.writeFloat32Array(4, this.right);
+    }
+
+    /**
+     * 文件解析工厂方法
+     * @param {InStream} inStream
+     * @returns {Light}
+     */
+    static factory(inStream) {
+        var l = new Light(Light.LT_INVALID);
+        l.load(inStream);
+        return l;
+    }
+}
+
+DECLARE_ENUM(Light, {
+    LT_AMBIENT: 0,  // 环境光
+    LT_DIRECTIONAL: 1, // 方向光
+    LT_POINT: 2, // 点光源
+    LT_SPOT: 3, // 聚光等
+    LT_INVALID: 4 // 无效光源
+});
+
+D3Object.Register('Light', Light.factory);
+
+class Material extends D3Object {
+
+    constructor(opts = {}) {
+        super();
+        opts = Material.parseOption(opts);
+
+        let val = opts.emissive;
+        this.emissive = new Float32Array([val[0], val[1], val[2], 1]);
+        val = opts.ambient;
+        this.ambient = new Float32Array([val[0], val[1], val[2], 1]);
+
+        val = opts.diffuse;
+        // 材质透明度在反射颜色的alpha通道
+        this.diffuse = new Float32Array([val[0], val[1], val[2], opts.alpha]);
+
+        val = opts.specular;
+        // 镜面高光指数存储在alpha通道
+        this.specular = new Float32Array([val[0], val[1], val[2], opts.exponent]);
+    }
+
+    static get defaultOptions() {
+        return {
+            alpha: 1,
+            exponent: 32,
+            ambient: new Float32Array(3),
+            emissive: new Float32Array(3),
+            diffuse: new Float32Array(3),
+            specular: new Float32Array(3)
+        };
+    }
+
+    static parseOption(opts) {
+        let defOption = Object.assign({}, Material.defaultOptions);
+        if (opts.alpha && opts.alpha >= 0 && opts.alpha <= 1) {
+            defOption.alpha = opts.alpha;
+        }
+        if (opts.exponent) {
+            defOption.exponent = opts.exponent;
+        }
+        if (opts.ambient) {
+            if (typeof opts.ambient === 'number') {
+                defOption.ambient[0] = ((opts.ambient >> 16) & 0xff) / 255;
+                defOption.ambient[1] = ((opts.ambient >> 8) & 0xff) / 255;
+                defOption.ambient[2] = (opts.ambient & 0xff) / 255;
+            } else {
+                defOption.ambient.set(opts.ambient);
+            }
+        }
+        if (opts.emissive) {
+            if (typeof opts.emissive === 'number') {
+                defOption.emissive[0] = ((opts.emissive >> 16) & 0xff) / 255;
+                defOption.emissive[1] = ((opts.emissive >> 8) & 0xff) / 255;
+                defOption.emissive[2] = (opts.emissive & 0xff) / 255;
+            } else {
+                defOption.emissive.set(opts.emissive);
+            }
+        }
+        if (opts.diffuse) {
+            if (typeof opts.diffuse === 'number') {
+                defOption.diffuse[0] = ((opts.diffuse >> 16) & 0xff) / 255;
+                defOption.diffuse[1] = ((opts.diffuse >> 8) & 0xff) / 255;
+                defOption.diffuse[2] = (opts.diffuse & 0xff) / 255;
+            } else {
+                defOption.diffuse.set(opts.diffuse);
+            }
+        }
+        if (opts.specular) {
+            if (typeof opts.specular === 'number') {
+                defOption.specular[0] = ((opts.specular >> 16) & 0xff) / 255;
+                defOption.specular[1] = ((opts.specular >> 8) & 0xff) / 255;
+                defOption.specular[2] = (opts.specular & 0xff) / 255;
+            } else {
+                defOption.specular.set(opts.specular);
+            }
+        }
+        console.trace(defOption);
+        return defOption;
+    }
+
+    static factory(inStream) {
+        var obj = new Material();
+        obj.emissive[3] = 0;
+        obj.ambient[3] = 0;
+        obj.diffuse[3] = 0;
+        obj.load(inStream);
+        return obj;
+    }
+}
+
+D3Object.Register('Material', Material.factory);
 
 class Triangles extends Visual$1 {
 
@@ -12264,8 +12392,9 @@ class Triangles extends Visual$1 {
     }
 
     /**
-     * @param index
-     * @param output
+     * @param {number} index
+     * @param {Array<number>} output
+     * @return {boolean}
      * @abstract
      */
     getTriangle(index, output) {
@@ -12278,14 +12407,14 @@ class Triangles extends Visual$1 {
 
     /**
      * 获取物体坐标系的三角形顶点数组
-     * @param i {number}
-     * @param modelTriangle {Array<Point>}
+     * @param {number} i
+     * @param {Array<Point>} modelTriangle
      */
     getModelTriangle(i, modelTriangle) {
-        var v = new Array(3);
+        let v = new Array(3);
         if (this.getTriangle(i, v)) {
-            var vba = new VertexBufferAccessor$1(this.format, this.vertexBuffer);
-            var p = vba.getPosition(v[0]);
+            let vba = new VertexBufferAccessor(this.format, this.vertexBuffer);
+            let p = vba.getPosition(v[0]);
             modelTriangle[0] = new Point$1(p[0], p[1], p[2]);
 
             p = vba.getPosition(v[1]);
@@ -12300,11 +12429,11 @@ class Triangles extends Visual$1 {
 
     /**
      * 获取世界坐标系的三角形顶点数组
-     * @param i {number}
-     * @param worldTriangle {Point}
+     * @param {number} i
+     * @param {Point} worldTriangle
      */
     getWorldTriangle(i, worldTriangle) {
-        var pos = new Array(3);
+        let pos = new Array(3);
         if (this.getModelTriangle(i, pos)) {
             worldTriangle[0] = this.worldTransform.mulPoint(pos[0]);
             worldTriangle[1] = this.worldTransform.mulPoint(pos[1]);
@@ -12315,16 +12444,15 @@ class Triangles extends Visual$1 {
     }
 
     /**
-     *
-     * @param v {number}
+     * @param {number} v
      * @returns {Point}
      */
     getPosition(v) {
-        var index = this.format.getIndex(VertexFormat.AU_POSITION);
+        let index = this.format.getIndex(VertexFormat.AU_POSITION);
         if (index >= 0) {
-            var offset = this.format.getOffset(index);
-            var stride = this.format.stride;
-            var start = offset + v * stride;
+            let offset = this.format.getOffset(index);
+            let stride = this.format.stride;
+            let start = offset + v * stride;
             return new Point$1(
                 new Float32Array(this.vertexBuffer.getData(), start, 3)
             );
@@ -12340,7 +12468,7 @@ class Triangles extends Visual$1 {
             return;
         }
 
-        var vba = VertexBufferAccessor$1.fromVisual(this);
+        let vba = VertexBufferAccessor.fromVisual(this);
         if (vba.hasNormal()) {
             this.updateModelNormals(vba);
         }
@@ -12361,12 +12489,13 @@ class Triangles extends Visual$1 {
 
     /**
      * 更新物体模型空间法线
-     * @param vba {VertexBufferAccessor}
+     * @param {VertexBufferAccessor} vba
      */
     updateModelNormals(vba) {
-        var i, t, pos0, pos1, pos2, tv0, tv1, tNormal,
+        let i, t, pos0, pos1, pos2, tv0, tv1, tNormal,
             v = new Array(3);
         const numTriangles = this.getNumTriangles();
+
         for (i = 0; i < numTriangles; ++i) {
             // 获取三角形3个顶点对应的索引.
             if (!this.getTriangle(i, v)) {
@@ -12385,34 +12514,38 @@ class Triangles extends Visual$1 {
             tNormal.normalize();
 
             // 更新对应3个顶点的法线
-            t = vba.getNormal(v[0]);
-            t[0] = tNormal.x;
-            t[1] = tNormal.y;
-            t[2] = tNormal.z;
+            vba.setNormal(v[0], tNormal);
+            vba.setNormal(v[1], tNormal);
+            vba.setNormal(v[2], tNormal);
 
-            t = vba.getNormal(v[1]);
-            t[0] = tNormal.x;
-            t[1] = tNormal.y;
-            t[2] = tNormal.z;
+            // t = vba.getNormal(v[0]);
+            // t[0] = tNormal.x;
+            // t[1] = tNormal.y;
+            // t[2] = tNormal.z;
 
-            t = vba.getNormal(v[2]);
-            t[0] = tNormal.x;
-            t[1] = tNormal.y;
-            t[2] = tNormal.z;
+            // t = vba.getNormal(v[1]);
+            // t[0] = tNormal.x;
+            // t[1] = tNormal.y;
+            // t[2] = tNormal.z;
+
+            // t = vba.getNormal(v[2]);
+            // t[0] = tNormal.x;
+            // t[1] = tNormal.y;
+            // t[2] = tNormal.z;
         }
     }
 
     /**
      * 更新物体模型空间切线
-     * @param vba {VertexBufferAccessor}
+     * @param {VertexBufferAccessor} vba
      */
     updateModelTangentsUseGeometry(vba) {
         // Compute the matrix of normal derivatives.
         const numVertices = vba.getNumVertices();
-        var dNormal = new Array(numVertices);
-        var wwTrn = new Array(numVertices);
-        var dwTrn = new Array(numVertices);
-        var i, j, row, col;
+        let dNormal = new Array(numVertices);
+        let wwTrn = new Array(numVertices);
+        let dwTrn = new Array(numVertices);
+        let i, j, row, col;
 
         for (i = 0; i < numTriangles; ++i) {
             wwTrn[i] = new Matrix().zero();
@@ -12420,27 +12553,27 @@ class Triangles extends Visual$1 {
             dNormal[i] = new Matrix().zero();
 
             // 获取三角形的3个顶点索引.
-            var v = new Array(3);
+            let v = new Array(3);
             if (!this.getTriangle(i, v)) {
                 continue;
             }
 
             for (j = 0; j < 3; j++) {
                 // 获取顶点坐标和法线.
-                var v0 = v[j];
-                var v1 = v[(j + 1) % 3];
-                var v2 = v[(j + 2) % 3];
-                var pos0 = new Point$1(vba.getPosition(v0));
-                var pos1 = new Point$1(vba.getPosition(v1));
-                var pos2 = new Point$1(vba.getPosition(v2));
-                var nor0 = new Vector(vba.getNormal(v0));
-                var nor1 = new Vector(vba.getNormal(v1));
-                var nor2 = new Vector(vba.getNormal(v2));
+                let v0 = v[j];
+                let v1 = v[(j + 1) % 3];
+                let v2 = v[(j + 2) % 3];
+                let pos0 = new Point$1(vba.getPosition(v0));
+                let pos1 = new Point$1(vba.getPosition(v1));
+                let pos2 = new Point$1(vba.getPosition(v2));
+                let nor0 = new Vector(vba.getNormal(v0));
+                let nor1 = new Vector(vba.getNormal(v1));
+                let nor2 = new Vector(vba.getNormal(v2));
 
                 // 计算从pos0到pos1的边,使其射向顶点切面，然后计算相邻法线的差
-                var edge = pos1.subAsVector(pos0);
-                var proj = edge.sub(nor0.scalar(edge.dot(nor0)));
-                var diff = nor1.sub(nor0);
+                let edge = pos1.subAsVector(pos0);
+                let proj = edge.sub(nor0.scalar(edge.dot(nor0)));
+                let diff = nor1.sub(nor0);
                 for (row = 0; row < 3; ++row) {
                     for (col = 0; col < 3; ++col) {
                         wwTrn[v0].setItem(row, col, wwTrn.item(row, col) + proj[row] * proj[col]);
@@ -12465,7 +12598,7 @@ class Triangles extends Visual$1 {
         // to D*W^T, but of course no update is needed in the implementation.
         // Compute the matrix of normal derivatives.
         for (i = 0; i < numVertices; ++i) {
-            var nor = vba.getNormal(i);
+            let nor = vba.getNormal(i);
             for (row = 0; row < 3; ++row) {
                 for (col = 0; col < 3; ++col) {
                     wwTrn[i].setItem(row, col, 0.5 * wwTrn[i].item(row, col) + nor[row] * nor[col]);
@@ -12499,8 +12632,8 @@ class Triangles extends Visual$1 {
         // curvature is stored as the mesh bitangent.
         for (i = 0; i < numVertices; ++i) {
             // Compute U and V given N.
-            var norvec = new Vector(vba.getNormal(i));
-            var uvec = new Vector(),
+            let norvec = new Vector(vba.getNormal(i));
+            let uvec = new Vector(),
                 vvec = new Vector();
 
             Vector.generateComplementBasis(uvec, vvec, norvec);
@@ -12508,27 +12641,27 @@ class Triangles extends Visual$1 {
             // Compute S = J^T * dN/dX * J.  In theory S is symmetric, but
             // because we have estimated dN/dX, we must slightly adjust our
             // calculations to make sure S is symmetric.
-            var s01 = uvec.dot(dNormal[i].mulPoint(vvec));
-            var s10 = vvec.dot(dNormal[i].mulPoint(uvec));
-            var sAvr = 0.5 * (s01 + s10);
-            var smat = [
+            let s01 = uvec.dot(dNormal[i].mulPoint(vvec));
+            let s10 = vvec.dot(dNormal[i].mulPoint(uvec));
+            let sAvr = 0.5 * (s01 + s10);
+            let smat = [
                 [uvec.dot(dNormal[i].mulPoint(uvec)), sAvr],
                 [sAvr, vvec.dot(dNormal[i].mulPoint(vvec))]
             ];
 
             // Compute the eigenvalues of S (min and max curvatures).
-            var trace = smat[0][0] + smat[1][1];
-            var det = smat[0][0] * smat[1][1] - smat[0][1] * smat[1][0];
-            var discr = trace * trace - 4.0 * det;
-            var rootDiscr = Math.sqrt(Math.abs(discr));
-            var minCurvature = 0.5 * (trace - rootDiscr);
+            let trace = smat[0][0] + smat[1][1];
+            let det = smat[0][0] * smat[1][1] - smat[0][1] * smat[1][0];
+            let discr = trace * trace - 4.0 * det;
+            let rootDiscr = Math.sqrt(Math.abs(discr));
+            let minCurvature = 0.5 * (trace - rootDiscr);
             // float maxCurvature = 0.5f*(trace + rootDiscr);
 
             // Compute the eigenvectors of S.
-            var evec0 = new Vector(smat[0][1], minCurvature - smat[0][0], 0);
-            var evec1 = new Vector(minCurvature - smat[1][1], smat[1][0], 0);
+            let evec0 = new Vector(smat[0][1], minCurvature - smat[0][0], 0);
+            let evec1 = new Vector(minCurvature - smat[1][1], smat[1][0], 0);
 
-            var tanvec, binvec;
+            let tanvec, binvec;
             if (evec0.squaredLength() >= evec1.squaredLength()) {
                 evec0.normalize();
                 tanvec = uvec.scalar(evec0.x).add(vvec.scalar(evec0.y));
@@ -12541,14 +12674,14 @@ class Triangles extends Visual$1 {
             }
 
             if (vba.hasTangent()) {
-                var t = vba.getTangent(i);
+                let t = vba.getTangent(i);
                 t[0] = tanvec.x;
                 t[1] = tanvec.y;
                 t[2] = tanvec.z;
             }
 
             if (vba.hasBinormal()) {
-                var b = vba.getBinormal(i);
+                let b = vba.getBinormal(i);
                 b[0] = binvec.x;
                 b[1] = binvec.y;
                 b[2] = binvec.z;
@@ -12558,16 +12691,16 @@ class Triangles extends Visual$1 {
     }
 
     /**
-     * @param vba {VertexBufferAccessor}
+     * @param {VertexBufferAccessor} vba
      */
     updateModelTangentsUseTCoords(vba) {
         // Each vertex can be visited multiple times, so compute the tangent
         // space only on the first visit.  Use the zero vector as a flag for the
         // tangent vector not being computed.
         const numVertices = vba.getNumVertices();
-        var hasTangent = vba.hasTangent();
-        var zero = Vector.ZERO;
-        var i, t;
+        let hasTangent = vba.hasTangent();
+        let zero = Vector.ZERO;
+        let i, t;
         if (hasTangent) {
             for (i = 0; i < numVertices; ++i) {
                 t = vba.getTangent(i);
@@ -12588,16 +12721,16 @@ class Triangles extends Visual$1 {
         for (i = 0; i < numTriangles; i++) {
             // Get the triangle vertices' positions, normals, tangents, and
             // texture coordinates.
-            var v = [0, 0, 0];
+            let v = [0, 0, 0];
             if (!this.getTriangle(i, v)) {
                 continue;
             }
 
-            var locPosition = new Array(3);
-            var locNormal = new Array(3);
-            var locTangent = new Array(3);
-            var locTCoord = new Array(2);
-            var curr, k;
+            let locPosition = new Array(3);
+            let locNormal = new Array(3);
+            let locTangent = new Array(3);
+            let locTCoord = new Array(2);
+            let curr, k;
             for (curr = 0; curr < 3; ++curr) {
                 k = v[curr];
                 locPosition[curr] = new Point$1(vba.getPosition(k));
@@ -12607,17 +12740,17 @@ class Triangles extends Visual$1 {
             }
 
             for (curr = 0; curr < 3; ++curr) {
-                var currLocTangent = locTangent[curr];
+                let currLocTangent = locTangent[curr];
                 if (!currLocTangent.equals(zero)) {
                     // 该顶点已被计算过
                     continue;
                 }
 
                 // 计算顶点切线空间
-                var norvec = locNormal[curr];
-                var prev = ((curr + 2) % 3);
-                var next = ((curr + 1) % 3);
-                var tanvec = Triangles.computeTangent(
+                let norvec = locNormal[curr];
+                let prev = ((curr + 2) % 3);
+                let next = ((curr + 1) % 3);
+                let tanvec = Triangles.computeTangent(
                     locPosition[curr], locTCoord[curr],
                     locPosition[next], locTCoord[next],
                     locPosition[prev], locTCoord[prev]
@@ -12629,7 +12762,7 @@ class Triangles extends Visual$1 {
                 tanvec.normalize();
 
                 // Compute the bitangent B, another tangent perpendicular to T.
-                var binvec = norvec.unitCross(tanvec);
+                let binvec = norvec.unitCross(tanvec);
 
                 k = v[curr];
                 if (hasTangent) {
@@ -12654,20 +12787,20 @@ class Triangles extends Visual$1 {
     /**
      * 计算切线
      *
-     * @param position0 {Point}
-     * @param tcoord0 {Array}
-     * @param position1 {Point}
-     * @param tcoord1 {Array}
-     * @param position2 {Point}
-     * @param tcoord2 {Array}
+     * @param {Point} position0
+     * @param {Array<number>} tcoord0
+     * @param {Point} position1
+     * @param {Array<number>} tcoord1
+     * @param {Point} position2
+     * @param {Array<number>} tcoord2
      * @returns {Vector}
      */
     static computeTangent(position0, tcoord0,
         position1, tcoord1,
         position2, tcoord2) {
         // Compute the change in positions at the vertex P0.
-        var v10 = position1.subAsVector(position0);
-        var v20 = position2.subAsVector(position0);
+        let v10 = position1.subAsVector(position0);
+        let v20 = position2.subAsVector(position0);
 
         const ZERO_TOLERANCE = Math.ZERO_TOLERANCE;
         const abs = Math.abs;
@@ -12680,28 +12813,28 @@ class Triangles extends Visual$1 {
 
         // Compute the change in texture coordinates at the vertex P0 in the
         // direction of edge P1-P0.
-        var d1 = tcoord1[0] - tcoord0[0];
-        var d2 = tcoord1[1] - tcoord0[1];
+        let d1 = tcoord1[0] - tcoord0[0];
+        let d2 = tcoord1[1] - tcoord0[1];
         if (abs(d2) < ZERO_TOLERANCE) {
-            // The triangle effectively has no variation in the v texture
+            // The triangle effectively has no letiation in the v texture
             // coordinate.
             if (abs(d1) < ZERO_TOLERANCE) {
-                // The triangle effectively has no variation in the u coordinate.
-                // Since the texture coordinates do not vary on this triangle,
+                // The triangle effectively has no letiation in the u coordinate.
+                // Since the texture coordinates do not lety on this triangle,
                 // treat it as a degenerate parametric surface.
                 return Vector.ZERO;
             }
 
-            // The variation is effectively all in u, so set the tangent vector
+            // The letiation is effectively all in u, so set the tangent vector
             // to be T = dP/du.
             return v10.div(d1);
         }
 
         // Compute the change in texture coordinates at the vertex P0 in the
         // direction of edge P2-P0.
-        var d3 = tcoord2[0] - tcoord0[0];
-        var d4 = tcoord2[1] - tcoord0[1];
-        var det = d2 * d3 - d4 * d1;
+        let d3 = tcoord2[0] - tcoord0[0];
+        let d4 = tcoord2[1] - tcoord0[1];
+        let det = d2 * d3 - d4 * d1;
         if (abs(det) < ZERO_TOLERANCE) {
             // The triangle vertices are collinear in parameter space, so treat
             // this as a degenerate parametric surface.
@@ -12724,6 +12857,7 @@ class TriMesh extends Triangles {
     constructor(format, vertexBuffer, indexBuffer) {
         super(Visual$1.PT_TRIMESH, format, vertexBuffer, indexBuffer);
     }
+
     /**
      * 获取网格中的三角形数量
      * @returns {number}
@@ -12735,12 +12869,12 @@ class TriMesh extends Triangles {
     /**
      * 获取位置I处的三角形索引
      * @param {number} i
-     * @param {Array} output 3 elements
+     * @param {Array<number>} output 3 elements
      * @returns {boolean}
      */
     getTriangle(i, output) {
         if (0 <= i && i < this.getNumTriangles()) {
-            var data = this.indexBuffer.getData();
+            let data = this.indexBuffer.getData();
             data = new Uint32Array(data.subarray(3 * i * 4, 3 * (i + 1) * 4).buffer);
             output[0] = data[0];
             output[1] = data[1];
@@ -12751,13 +12885,271 @@ class TriMesh extends Triangles {
     }
 }
 
-D3Object.Register('L5.TriMesh', TriMesh.factory);
+D3Object.Register('TriMesh', TriMesh.factory);
+
+class SwitchNode extends Node {
+	constructor() {
+		this.activeChild = SwitchNode.SN_INVALID_CHILD;
+	}
+
+	/**
+	 * @param {number} activeChild 
+	 */
+	setActiveChild(activeChild) {
+		console.assert(activeChild === SwitchNode.SN_INVALID_CHILD || activeChild < this.childs.length, 'Invalid active child specified');
+		this.activeChild = activeChild;
+	}
+	getActiveChild() {
+		return this.activeChild;
+	}
+	disableAllChildren() {
+		this.activeChild = SwitchNode.SN_INVALID_CHILD;
+	}
+
+	// Support for hierarchical culling.
+	getVisibleSet(culler, noCull) {
+		if (this.activeChild === SwitchNode.SN_INVALID_CHILD) {
+			return;
+		}
+
+		// All Visual objects in the active subtree are added to the visible set.
+		let child = this.childs[thia.activeChild];
+		if (child) {
+			child.onGetVisibleSet(culler, noCull);
+		}
+	}
+}
+
+DECLARE_ENUM(SwitchNode, { SN_INVALID_CHILD: -1 });
+
+class PickRecord {
+	constructor() {
+		/**
+		 * The intersected object.
+		 * @type {Spatial}
+		 */
+		this.intersected = null;
+
+		// The linear component is parameterized by P + t*D.  The T member is
+		// the value of parameter t at the intersection point.
+		this.T = 0;
+
+		// The index of the triangle that is intersected by the ray.
+		this.triangle = 0;
+
+		// The barycentric coordinates of the point of intersection.  All of the
+		// coordinates are in [0,1] and b0 + b1 + b2 = 1.
+		this.bary = new Array(3);
+	}
+}
+
+class Picker {
+
+	constructor() {
+		this._origin = Point$1.ORIGIN;
+		this._direction = Vector$1.ZERO;
+		this._tmin = 0;
+		this._tmax = 0;
+		/**
+		 * @type {Array<PickRecord>}
+		 */
+		this.records = [];
+	}
+
+	/**
+	 * The linear component is parameterized by P + t*D, where P is a point on
+	 * the component (P is the origin), D is a unit-length direction, and t is
+	 * a scalar in the interval [tmin,tmax] with tmin < tmax.  The P and D
+	 * values must be in world coordinates.  The choices for tmin and tmax are
+	 *    line:     tmin = -Math.MAX_REAL, tmax = Math.MAX_REAL
+	 *    ray:      tmin = 0, tmax = Math.MAX_REAL
+	 *    segment:  tmin = 0, tmax > 0;
+	 * 
+	 * A call to this function will automatically clear the Records array.
+	 * If you need any information from this array obtained by a previous
+	 * call to execute, you must save it first.
+	 * 
+	 * @param {Spatial} scene
+	 * @param {Point} origin
+	 * @param {Vector} direction
+	 * @param {number} tmin
+	 * @param {number} tmax
+	 */
+	execute(scene, origin, direction, tmin, tmax) {
+		this._origin.copy(origin);
+		this._direction.copy(direction);
+		this._tmin = tmin;
+		this._tmax = tmax;
+		this.records.length = 0;
+		this._executeRecursive(scene);
+	}
+
+    /**
+	 * Locate the record whose T value is smallest in absolute value.
+	 * @return {PickRecord}
+	 */
+	getClosestToZero() {
+		if (this.records.length == 0) {
+			return msInvalid;
+		}
+
+		let closest = _Math.abs(this.records[0].T);
+		let index = 0;
+		const numRecords = this.records.length;
+		for (let i = 1; i < numRecords; ++i) {
+			let tmp = _Math.abs(this.records[i].T);
+			if (tmp < closest) {
+				closest = tmp;
+				index = i;
+			}
+		}
+		return this.records[index];
+	}
+
+	/**
+	 * Locate the record with nonnegative T value closest to zero.
+	 * @return {PickRecord}
+	 */
+	getClosestNonnegative() {
+		if (this.records.length === 0) {
+			return Picker.invalid;
+		}
+
+		// Get first nonnegative value.
+		let closest = _Math.MAX_REAL;
+		let index;
+		const numRecords = this.records.length;
+		for (index = 0; index < numRecords; ++index) {
+			if (this.records[index].T >= 0) {
+				closest = this.records[index].T;
+				break;
+			}
+		}
+		if (index == numRecords) {
+			return Picker.invalid;
+		}
+
+		for (let i = index + 1; i < numRecords; ++i) {
+			if (0 <= this.records[i].T && this.records[i].T < closest) {
+				closest = this.records[i].T;
+				index = i;
+			}
+		}
+		return this.records[index];
+	}
+
+	/**
+	 * Locate the record with nonpositive T value closest to zero
+	 * @return {PickRecord}
+	 */
+	getClosestNonpositive() {
+		if (this.records.length === 0) {
+			return Picker.invalid;
+		}
+
+		// Get first nonpositive value.
+		let closest = -_Math.MAX_REAL;
+		let index;
+		const numRecords = this.records.length;
+		for (index = 0; index < numRecords; ++index) {
+			if (this.records[index].T <= 0) {
+				closest = this.records[index].T;
+				break;
+			}
+		}
+		if (index === numRecords) {
+			return Picker.invalid; // All values are positive.
+		}
+
+		for (let i = index + 1; i < numRecords; ++i) {
+			if (closest < this.records[i].T && this.records[i].T <= 0) {
+				closest = this.records[i].T;
+				index = i;
+			}
+		}
+		return this.records[index];
+	}
+
+	/**
+	 * The picking occurs recursively by traversing the input scene
+	 * @param {Spatial} obj
+	 */
+	_executeRecursive(obj) {
+		let mesh = obj;
+		if (mesh instanceof Triangles) {
+			if (mesh.worldBound.testIntersection(this._origin, this._direction, this._tmin, this._tmax)) {
+				// Convert the linear component to model-space coordinates.
+				let ptmp = mesh.worldTransform.inverse().mulPoint(this._origin);
+				let modelOrg = new Vector$1(ptmp.x, ptmp.y, ptmp.z);
+
+				let vtmp = mesh.worldTransform.inverse.mulPoint(this._direction);
+				let modelDirection = new Vector$1(vtmp.x, vtmp.y, vtmp.z);
+
+				let line = new Line3(modelOrg, modelDirection);
+
+				// Get the position data.
+				let vba = VertexBufferAccessor.fromVisual(mesh);
+
+				// Compute intersections with the model-space triangles.
+				let numTriangles = mesh.getNumTriangles();
+				for (let i = 0; i < numTriangles; ++i) {
+					let vs = [0, 0, 0];
+					if (!mesh.getTriangle(i, v0, v1, v2)) {
+						continue;
+					}
+					let v0 = vba.getPosition(vs[0]);
+					let v1 = vba.getPosition(vs[1]);
+					let v2 = vba.getPosition(vs[2]);
+					let triangle = new Triangle3(v0, v1, v2);
+					let calc = new IntrLineTriangle(line, triangle);
+					if (calc.find() && this._tmin <= calc.getLineParameter() && calc.getLineParameter() <= this._tmax) {
+						let record = new PickRecord;
+						record.intersected = mesh;
+						record.T = calc.getLineParameter();
+						record.Triangle = i;
+						record.bary[0] = calc.getTriBary0();
+						record.bary[1] = calc.getTriBary1();
+						record.bary[2] = calc.getTriBary2();
+						this.records.push(record);
+					}
+				}
+			}
+			return;
+		}
+
+		if (mesh instanceof SwitchNode) {
+			let activeChild = mesh.getActiveChild();
+			if (activeChild != SwitchNode.SN_INVALID_CHILD) {
+				if (mesh.worldBound.testIntersection(this._origin, this._direction, this._tmin, this._tmax)) {
+					let child = mesh.getChild(activeChild);
+					if (child) {
+						this._executeRecursive(child);
+					}
+				}
+			}
+			return;
+		}
+
+		if (mesh instanceof Node) {
+			if (mesh.worldBound.testIntersection(this._origin, this._direction, this._tmin, this._tmax)) {
+				for (let i = 0, t = mesh.getChildsNumber(); i < t; ++i) {
+					let child = mesh.getChild(i);
+					if (child) {
+						this._executeRecursive(child);
+					}
+				}
+			}
+		}
+	}
+}
+
+DECLARE_ENUM(Picker, { invalid: new PickRecord });
 
 class PolyPoint extends Visual$1 {
 
     /**
-     * @param format {L5.VertexFormat}
-     * @param vertexBuffer {L5.VertexBuffer}
+     * @param {VertexFormat} format
+     * @param {VertexBuffer} vertexBuffer
      */
     constructor(format, vertexBuffer) {
         super(Visual$1.PT_POLYPOINT, format, vertexBuffer, null);
@@ -12769,7 +13161,7 @@ class PolyPoint extends Visual$1 {
     }
 
     setNumPoints(num) {
-        var numVertices = this.vertexBuffer.numElements;
+        let numVertices = this.vertexBuffer.numElements;
         if (0 <= num && num <= numVertices) {
             this.numPoints = num;
         }
@@ -12779,35 +13171,34 @@ class PolyPoint extends Visual$1 {
     }
 }
 
-/**
- * 标准网格 - StandardMesh
- *
- * @param format {VertexFormat} 网格顶点格式
- * @param isStatic {boolean} 是否使用静态缓冲, 默认true;
- * @param inside {boolean} 是否反向卷绕, 默认false
- * @param transform {Transform} 默认为单位变换
- */
 class StandardMesh {
-    constructor(format, isStatic, inside, transform) {
-        isStatic = isStatic === undefined ? true : isStatic;
+    /**
+     * 标准网格 - StandardMesh
+     *
+     * @param {VertexFormat} format - 网格顶点格式
+     * @param {boolean} isStatic - 是否使用静态缓冲, 默认true;
+     * @param {boolean} inside - 是否反向卷绕, 默认false
+     * @param {Transform} transform - 默认为单位变换
+     */
+    constructor(format, isStatic = true, inside = false, transform = Transform$1.IDENTITY) {
         this.format = format;
-        this.transform = transform || Transform$1.IDENTITY;
-        this.isStatic = true;
-        this.inside = !!inside;
+        this.transform = transform;
+        this.isStatic = isStatic;
+        this.inside = inside;
         this.hasNormals = false;
 
-        this.usage = isStatic ? Buffer$1.BU_STATIC : Buffer$1.BU_DYNAMIC;
+        this.usage = isStatic ? Buffer.BU_STATIC : Buffer.BU_DYNAMIC;
 
         // 检查顶点坐标
-        var posIndex = format.getIndex(VertexFormat$1.AU_POSITION);
+        let posIndex = format.getIndex(VertexFormat$1.AU_POSITION);
         console.assert(posIndex >= 0, 'Vertex format must have positions');
-        var posType = format.getAttributeType(posIndex);
+        let posType = format.getAttributeType(posIndex);
         console.assert(posType === VertexFormat$1.AT_FLOAT3, 'Positions must be 3-element of floats');
 
         // 检查法线
-        var norIndex = format.getIndex(VertexFormat$1.AU_NORMAL);
+        let norIndex = format.getIndex(VertexFormat$1.AU_NORMAL);
         if (norIndex >= 0) {
-            var norType = format.getAttributeType(norIndex);
+            let norType = format.getAttributeType(norIndex);
             this.hasNormals = (norType === VertexFormat$1.AT_FLOAT3);
         }
 
@@ -12816,11 +13207,11 @@ class StandardMesh {
         const AT_FLOAT2 = VertexFormat$1.AT_FLOAT2;
 
         this.hasTCoords = new Array(MAX_UNITS);
-        for (var unit = 0; unit < MAX_UNITS; ++unit) {
+        for (let unit = 0; unit < MAX_UNITS; ++unit) {
             this.hasTCoords[unit] = false;
-            var tcdIndex = format.getIndex(AU_TEXCOORD, unit);
+            let tcdIndex = format.getIndex(AU_TEXCOORD, unit);
             if (tcdIndex >= 0) {
-                var tcdType = format.getAttributeType(tcdIndex);
+                let tcdType = format.getAttributeType(tcdIndex);
                 if (tcdType === AT_FLOAT2) {
                     this.hasTCoords[unit] = true;
                 }
@@ -12830,28 +13221,28 @@ class StandardMesh {
 
     /**
      * 更改三角形卷绕顺序
-     * @param numTriangles {number} 三角形数量
-     * @param indices {Uint32Array} 顶点索引数组
+     * @param {number} numTriangles - 三角形数量
+     * @param {Uint32Array} indices - 顶点索引数组
      */
     reverseTriangleOrder(numTriangles, indices) {
-        var i, j1, j2, save;
+        let i, j1, j2, tmp;
         for (i = 0; i < numTriangles; ++i) {
             j1 = 3 * i + 1;
             j2 = j1 + 1;
-            save = indices[j1];
+            tmp = indices[j1];
             indices[j1] = indices[j2];
-            indices[j2] = save;
+            indices[j2] = tmp;
         }
     }
     /**
      *
-     * @param vba {VertexBufferAccessor}
+     * @param {VertexBufferAccessor} vba
      */
     createPlatonicNormals(vba) {
         if (this.hasNormals) {
             const numVertices = vba.numVertices;
-            var t;
-            for (var i = 0; i < numVertices; ++i) {
+            let t;
+            for (let i = 0; i < numVertices; ++i) {
                 t = Array.from(vba.getPosition(i));
                 vba.setNormal(i, t);
             }
@@ -12865,13 +13256,13 @@ class StandardMesh {
         const MAX_UNITS = StandardMesh.MAX_UNITS;
         const numVertices = vba.numVertices;
         const INV_PI = _Math.INV_PI;
-        var unit, i, pos, t;
+        let unit, i, pos, t;
         for (unit = 0; unit < MAX_UNITS; ++unit) {
             if (this.hasTCoords[unit]) {
                 for (i = 0; i < numVertices; ++i) {
                     pos = vba.getPosition(i);
                     t = 0.5;
-                    if (_Math.abs(pos[2]) < 1) {
+                    if (Math.abs(pos[2]) < 1) {
                         t *= 1 + _Math.atan2(pos[1], pos[0]) * INV_PI;
                     }
                     vba.setTCoord(unit, i, [t, _Math.acos(pos[2]) * INV_PI]);
@@ -12896,19 +13287,19 @@ class StandardMesh {
         const hasNormals = this.hasNormals;
 
         const MAX_UNITS = StandardMesh.MAX_UNITS;
-        var numVertices = xSamples * ySamples;
-        var numTriangles = 2 * (xSamples - 1) * (ySamples - 1);
-        var numIndices = 3 * numTriangles;
+        let numVertices = xSamples * ySamples;
+        let numTriangles = 2 * (xSamples - 1) * (ySamples - 1);
+        let numIndices = 3 * numTriangles;
 
         // 创建顶点缓冲
-        var vertexBuffer = new VertexBuffer(numVertices, stride, usage);
-        var vba = new VertexBufferAccessor$1(format, vertexBuffer);
+        let vertexBuffer = new VertexBuffer(numVertices, stride, usage);
+        let vba = new VertexBufferAccessor(format, vertexBuffer);
 
         // 生成几何体
-        var stepX = 1 / (xSamples - 1); // x 方向每2个顶点间的距离
-        var stepY = 1 / (ySamples - 1); // y 方向每2个顶点间的距离
-        var u, v, x, y, p;
-        var i, i0, i1, unit;
+        let stepX = 1 / (xSamples - 1); // x 方向每2个顶点间的距离
+        let stepY = 1 / (ySamples - 1); // y 方向每2个顶点间的距离
+        let u, v, x, y, p;
+        let i, i0, i1, unit;
         for (i1 = 0, i = 0; i1 < ySamples; ++i1) {
             v = i1 * stepY;
             y = (2 * v - 1) * height;
@@ -12932,9 +13323,9 @@ class StandardMesh {
         this.transformData(vba);
 
         // 生成顶点索引
-        var indexBuffer = new IndexBuffer$1(numIndices, 4, usage);
-        var indices = new Uint32Array(indexBuffer.getData().buffer);
-        var v0, v1, v2, v3, idx = 0;
+        let indexBuffer = new IndexBuffer$1(numIndices, 4, usage);
+        let indices = new Uint32Array(indexBuffer.getData().buffer);
+        let v0, v1, v2, v3, idx = 0;
         for (i1 = 0; i1 < ySamples - 1; ++i1) {
             for (i0 = 0; i0 < xSamples - 1; ++i0) {
                 v0 = i0 + xSamples * i1;
@@ -12969,16 +13360,16 @@ class StandardMesh {
         const cos = _Math.cos;
         const sin = _Math.sin;
 
-        var rsm1 = radialSamples - 1,
+        let rsm1 = radialSamples - 1,
             ssm1 = shellSamples - 1;
-        var numVertices = 1 + radialSamples * ssm1;
-        var numTriangles = radialSamples * (2 * ssm1 - 1);
-        var numIndices = 3 * numTriangles;
+        let numVertices = 1 + radialSamples * ssm1;
+        let numTriangles = radialSamples * (2 * ssm1 - 1);
+        let numIndices = 3 * numTriangles;
 
-        var vertexBuffer = new VertexBuffer(numVertices, format.stride, usage);
-        var vba = new VertexBufferAccessor$1(format, vertexBuffer);
+        let vertexBuffer = new VertexBuffer(numVertices, format.stride, usage);
+        let vba = new VertexBufferAccessor(format, vertexBuffer);
 
-        var t;
+        let t;
 
         // Center of disk.
         vba.setPosition(0, [0, 0, 0]);
@@ -12987,26 +13378,26 @@ class StandardMesh {
             vba.setNormal(0, [0, 0, 1]);
         }
 
-        var unit;
+        let unit;
         for (unit = 0; unit < MAX_UNITS; ++unit) {
             if (this.hasTCoords[unit]) {
                 vba.setTCoord(unit, 0, [0.5, 0.5]);
             }
         }
 
-        var invSSm1 = 1 / ssm1;
-        var invRS = 1 / radialSamples;
-        var rsPI = _Math.TWO_PI * invRS;
-        var tcoord = [0.5, 0.5];
+        let invSSm1 = 1 / ssm1;
+        let invRS = 1 / radialSamples;
+        let rsPI = _Math.TWO_PI * invRS;
+        let tcoord = [0.5, 0.5];
 
-        var angle, cs, sn, s, fraction, fracRadial, fracRadial1, i;
+        let angle, cs, sn, s, fraction, fracRadial, fracRadial1, i;
 
-        for (var r = 0; r < radialSamples; ++r) {
+        for (let r = 0; r < radialSamples; ++r) {
             angle = rsPI * r;
             cs = cos(angle);
             sn = sin(angle);
 
-            var radial = new Vector$1(cs, sn, 0);
+            let radial = new Vector$1(cs, sn, 0);
 
             for (s = 1; s < shellSamples; ++s) {
                 fraction = invSSm1 * s;  // in (0,R]
@@ -13032,9 +13423,9 @@ class StandardMesh {
         this.transformData(vba);
 
         // Generate indices.
-        var indexBuffer = new IndexBuffer$1(numIndices, 4, usage);
-        var indices = new Uint32Array(indexBuffer.getData().buffer);
-        var r0, r1;
+        let indexBuffer = new IndexBuffer$1(numIndices, 4, usage);
+        let indices = new Uint32Array(indexBuffer.getData().buffer);
+        let r0, r1;
         for (r0 = rsm1, r1 = 0, t = 0; r1 < radialSamples; r0 = r1++) {
             indices[0] = 0;
             indices[1] = 1 + ssm1 * r0;
@@ -13042,10 +13433,10 @@ class StandardMesh {
             indices += 3;
             ++t;
             for (s = 1; s < ssm1; ++s, indices += 6) {
-                var i00 = s + ssm1 * r0;
-                var i01 = s + ssm1 * r1;
-                var i10 = i00 + 1;
-                var i11 = i01 + 1;
+                let i00 = s + ssm1 * r0;
+                let i01 = s + ssm1 * r1;
+                let i10 = i00 + 1;
+                let i11 = i01 + 1;
                 indices[0] = i00;
                 indices[1] = i10;
                 indices[2] = i11;
@@ -13058,196 +13449,508 @@ class StandardMesh {
 
         return new TriMesh(format, vertexBuffer, indexBuffer);
     }
-
-
-}
-// todo
-// StandardMesh.MAX_UNITS = VertexFormat.MAX_TCOORD_UNITS;
-
-
-
-
-/**
- * 长方体, 面朝内
- * 中心点 [0,0,0]
- * @param {number} xExtent
- * @param {number} yExtent
- * @param {number} zExtent
- * @returns {TriMesh}
- */
-StandardMesh.prototype.box = function (xExtent, yExtent, zExtent) {
-    const format = this.format;
-    const stride = format.stride;
-    const usage = this.usage;
-    const MAX_UNITS = StandardMesh.MAX_UNITS;
-
-    var numVertices = 8;
-    var numTriangles = 12;
-    var numIndices = 3 * numTriangles;
-
-    // Create a vertex buffer.
-    var vbuffer = new VertexBuffer(numVertices, stride, usage);
-    var vba = new VertexBufferAccessor$1(format, vbuffer);
-
-    // Generate geometry.
-    vba.setPosition(0, [-xExtent, -yExtent, -zExtent]);
-    vba.setPosition(1, [+xExtent, -yExtent, -zExtent]);
-    vba.setPosition(2, [+xExtent, +yExtent, -zExtent]);
-    vba.setPosition(3, [-xExtent, +yExtent, -zExtent]);
-    vba.setPosition(4, [-xExtent, -yExtent, +zExtent]);
-    vba.setPosition(5, [+xExtent, -yExtent, +zExtent]);
-    vba.setPosition(6, [+xExtent, +yExtent, +zExtent]);
-    vba.setPosition(7, [-xExtent, +yExtent, +zExtent]);
-
-    for (var unit = 0; unit < MAX_UNITS; ++unit) {
-        if (this.hasTCoords[unit]) {
-            vba.setTCoord(unit, 0, [0.25, 0.75]);
-            vba.setTCoord(unit, 1, [0.75, 0.75]);
-            vba.setTCoord(unit, 2, [0.75, 0.25]);
-            vba.setTCoord(unit, 3, [0.25, 0.25]);
-            vba.setTCoord(unit, 4, [0, 1]);
-            vba.setTCoord(unit, 5, [1, 1]);
-            vba.setTCoord(unit, 6, [1, 0]);
-            vba.setTCoord(unit, 7, [0, 0]);
-        }
-    }
-    this.transformData(vba);
-
-    // Generate indices (outside view).
-    var ibuffer = new IndexBuffer$1(numIndices, 4, usage);
-    var indices = new Uint32Array(ibuffer.getData().buffer);
-    indices[0] = 0;
-    indices[1] = 1;
-    indices[2] = 2;
-    indices[3] = 0;
-    indices[4] = 2;
-    indices[5] = 3;
-
-    indices[6] = 0;
-    indices[7] = 5;
-    indices[8] = 1;
-    indices[9] = 0;
-    indices[10] = 4;
-    indices[11] = 5;
-
-    indices[12] = 0;
-    indices[13] = 7;
-    indices[14] = 4;
-    indices[15] = 0;
-    indices[16] = 3;
-    indices[17] = 7;
-
-    indices[18] = 6;
-    indices[19] = 5;
-    indices[20] = 4;
-    indices[21] = 6;
-    indices[22] = 4;
-    indices[23] = 7;
-
-    indices[24] = 6;
-    indices[25] = 1;
-    indices[26] = 5;
-    indices[27] = 6;
-    indices[28] = 2;
-    indices[29] = 1;
-
-    indices[30] = 6;
-    indices[31] = 3;
-    indices[32] = 2;
-    indices[33] = 6;
-    indices[34] = 7;
-    indices[35] = 3;
-
-    if (this.inside) {
-        this.reverseTriangleOrder(numTriangles, indices);
-    }
-
-    var mesh = new TriMesh(format, vbuffer, ibuffer);
-    if (this.hasNormals) {
-        mesh.updateModelSpace(Visual$1.GU_NORMALS);
-    }
-    return mesh;
-};
-
-/**
- * 圆柱体
- *
- * 中心(0,0,0)
- * @param {number} axisSamples 轴细分
- * @param {number} radialSamples 半径细分
- * @param {number} radius 圆柱体圆面半径
- * @param {number} height 圆柱体高度
- * @param {boolean} open 是否上下开口的
- * @returns {TriMesh}
- */
-StandardMesh.prototype.cylinder = function (axisSamples, radialSamples, radius, height, open) {
-    const format = this.format;
-    const stride = format.stride;
-    const usage = this.usage;
-    const TWO_PI = _Math.TWO_PI;
-    const MAX_UNITS = StandardMesh.MAX_UNITS;
-    const cos = _Math.cos;
-    const sin = _Math.sin;
-    const hasNormals = this.hasNormals;
-    const inside = this.inside;
-
-    var unit, numVertices, vba;
-    var tcoord;
-    var t, i;
-    var vertexBuffer, ibuffer;
-    var mesh;
-
-    if (open) {
-        numVertices = axisSamples * (radialSamples + 1);
-        var numTriangles = 2 * (axisSamples - 1) * radialSamples;
-        var numIndices = 3 * numTriangles;
+    /**
+     * 长方体, 面朝内(外视图, 默认为1x1x1)
+     * 中心点 [0,0,0]
+     * @param {number} xExtent
+     * @param {number} yExtent
+     * @param {number} zExtent
+     * @returns {TriMesh}
+     */
+    box(xExtent = 1, yExtent = 1, zExtent = 1) {
+        const format = this.format;
+        const MAX_UNITS = StandardMesh.MAX_UNITS;
+        const numVertices = 8;
+        const numTriangles = 12;
+        const numIndices = 3 * numTriangles;
 
         // Create a vertex buffer.
-        vertexBuffer = new VertexBuffer(numVertices, stride, usage);
-        vba = new VertexBufferAccessor$1(format, vertexBuffer);
+        let vbuffer = new VertexBuffer(numVertices, format.stride, this.usage);
+        let vba = new VertexBufferAccessor(format, vbuffer);
 
         // Generate geometry.
-        var invRS = 1 / radialSamples;
-        var invASm1 = 1 / (axisSamples - 1);
-        var halfHeight = 0.5 * height;
-        var r, a, aStart, angle;
+        vba.setPosition(0, [-xExtent, -yExtent, -zExtent]);
+        vba.setPosition(1, [+xExtent, -yExtent, -zExtent]);
+        vba.setPosition(2, [+xExtent, +yExtent, -zExtent]);
+        vba.setPosition(3, [-xExtent, +yExtent, -zExtent]);
+        vba.setPosition(4, [-xExtent, -yExtent, +zExtent]);
+        vba.setPosition(5, [+xExtent, -yExtent, +zExtent]);
+        vba.setPosition(6, [+xExtent, +yExtent, +zExtent]);
+        vba.setPosition(7, [-xExtent, +yExtent, +zExtent]);
 
-        // Generate points on the unit circle to be used in computing the
-        // mesh points on a cylinder slice.
-        var cs = new Float32Array(radialSamples + 1);
-        var sn = new Float32Array(radialSamples + 1);
-        for (r = 0; r < radialSamples; ++r) {
-            angle = TWO_PI * invRS * r;
-            cs[r] = cos(angle);
-            sn[r] = sin(angle);
+        for (let unit = 0; unit < MAX_UNITS; ++unit) {
+            if (this.hasTCoords[unit]) {
+                vba.setTCoord(unit, 0, [0.25, 0.75]);
+                vba.setTCoord(unit, 1, [0.75, 0.75]);
+                vba.setTCoord(unit, 2, [0.75, 0.25]);
+                vba.setTCoord(unit, 3, [0.25, 0.25]);
+                vba.setTCoord(unit, 4, [0, 1]);
+                vba.setTCoord(unit, 5, [1, 1]);
+                vba.setTCoord(unit, 6, [1, 0]);
+                vba.setTCoord(unit, 7, [0, 0]);
+            }
         }
-        cs[radialSamples] = cs[0];
-        sn[radialSamples] = sn[0];
+        this.transformData(vba);
 
-        // Generate the cylinder itself.
-        for (a = 0, i = 0; a < axisSamples; ++a) {
-            var axisFraction = a * invASm1;  // in [0,1]
-            var z = -halfHeight + height * axisFraction;
+        // Generate indices (outside view).
+        let ibuffer = new IndexBuffer$1(numIndices, 4, this.usage);
+        let indices = new Uint32Array(ibuffer.getData().buffer);
+        indices[ 0] = 0;  indices[ 1] = 2;  indices[ 2] = 1;
+        indices[ 3] = 0;  indices[ 4] = 3;  indices[ 5] = 2;
+        indices[ 6] = 0;  indices[ 7] = 1;  indices[ 8] = 5;
+        indices[ 9] = 0;  indices[10] = 5;  indices[11] = 4;
+        indices[12] = 0;  indices[13] = 4;  indices[14] = 7;
+        indices[15] = 0;  indices[16] = 7;  indices[17] = 3;
+        indices[18] = 6;  indices[19] = 4;  indices[20] = 5;
+        indices[21] = 6;  indices[22] = 7;  indices[23] = 4;
+        indices[24] = 6;  indices[25] = 5;  indices[26] = 1;
+        indices[27] = 6;  indices[28] = 1;  indices[29] = 2;
+        indices[30] = 6;  indices[31] = 2;  indices[32] = 3;
+        indices[33] = 6;  indices[34] = 3;  indices[35] = 7;
 
-            // Compute center of slice.
-            var sliceCenter = new Point$1(0, 0, z);
+        if (this.inside) {
+            this.reverseTriangleOrder(numTriangles, indices);
+        }
 
-            // Compute slice vertices with duplication at endpoint.
-            var save = i;
+        let mesh = new TriMesh(format, vbuffer, ibuffer);
+        if (this.hasNormals) {
+            mesh.updateModelSpace(Visual$1.GU_NORMALS);
+        }
+        return mesh;
+    }
+
+    /**
+     * 圆柱体
+     *
+     * 中心(0,0,0)
+     * @param {number} axisSamples 轴细分
+     * @param {number} radialSamples 半径细分
+     * @param {number} radius 圆柱体圆面半径
+     * @param {number} height 圆柱体高度
+     * @param {boolean} open 是否上下开口的
+     * @returns {TriMesh}
+     */
+    cylinder(axisSamples, radialSamples, radius, height, open=false) {
+        const format = this.format;
+        const stride = format.stride;
+        const usage = this.usage;
+        const TWO_PI = _Math.TWO_PI;
+        const MAX_UNITS = StandardMesh.MAX_UNITS;
+        const cos = _Math.cos;
+        const sin = _Math.sin;
+        const hasNormals = this.hasNormals;
+        const inside = this.inside;
+
+        let unit, numVertices, vba;
+        let tcoord;
+        let t, i;
+        let vertexBuffer, ibuffer;
+        let mesh;
+
+        if (open) {
+            numVertices = axisSamples * (radialSamples + 1);
+            let numTriangles = 2 * (axisSamples - 1) * radialSamples;
+            let numIndices = 3 * numTriangles;
+
+            // Create a vertex buffer.
+            vertexBuffer = new VertexBuffer(numVertices, stride, usage);
+            vba = new VertexBufferAccessor(format, vertexBuffer);
+
+            // Generate geometry.
+            let invRS = 1 / radialSamples;
+            let invASm1 = 1 / (axisSamples - 1);
+            let halfHeight = 0.5 * height;
+            let r, a, aStart, angle;
+
+            // Generate points on the unit circle to be used in computing the
+            // mesh points on a cylinder slice.
+            let cs = new Float32Array(radialSamples + 1);
+            let sn = new Float32Array(radialSamples + 1);
             for (r = 0; r < radialSamples; ++r) {
-                var radialFraction = r * invRS;  // in [0,1)
-                var normal = new Vector$1(cs[r], sn[r], 0);
-                t = sliceCenter.add(normal.scalar(radius));
-                vba.setPosition(i, [t.x, t.y, t.z]);
+                angle = TWO_PI * invRS * r;
+                cs[r] = cos(angle);
+                sn[r] = sin(angle);
+            }
+            cs[radialSamples] = cs[0];
+            sn[radialSamples] = sn[0];
 
-                if (hasNormals) {
-                    if (inside) {
-                        normal = normal.negative();
+            // Generate the cylinder itself.
+            for (a = 0, i = 0; a < axisSamples; ++a) {
+                let axisFraction = a * invASm1;  // in [0,1]
+                let z = -halfHeight + height * axisFraction;
+
+                // Compute center of slice.
+                let sliceCenter = new Point$1(0, 0, z);
+
+                // Compute slice vertices with duplication at endpoint.
+                let save = i;
+                for (r = 0; r < radialSamples; ++r) {
+                    let radialFraction = r * invRS;  // in [0,1)
+                    let normal = new Vector$1(cs[r], sn[r], 0);
+                    t = sliceCenter.add(normal.scalar(radius));
+                    vba.setPosition(i, [t.x, t.y, t.z]);
+
+                    if (hasNormals) {
+                        if (inside) {
+                            normal = normal.negative();
+                        }
+                        vba.setNormal(i, [normal.x, normal.y, normal.z]);
                     }
-                    vba.setNormal(i, [normal.x, normal.y, normal.z]);
+
+                    tcoord = [radialFraction, axisFraction];
+                    for (unit = 0; unit < MAX_UNITS; ++unit) {
+                        if (this.hasTCoords[unit]) {
+                            vba.setTCoord(unit, i, tcoord);
+                        }
+                    }
+
+                    ++i;
                 }
 
-                tcoord = [radialFraction, axisFraction];
+                vba.setPosition(i, vba.getPosition(save));
+                if (hasNormals) {
+                    vba.setNormal(i, vba.getNormal(save));
+                }
+
+                tcoord = [1, axisFraction];
+                for (unit = 0; unit < MAX_UNITS; ++unit) {
+                    if (this.hasTCoords[unit]) {
+                        vba.setTCoord(0, i, tcoord);
+                    }
+                }
+
+                ++i;
+            }
+            this.transformData(vba);
+
+            // Generate indices.
+            ibuffer = new IndexBuffer$1(numIndices, 4, usage);
+            let indices = new Uint32Array(ibuffer.getData().buffer);
+            let j = 0;
+            for (a = 0, aStart = 0; a < axisSamples - 1; ++a) {
+                let i0 = aStart;
+                let i1 = i0 + 1;
+                aStart += radialSamples + 1;
+                let i2 = aStart;
+                let i3 = i2 + 1;
+                for (i = 0; i < radialSamples; ++i, j += 6) {
+                    if (inside) {
+                        indices[j] = i0++;
+                        indices[j + 1] = i2;
+                        indices[j + 2] = i1;
+                        indices[j + 3] = i1++;
+                        indices[j + 4] = i2++;
+                        indices[j + 5] = i3++;
+                    }
+                    else { // outside view
+                        indices[j] = i0++;
+                        indices[j + 1] = i1;
+                        indices[j + 2] = i2;
+                        indices[j + 3] = i1++;
+                        indices[j + 4] = i3++;
+                        indices[j + 5] = i2++;
+                    }
+                }
+            }
+            mesh = new TriMesh(format, vertexBuffer, ibuffer);
+        }
+        else {
+            mesh = this.sphere(axisSamples, radialSamples, radius);
+            vertexBuffer = mesh.vertexBuffer;
+            numVertices = vertexBuffer.numElements;
+            vba = new VertexBufferAccessor(format, vertexBuffer);
+
+            // Flatten sphere at poles.
+            let hDiv2 = 0.5 * height;
+            vba.getPosition(numVertices - 2)[2] = -hDiv2;  // south pole
+            vba.getPosition(numVertices - 1)[2] = +hDiv2;  // north pole
+
+            // Remap z-values to [-h/2,h/2].
+            let zFactor = 2 / (axisSamples - 1);
+            let tmp0 = radius * (-1 + zFactor);
+            let tmp1 = 1 / (radius * (1 - zFactor));
+            for (i = 0; i < numVertices - 2; ++i) {
+                let pos = vba.getPosition(i);
+                pos[2] = hDiv2 * (-1 + tmp1 * (pos[2] - tmp0));
+                let adjust = radius / Math.hypot(pos[0], pos[1]);
+                pos[0] *= adjust;
+                pos[1] *= adjust;
+            }
+            this.transformData(vba);
+
+            if (hasNormals) {
+                mesh.updateModelSpace(Visual$1.GU_NORMALS);
+            }
+        }
+
+        mesh.modelBound.center = Point$1.ORIGIN;
+        mesh.modelBound.radius = Math.hypot(radius, height);
+        return mesh;
+    }
+    /**
+     * 球体
+     * 物体中心:(0,0,0), 半径: radius, 北极点(0,0,radius), 南极点(0,0,-radius)
+     *
+     * @param radius {float} 球体半径
+     * @param zSamples {int}
+     * @param radialSamples {int}
+     */
+    sphere(zSamples, radialSamples, radius) {
+        const MAX_UNITS = StandardMesh.MAX_UNITS;
+        const TWO_PI = _Math.TWO_PI;
+        const format = this.format;
+        const stride = format.stride;
+        const usage = this.usage;
+        const hasNormal = this.hasNormals;
+        const inside = this.inside;
+
+        let zsm1 = zSamples - 1,
+            zsm2 = zSamples - 2,
+            zsm3 = zSamples - 3;
+        let rsp1 = radialSamples + 1;
+        let numVertices = zsm2 * rsp1 + 2;
+        let numTriangles = 2 * zsm2 * radialSamples;
+        let numIndices = 3 * numTriangles;
+
+        // Create a vertex buffer.
+        let vbuffer = new VertexBuffer(numVertices, stride, usage);
+        let vba = new VertexBufferAccessor(format, vbuffer);
+
+        // Generate geometry.
+        let invRS = 1 / radialSamples;
+        let zFactor = 2 / zsm1;
+        let r, z, zStart, i, unit, tcoord, angle;
+
+        // Generate points on the unit circle to be used in computing the mesh
+        // points on a cylinder slice.
+        let sn = new Float32Array(rsp1);
+        let cs = new Float32Array(rsp1);
+        for (r = 0; r < radialSamples; ++r) {
+            angle = TWO_PI * invRS * r;
+            cs[r] = _Math.cos(angle);
+            sn[r] = _Math.sin(angle);
+        }
+        sn[radialSamples] = sn[0];
+        cs[radialSamples] = cs[0];
+
+        let t;
+
+        // Generate the cylinder itself.
+        for (z = 1, i = 0; z < zsm1; ++z) {
+            let zFraction = zFactor * z - 1;  // in (-1,1)
+            let zValue = radius * zFraction;
+
+            // Compute center of slice.
+            let sliceCenter = new Point$1(0, 0, zValue);
+
+            // Compute radius of slice.
+            let sliceRadius = _Math.sqrt(_Math.abs(radius * radius - zValue * zValue));
+
+            // Compute slice vertices with duplication at endpoint.
+            let save = i;
+            for (r = 0; r < radialSamples; ++r) {
+                let radialFraction = r * invRS;  // in [0,1)
+                let radial = new Vector$1(cs[r], sn[r], 0);
+                t = radial.scalar(sliceRadius).add(sliceCenter);
+                vba.setPosition(i, [t.x, t.y, t.z]);
+
+                if (hasNormal) {
+                    t.normalize();
+                    if (inside) {
+                        t = t.negative();
+                    }
+                    vba.setNormal(i, [t.x, t.y, t.z]);
+                }
+
+                tcoord = [radialFraction, 0.5 * (zFraction + 1)];
+                for (unit = 0; unit < MAX_UNITS; ++unit) {
+                    if (this.hasTCoords[unit]) {
+                        vba.setTCoord(unit, i, tcoord);
+                    }
+                }
+                ++i;
+            }
+
+            vba.setPosition(i, vba.getPosition(save));
+            if (hasNormal) {
+                vba.setNormal(i, vba.getNormal(save));
+            }
+
+            tcoord = [1, 0.5 * (zFraction + 1)];
+            for (unit = 0; unit < MAX_UNITS; ++unit) {
+                if (this.hasTCoords[unit]) {
+                    vba.setTCoord(unit, i, tcoord);
+                }
+            }
+            ++i;
+        }
+
+        // south pole
+        vba.setPosition(i, [0, 0, -radius]);
+        let nor = [0, 0, inside ? 1 : -1];
+        if (hasNormal) {
+            vba.setNormal(i, nor);
+        }
+        tcoord = [0.5, 0.5];
+        for (unit = 0; unit < MAX_UNITS; ++unit) {
+            if (this.hasTCoords[unit]) {
+                vba.setTCoord(unit, i, tcoord);
+            }
+        }
+        ++i;
+
+        // north pole
+        vba.setPosition(i, [0, 0, radius]);
+        nor = [0, 0, inside ? -1 : 1];
+        if (hasNormal) {
+            vba.setNormal(i, nor);
+        }
+        tcoord = [0.5, 1];
+        for (unit = 0; unit < MAX_UNITS; ++unit) {
+            if (this.hasTCoords[unit]) {
+                vba.setTCoord(unit, i, tcoord);
+            }
+        }
+        ++i;
+
+        this.transformData(vba);
+
+        // Generate indices.
+        let ibuffer = new IndexBuffer$1(numIndices, 4, usage);
+        let indices = new Uint32Array(ibuffer.getData().buffer);
+        let j;
+        for (z = 0, j = 0, zStart = 0; z < zsm3; ++z) {
+            let i0 = zStart;
+            let i1 = i0 + 1;
+            zStart += rsp1;
+            let i2 = zStart;
+            let i3 = i2 + 1;
+            for (i = 0; i < radialSamples; ++i, j += 6) {
+                if (inside) {
+                    indices[j] = i0++;
+                    indices[j + 1] = i2;
+                    indices[j + 2] = i1;
+                    indices[j + 3] = i1++;
+                    indices[j + 4] = i2++;
+                    indices[j + 5] = i3++;
+                }
+                else  // inside view
+                {
+                    indices[j] = i0++;
+                    indices[j + 1] = i1;
+                    indices[j + 2] = i2;
+                    indices[j + 3] = i1++;
+                    indices[j + 4] = i3++;
+                    indices[j + 5] = i2++;
+                }
+            }
+        }
+
+        // south pole triangles
+        let numVerticesM2 = numVertices - 2;
+        for (i = 0; i < radialSamples; ++i, j += 3) {
+            if (inside) {
+                indices[j] = i;
+                indices[j + 1] = i + 1;
+                indices[j + 2] = numVerticesM2;
+            }
+            else {
+                indices[j] = i;
+                indices[j + 1] = numVerticesM2;
+                indices[j + 2] = i + 1;
+            }
+        }
+
+        // north pole triangles
+        let numVerticesM1 = numVertices - 1,
+            offset = zsm3 * rsp1;
+        for (i = 0; i < radialSamples; ++i, j += 3) {
+            if (inside) {
+                indices[j] = i + offset;
+                indices[j + 1] = numVerticesM1;
+                indices[j + 2] = i + 1 + offset;
+            }
+            else {
+                indices[j] = i + offset;
+                indices[j + 1] = i + 1 + offset;
+                indices[j + 2] = numVerticesM1;
+            }
+        }
+
+        // The duplication of vertices at the seam cause the automatically
+        // generated bounding volume to be slightly off center.  Reset the bound
+        // to use the true information.
+        let mesh = new TriMesh(this.format, vbuffer, ibuffer);
+        mesh.modelBound.center = Point$1.ORIGIN;
+        mesh.modelBound.radius = radius;
+        return mesh;
+    }
+    /**
+     * 圆环
+     * @param circleSamples {int} 大圆细分
+     * @param radialSamples {int} 小圆细分
+     * @param outerRadius {float} 大圆半径
+     * @param innerRadius {float} 小圆半径
+     * @returns {TriMesh}
+     */
+    torus(circleSamples, radialSamples, outerRadius, innerRadius) {
+        const format = this.format;
+        const stride = format.stride;
+        const usage = this.usage;
+        const hasNormals = this.hasNormals;
+        const inside = this.inside;
+        const MAX_UNITS = StandardMesh.MAX_UNITS;
+
+        const TWO_PI = _Math.TWO_PI;
+        const cos = _Math.cos;
+        const sin = _Math.sin;
+
+        let numVertices = (circleSamples + 1) * (radialSamples + 1);
+        let numTriangles = 2 * circleSamples * radialSamples;
+        let numIndices = 3 * numTriangles;
+
+        // Create a vertex buffer.
+        let vbuffer = new VertexBuffer(numVertices, stride, usage);
+        let vba = new VertexBufferAccessor(format, vbuffer);
+
+        // Generate geometry.
+        let invCS = 1 / circleSamples;
+        let invRS = 1 / radialSamples;
+        let c, r, i, save, unit, tcoord;
+        let circleFraction, theta, cosTheta, sinTheta;
+        let radialFraction, phi, cosPhi, sinPhi;
+        let radial = Vector$1.ZERO;
+        let torusMiddle = Vector$1.ZERO;
+        let normal = Vector$1.ZERO;
+
+        // Generate the cylinder itself.
+        for (c = 0, i = 0; c < circleSamples; ++c) {
+            // Compute center point on torus circle at specified angle.
+            circleFraction = c * invCS;  // in [0,1)
+            theta = TWO_PI * circleFraction;
+            cosTheta = cos(theta);
+            sinTheta = sin(theta);
+            radial.assign(cosTheta, sinTheta, 0);
+            torusMiddle.assign(cosTheta * outerRadius, sinTheta * outerRadius, 0);
+
+            // Compute slice vertices with duplication at endpoint.
+            save = i;
+            for (r = 0; r < radialSamples; ++r) {
+                radialFraction = r * invRS;  // in [0,1)
+                phi = TWO_PI * radialFraction;
+                cosPhi = cos(phi);
+                sinPhi = sin(phi);
+
+                normal.assign(innerRadius * cosTheta * cosPhi, innerRadius * sinTheta * cosPhi, innerRadius * sinPhi);
+                vba.setPosition(i, torusMiddle.add(normal));
+                if (hasNormals) {
+                    if (inside) {
+                        normal.assign(-normal.x, -normal.y, -normal.z);
+                    }
+                    vba.setNormal(i, normal);
+                }
+
+                tcoord = [radialFraction, circleFraction];
                 for (unit = 0; unit < MAX_UNITS; ++unit) {
                     if (this.hasTCoords[unit]) {
                         vba.setTCoord(unit, i, tcoord);
@@ -13262,933 +13965,549 @@ StandardMesh.prototype.cylinder = function (axisSamples, radialSamples, radius, 
                 vba.setNormal(i, vba.getNormal(save));
             }
 
-            tcoord = [1, axisFraction];
+            tcoord = [1, circleFraction];
             for (unit = 0; unit < MAX_UNITS; ++unit) {
                 if (this.hasTCoords[unit]) {
-                    vba.setTCoord(0, i, tcoord);
+                    vba.setTCoord(unit, i, tcoord);
                 }
             }
 
             ++i;
         }
+
+        // Duplicate the cylinder ends to form a torus.
+        for (r = 0; r <= radialSamples; ++r, ++i) {
+            vba.setPosition(i, vba.getPosition(r));
+            if (hasNormals) {
+                vba.setNormal(i, vba.getNormal(r));
+            }
+
+            for (unit = 0; unit < MAX_UNITS; ++unit) {
+                if (this.hasTCoords[unit]) {
+                    vba.setTCoord(unit, i, [vba.getTCoord(unit, r)[0], 1]);
+                }
+            }
+        }
+
         this.transformData(vba);
 
         // Generate indices.
-        ibuffer = new IndexBuffer$1(numIndices, 4, usage);
-        var indices = new Uint32Array(ibuffer.getData().buffer);
-        var j = 0;
-        for (a = 0, aStart = 0; a < axisSamples - 1; ++a) {
-            var i0 = aStart;
-            var i1 = i0 + 1;
-            aStart += radialSamples + 1;
-            var i2 = aStart;
-            var i3 = i2 + 1;
-            for (i = 0; i < radialSamples; ++i, j += 6) {
+        let ibuffer = new IndexBuffer$1(numIndices, 4, usage);
+        let indices = new Uint32Array(ibuffer.getData().buffer);
+        let i0, i1, i2, i3, offset = 0;
+        let cStart = 0;
+        for (c = 0; c < circleSamples; ++c) {
+            i0 = cStart;
+            i1 = i0 + 1;
+            cStart += radialSamples + 1;
+            i2 = cStart;
+            i3 = i2 + 1;
+            for (i = 0; i < radialSamples; ++i, offset += 6) {
                 if (inside) {
-                    indices[j] = i0++;
-                    indices[j + 1] = i2;
-                    indices[j + 2] = i1;
-                    indices[j + 3] = i1++;
-                    indices[j + 4] = i2++;
-                    indices[j + 5] = i3++;
+                    indices[offset] = i0++;
+                    indices[offset + 1] = i1;
+                    indices[offset + 2] = i2;
+                    indices[offset + 3] = i1++;
+                    indices[offset + 4] = i3++;
+                    indices[offset + 5] = i2++;
                 }
-                else { // outside view
-                    indices[j] = i0++;
-                    indices[j + 1] = i1;
-                    indices[j + 2] = i2;
-                    indices[j + 3] = i1++;
-                    indices[j + 4] = i3++;
-                    indices[j + 5] = i2++;
+                else {  // inside view
+                    indices[offset] = i0++;
+                    indices[offset + 1] = i2;
+                    indices[offset + 2] = i1;
+                    indices[offset + 3] = i1++;
+                    indices[offset + 4] = i2++;
+                    indices[offset + 5] = i3++;
                 }
             }
         }
-        mesh = new TriMesh(format, vertexBuffer, ibuffer);
+
+        // The duplication of vertices at the seam cause the automatically
+        // generated bounding volume to be slightly off center.  Reset the bound
+        // to use the true information.
+        let mesh = new TriMesh(format, vbuffer, ibuffer);
+        mesh.modelBound.center.assign(0, 0, 0);
+        mesh.modelBound.radius = outerRadius;
+        return mesh;
     }
-    else {
-        mesh = this.sphere(axisSamples, radialSamples, radius);
-        vertexBuffer = mesh.vertexBuffer;
-        numVertices = vertexBuffer.numElements;
-        vba = new VertexBufferAccessor$1(format, vertexBuffer);
 
-        // Flatten sphere at poles.
-        var hDiv2 = 0.5 * height;
-        vba.getPosition(numVertices - 2)[2] = -hDiv2;  // south pole
-        vba.getPosition(numVertices - 1)[2] = +hDiv2;  // north pole
+    /**
+     * 四面体
+     */
+    tetrahedron() {
+        const fSqrt2Div3 = _Math.sqrt(2) / 3;
+        const fSqrt6Div3 = _Math.sqrt(6) / 3;
+        const fOneThird = 1 / 3;
 
-        // Remap z-values to [-h/2,h/2].
-        var zFactor = 2 / (axisSamples - 1);
-        var tmp0 = radius * (-1 + zFactor);
-        var tmp1 = 1 / (radius * (1 - zFactor));
-        for (i = 0; i < numVertices - 2; ++i) {
-            var pos = vba.getPosition(i);
-            pos[2] = hDiv2 * (-1 + tmp1 * (pos[2] - tmp0));
-            var adjust = radius * _Math.invSqrt(pos[0] * pos[0] + pos[1] * pos[1]);
-            pos[0] *= adjust;
-            pos[1] *= adjust;
-        }
+        const numVertices = 4;
+        const numTriangles = 4;
+        const numIndices = 12;
+        const stride = this.format.stride;
+
+        // Create a vertex buffer.
+        let vbuffer = new VertexBuffer(numVertices, stride, this.usage);
+        let vba = new VertexBufferAccessor(this.format, vbuffer);
+
+        // Generate geometry.
+        vba.setPosition(0, [0, 0, 1]);
+        vba.setPosition(1, [2 * fSqrt2Div3, 0, -fOneThird]);
+        vba.setPosition(2, [-fSqrt2Div3, fSqrt6Div3, -fOneThird]);
+        vba.setPosition(3, [-fSqrt2Div3, -fSqrt6Div3, -fOneThird]);
+        this.createPlatonicNormals(vba);
+        this.createPlatonicUVs(vba);
         this.transformData(vba);
 
-        if (hasNormals) {
-            mesh.updateModelSpace(Visual$1.GU_NORMALS);
-        }
-    }
+        // Generate indices.
+        let ibuffer = new IndexBuffer$1(numIndices, 4, this.usage);
+        let indices = new Uint32Array(ibuffer.getData().buffer);
+        indices[ 0] = 0;  indices[ 1] = 1;  indices[ 2] = 2;
+        indices[ 3] = 0;  indices[ 4] = 2;  indices[ 5] = 3;
+        indices[ 6] = 0;  indices[ 7] = 3;  indices[ 8] = 1;
+        indices[ 9] = 1;  indices[10] = 3;  indices[11] = 2;
 
-    mesh.modelBound.center = Point$1.ORIGIN;
-    mesh.modelBound.radius = _Math.sqrt(radius * radius + height * height);
-    return mesh;
-};
-
-/**
- * 球体
- * 物体中心:(0,0,0), 半径: radius, 北极点(0,0,radius), 南极点(0,0,-radius)
- *
- * @param radius {float} 球体半径
- * @param zSamples {int}
- * @param radialSamples {int}
- */
-StandardMesh.prototype.sphere = function (zSamples, radialSamples, radius) {
-    const MAX_UNITS = StandardMesh.MAX_UNITS;
-    const TWO_PI = _Math.TWO_PI;
-    const format = this.format;
-    const stride = format.stride;
-    const usage = this.usage;
-    const hasNormal = this.hasNormals;
-    const inside = this.inside;
-
-    var zsm1 = zSamples - 1,
-        zsm2 = zSamples - 2,
-        zsm3 = zSamples - 3;
-    var rsp1 = radialSamples + 1;
-    var numVertices = zsm2 * rsp1 + 2;
-    var numTriangles = 2 * zsm2 * radialSamples;
-    var numIndices = 3 * numTriangles;
-
-    // Create a vertex buffer.
-    var vbuffer = new VertexBuffer(numVertices, stride, usage);
-    var vba = new VertexBufferAccessor$1(format, vbuffer);
-
-    // Generate geometry.
-    var invRS = 1 / radialSamples;
-    var zFactor = 2 / zsm1;
-    var r, z, zStart, i, unit, tcoord, angle;
-
-    // Generate points on the unit circle to be used in computing the mesh
-    // points on a cylinder slice.
-    var sn = new Float32Array(rsp1);
-    var cs = new Float32Array(rsp1);
-    for (r = 0; r < radialSamples; ++r) {
-        angle = TWO_PI * invRS * r;
-        cs[r] = _Math.cos(angle);
-        sn[r] = _Math.sin(angle);
-    }
-    sn[radialSamples] = sn[0];
-    cs[radialSamples] = cs[0];
-
-    var t;
-
-    // Generate the cylinder itself.
-    for (z = 1, i = 0; z < zsm1; ++z) {
-        var zFraction = zFactor * z - 1;  // in (-1,1)
-        var zValue = radius * zFraction;
-
-        // Compute center of slice.
-        var sliceCenter = new Point$1(0, 0, zValue);
-
-        // Compute radius of slice.
-        var sliceRadius = _Math.sqrt(_Math.abs(radius * radius - zValue * zValue));
-
-        // Compute slice vertices with duplication at endpoint.
-        var save = i;
-        for (r = 0; r < radialSamples; ++r) {
-            var radialFraction = r * invRS;  // in [0,1)
-            var radial = new Vector$1(cs[r], sn[r], 0);
-            t = radial.scalar(sliceRadius).add(sliceCenter);
-            vba.setPosition(i, [t.x, t.y, t.z]);
-
-            if (hasNormal) {
-                t.normalize();
-                if (inside) {
-                    t = t.negative();
-                }
-                vba.setNormal(i, [t.x, t.y, t.z]);
-            }
-
-            tcoord = [radialFraction, 0.5 * (zFraction + 1)];
-            for (unit = 0; unit < MAX_UNITS; ++unit) {
-                if (this.hasTCoords[unit]) {
-                    vba.setTCoord(unit, i, tcoord);
-                }
-            }
-            ++i;
+        if (this.inside) {
+            this.reverseTriangleOrder(numTriangles, indices);
         }
 
-        vba.setPosition(i, vba.getPosition(save));
-        if (hasNormal) {
-            vba.setNormal(i, vba.getNormal(save));
+        return new TriMesh(this.format, vbuffer, ibuffer);
+    }
+
+    hexahedron() {
+        const fSqrtThird = _Math.sqrt(1 / 3);
+
+        const numVertices = 8;
+        const numTriangles = 12;
+        const numIndices = 36;
+        const format = this.format;
+        const stride = format.stride;
+        const usage = this.usage;
+
+        // Create a vertex buffer.
+        let vbuffer = new VertexBuffer(numVertices, stride, usage);
+        let vba = new VertexBufferAccessor(format, vbuffer);
+
+        // Generate geometry.
+        vba.setPosition(0, [-fSqrtThird, -fSqrtThird, -fSqrtThird]);
+        vba.setPosition(1, [fSqrtThird, -fSqrtThird, -fSqrtThird]);
+        vba.setPosition(2, [fSqrtThird, fSqrtThird, -fSqrtThird]);
+        vba.setPosition(3, [-fSqrtThird, fSqrtThird, -fSqrtThird]);
+        vba.setPosition(4, [-fSqrtThird, -fSqrtThird, fSqrtThird]);
+        vba.setPosition(5, [fSqrtThird, -fSqrtThird, fSqrtThird]);
+        vba.setPosition(6, [fSqrtThird, fSqrtThird, fSqrtThird]);
+        vba.setPosition(7, [-fSqrtThird, fSqrtThird, fSqrtThird]);
+        this.createPlatonicNormals(vba);
+        this.createPlatonicUVs(vba);
+        this.transformData(vba);
+
+        // Generate indices.
+        let ibuffer = new IndexBuffer$1(numIndices, 4, usage);
+        let indices = new Uint32Array(ibuffer.getData().buffer);
+        indices[0] = 0;
+        indices[1] = 3;
+        indices[2] = 2;
+        indices[3] = 0;
+        indices[4] = 2;
+        indices[5] = 1;
+        indices[6] = 0;
+        indices[7] = 1;
+        indices[8] = 5;
+        indices[9] = 0;
+        indices[10] = 5;
+        indices[11] = 4;
+        indices[12] = 0;
+        indices[13] = 4;
+        indices[14] = 7;
+        indices[15] = 0;
+        indices[16] = 7;
+        indices[17] = 3;
+        indices[18] = 6;
+        indices[19] = 5;
+        indices[20] = 1;
+        indices[21] = 6;
+        indices[22] = 1;
+        indices[23] = 2;
+        indices[24] = 6;
+        indices[25] = 2;
+        indices[26] = 3;
+        indices[27] = 6;
+        indices[28] = 3;
+        indices[29] = 7;
+        indices[30] = 6;
+        indices[31] = 7;
+        indices[32] = 4;
+        indices[33] = 6;
+        indices[34] = 4;
+        indices[35] = 5;
+
+        if (this.inside) {
+            this.reverseTriangleOrder(numTriangles, indices);
         }
 
-        tcoord = [1, 0.5 * (zFraction + 1)];
-        for (unit = 0; unit < MAX_UNITS; ++unit) {
-            if (this.hasTCoords[unit]) {
-                vba.setTCoord(unit, i, tcoord);
-            }
-        }
-        ++i;
+        return new TriMesh(this.format, vbuffer, ibuffer);
     }
+    octahedron() {
+        const numVertices = 6;
+        const numTriangles = 8;
+        const numIndices = 24;
+        const format = this.format;
+        const stride = format.stride;
+        const usage = this.usage;
 
-    // south pole
-    vba.setPosition(i, [0, 0, -radius]);
-    var nor = [0, 0, inside ? 1 : -1];
-    if (hasNormal) {
-        vba.setNormal(i, nor);
-    }
-    tcoord = [0.5, 0.5];
-    for (unit = 0; unit < MAX_UNITS; ++unit) {
-        if (this.hasTCoords[unit]) {
-            vba.setTCoord(unit, i, tcoord);
-        }
-    }
-    ++i;
+        // Create a vertex buffer.
+        let vbuffer = new VertexBuffer(numVertices, stride, usage);
+        let vba = new VertexBufferAccessor(format, vbuffer);
 
-    // north pole
-    vba.setPosition(i, [0, 0, radius]);
-    nor = [0, 0, inside ? -1 : 1];
-    if (hasNormal) {
-        vba.setNormal(i, nor);
-    }
-    tcoord = [0.5, 1];
-    for (unit = 0; unit < MAX_UNITS; ++unit) {
-        if (this.hasTCoords[unit]) {
-            vba.setTCoord(unit, i, tcoord);
-        }
-    }
-    ++i;
+        // Generate geometry.
+        vba.setPosition(0, [1, 0, 0]);
+        vba.setPosition(1, [-1, 0, 0]);
+        vba.setPosition(2, [0, 1, 0]);
+        vba.setPosition(3, [0, -1, 0]);
+        vba.setPosition(4, [0, 0, 1]);
+        vba.setPosition(5, [0, 0, -1]);
+        this.createPlatonicNormals(vba);
+        this.createPlatonicUVs(vba);
+        this.transformData(vba);
 
-    this.transformData(vba);
+        // Generate indices.
+        let ibuffer = new IndexBuffer$1(numIndices, 4, usage);
+        let indices = new Uint32Array(ibuffer.getData().buffer);
+        indices[0] = 4;
+        indices[1] = 0;
+        indices[2] = 2;
+        indices[3] = 4;
+        indices[4] = 2;
+        indices[5] = 1;
+        indices[6] = 4;
+        indices[7] = 1;
+        indices[8] = 3;
+        indices[9] = 4;
+        indices[10] = 3;
+        indices[11] = 0;
+        indices[12] = 5;
+        indices[13] = 2;
+        indices[14] = 0;
+        indices[15] = 5;
+        indices[16] = 1;
+        indices[17] = 2;
+        indices[18] = 5;
+        indices[19] = 3;
+        indices[20] = 1;
+        indices[21] = 5;
+        indices[22] = 0;
+        indices[23] = 3;
 
-    // Generate indices.
-    var ibuffer = new IndexBuffer$1(numIndices, 4, usage);
-    var indices = new Uint32Array(ibuffer.getData().buffer);
-    var j;
-    for (z = 0, j = 0, zStart = 0; z < zsm3; ++z) {
-        var i0 = zStart;
-        var i1 = i0 + 1;
-        zStart += rsp1;
-        var i2 = zStart;
-        var i3 = i2 + 1;
-        for (i = 0; i < radialSamples; ++i, j += 6) {
-            if (inside) {
-                indices[j] = i0++;
-                indices[j + 1] = i2;
-                indices[j + 2] = i1;
-                indices[j + 3] = i1++;
-                indices[j + 4] = i2++;
-                indices[j + 5] = i3++;
-            }
-            else  // inside view
-            {
-                indices[j] = i0++;
-                indices[j + 1] = i1;
-                indices[j + 2] = i2;
-                indices[j + 3] = i1++;
-                indices[j + 4] = i3++;
-                indices[j + 5] = i2++;
-            }
-        }
-    }
-
-    // south pole triangles
-    var numVerticesM2 = numVertices - 2;
-    for (i = 0; i < radialSamples; ++i, j += 3) {
-        if (inside) {
-            indices[j] = i;
-            indices[j + 1] = i + 1;
-            indices[j + 2] = numVerticesM2;
-        }
-        else {
-            indices[j] = i;
-            indices[j + 1] = numVerticesM2;
-            indices[j + 2] = i + 1;
-        }
-    }
-
-    // north pole triangles
-    var numVerticesM1 = numVertices - 1,
-        offset = zsm3 * rsp1;
-    for (i = 0; i < radialSamples; ++i, j += 3) {
-        if (inside) {
-            indices[j] = i + offset;
-            indices[j + 1] = numVerticesM1;
-            indices[j + 2] = i + 1 + offset;
-        }
-        else {
-            indices[j] = i + offset;
-            indices[j + 1] = i + 1 + offset;
-            indices[j + 2] = numVerticesM1;
-        }
-    }
-
-    // The duplication of vertices at the seam cause the automatically
-    // generated bounding volume to be slightly off center.  Reset the bound
-    // to use the true information.
-    var mesh = new TriMesh(this.format, vbuffer, ibuffer);
-    mesh.modelBound.center = Point$1.ORIGIN;
-    mesh.modelBound.radius = radius;
-    return mesh;
-};
-
-/**
- * 圆环
- * @param circleSamples {int} 大圆细分
- * @param radialSamples {int} 小圆细分
- * @param outerRadius {float} 大圆半径
- * @param innerRadius {float} 小圆半径
- * @returns {TriMesh}
- */
-StandardMesh.prototype.torus = function (circleSamples, radialSamples, outerRadius, innerRadius) {
-    const format = this.format;
-    const stride = format.stride;
-    const usage = this.usage;
-    const hasNormals = this.hasNormals;
-    const inside = this.inside;
-    const MAX_UNITS = StandardMesh.MAX_UNITS;
-
-    const TWO_PI = _Math.TWO_PI;
-    const cos = _Math.cos;
-    const sin = _Math.sin;
-
-    var numVertices = (circleSamples + 1) * (radialSamples + 1);
-    var numTriangles = 2 * circleSamples * radialSamples;
-    var numIndices = 3 * numTriangles;
-
-    // Create a vertex buffer.
-    var vbuffer = new VertexBuffer(numVertices, stride, usage);
-    var vba = new VertexBufferAccessor$1(format, vbuffer);
-
-    // Generate geometry.
-    var invCS = 1 / circleSamples;
-    var invRS = 1 / radialSamples;
-    var c, r, i, save, unit, tcoord;
-    var circleFraction, theta, cosTheta, sinTheta;
-    var radialFraction, phi, cosPhi, sinPhi;
-    var radial = Vector$1.ZERO;
-    var torusMiddle = Vector$1.ZERO;
-    var normal = Vector$1.ZERO;
-
-    // Generate the cylinder itself.
-    for (c = 0, i = 0; c < circleSamples; ++c) {
-        // Compute center point on torus circle at specified angle.
-        circleFraction = c * invCS;  // in [0,1)
-        theta = TWO_PI * circleFraction;
-        cosTheta = cos(theta);
-        sinTheta = sin(theta);
-        radial.assign(cosTheta, sinTheta, 0);
-        torusMiddle.assign(cosTheta * outerRadius, sinTheta * outerRadius, 0);
-
-        // Compute slice vertices with duplication at endpoint.
-        save = i;
-        for (r = 0; r < radialSamples; ++r) {
-            radialFraction = r * invRS;  // in [0,1)
-            phi = TWO_PI * radialFraction;
-            cosPhi = cos(phi);
-            sinPhi = sin(phi);
-
-            normal.assign(innerRadius * cosTheta * cosPhi, innerRadius * sinTheta * cosPhi, innerRadius * sinPhi);
-            vba.setPosition(i, torusMiddle.add(normal));
-            if (hasNormals) {
-                if (inside) {
-                    normal.assign(-normal.x, -normal.y, -normal.z);
-                }
-                vba.setNormal(i, normal);
-            }
-
-            tcoord = [radialFraction, circleFraction];
-            for (unit = 0; unit < MAX_UNITS; ++unit) {
-                if (this.hasTCoords[unit]) {
-                    vba.setTCoord(unit, i, tcoord);
-                }
-            }
-
-            ++i;
+        if (this.inside) {
+            this.reverseTriangleOrder(numTriangles, indices);
         }
 
-        vba.setPosition(i, vba.getPosition(save));
-        if (hasNormals) {
-            vba.setNormal(i, vba.getNormal(save));
+        return new TriMesh(this.format, vbuffer, ibuffer);
+    }
+
+    dodecahedron() {
+        const a = 1 / _Math.sqrt(3);
+        const b = _Math.sqrt((3 - _Math.sqrt(5)) / 6);
+        const c = _Math.sqrt((3 + _Math.sqrt(5)) / 6);
+
+        const numVertices = 20;
+        const numTriangles = 36;
+        const numIndices = 108;
+        const format = this.format;
+        const stride = format.stride;
+        const usage = this.usage;
+
+        // Create a vertex buffer.
+        let vbuffer = new VertexBuffer(numVertices, stride, usage);
+        let vba = new VertexBufferAccessor(this.format, vbuffer);
+
+        // Generate geometry.
+        vba.setPosition(0, [a, a, a]);
+        vba.setPosition(1, [a, a, -a]);
+        vba.setPosition(2, [a, -a, a]);
+        vba.setPosition(3, [a, -a, -a]);
+        vba.setPosition(4, [-a, a, a]);
+        vba.setPosition(5, [-a, a, -a]);
+        vba.setPosition(6, [-a, -a, a]);
+        vba.setPosition(7, [-a, -a, -a]);
+        vba.setPosition(8, [b, c, 0]);
+        vba.setPosition(9, [-b, c, 0]);
+        vba.setPosition(10, [b, -c, 0]);
+        vba.setPosition(11, [-b, -c, 0]);
+        vba.setPosition(12, [c, 0, b]);
+        vba.setPosition(13, [c, 0, -b]);
+        vba.setPosition(14, [-c, 0, b]);
+        vba.setPosition(15, [-c, 0, -b]);
+        vba.setPosition(16, [0, b, c]);
+        vba.setPosition(17, [0, -b, c]);
+        vba.setPosition(18, [0, b, -c]);
+        vba.setPosition(19, [0, -b, -c]);
+        this.createPlatonicNormals(vba);
+        this.createPlatonicUVs(vba);
+        this.transformData(vba);
+
+        // Generate indices.
+        let ibuffer = new IndexBuffer$1(numIndices, 4, usage);
+        let indices = new Uint32Array(ibuffer.getData().buffer);
+        indices[0] = 0;
+        indices[1] = 8;
+        indices[2] = 9;
+        indices[3] = 0;
+        indices[4] = 9;
+        indices[5] = 4;
+        indices[6] = 0;
+        indices[7] = 4;
+        indices[8] = 16;
+        indices[9] = 0;
+        indices[10] = 12;
+        indices[11] = 13;
+        indices[12] = 0;
+        indices[13] = 13;
+        indices[14] = 1;
+        indices[15] = 0;
+        indices[16] = 1;
+        indices[17] = 8;
+        indices[18] = 0;
+        indices[19] = 16;
+        indices[20] = 17;
+        indices[21] = 0;
+        indices[22] = 17;
+        indices[23] = 2;
+        indices[24] = 0;
+        indices[25] = 2;
+        indices[26] = 12;
+        indices[27] = 8;
+        indices[28] = 1;
+        indices[29] = 18;
+        indices[30] = 8;
+        indices[31] = 18;
+        indices[32] = 5;
+        indices[33] = 8;
+        indices[34] = 5;
+        indices[35] = 9;
+        indices[36] = 12;
+        indices[37] = 2;
+        indices[38] = 10;
+        indices[39] = 12;
+        indices[40] = 10;
+        indices[41] = 3;
+        indices[42] = 12;
+        indices[43] = 3;
+        indices[44] = 13;
+        indices[45] = 16;
+        indices[46] = 4;
+        indices[47] = 14;
+        indices[48] = 16;
+        indices[49] = 14;
+        indices[50] = 6;
+        indices[51] = 16;
+        indices[52] = 6;
+        indices[53] = 17;
+        indices[54] = 9;
+        indices[55] = 5;
+        indices[56] = 15;
+        indices[57] = 9;
+        indices[58] = 15;
+        indices[59] = 14;
+        indices[60] = 9;
+        indices[61] = 14;
+        indices[62] = 4;
+        indices[63] = 6;
+        indices[64] = 11;
+        indices[65] = 10;
+        indices[66] = 6;
+        indices[67] = 10;
+        indices[68] = 2;
+        indices[69] = 6;
+        indices[70] = 2;
+        indices[71] = 17;
+        indices[72] = 3;
+        indices[73] = 19;
+        indices[74] = 18;
+        indices[75] = 3;
+        indices[76] = 18;
+        indices[77] = 1;
+        indices[78] = 3;
+        indices[79] = 1;
+        indices[80] = 13;
+        indices[81] = 7;
+        indices[82] = 15;
+        indices[83] = 5;
+        indices[84] = 7;
+        indices[85] = 5;
+        indices[86] = 18;
+        indices[87] = 7;
+        indices[88] = 18;
+        indices[89] = 19;
+        indices[90] = 7;
+        indices[91] = 11;
+        indices[92] = 6;
+        indices[93] = 7;
+        indices[94] = 6;
+        indices[95] = 14;
+        indices[96] = 7;
+        indices[97] = 14;
+        indices[98] = 15;
+        indices[99] = 7;
+        indices[100] = 19;
+        indices[101] = 3;
+        indices[102] = 7;
+        indices[103] = 3;
+        indices[104] = 10;
+        indices[105] = 7;
+        indices[106] = 10;
+        indices[107] = 11;
+
+        if (this.inside) {
+            this.reverseTriangleOrder(numTriangles, indices);
         }
 
-        tcoord = [1, circleFraction];
-        for (unit = 0; unit < MAX_UNITS; ++unit) {
-            if (this.hasTCoords[unit]) {
-                vba.setTCoord(unit, i, tcoord);
-            }
+        return new TriMesh(format, vbuffer, ibuffer);
+    }
+
+    icosahedron() {
+        const goldenRatio = 0.5 * (1 + _Math.sqrt(5));
+        const invRoot = 1 / _Math.sqrt(1 + goldenRatio * goldenRatio);
+        const u = goldenRatio * invRoot;
+        const v = invRoot;
+
+        const numVertices = 12;
+        const numTriangles = 20;
+        const numIndices = 60;
+        const format = this.format;
+        const stride = format.stride;
+        const usage = this.usage;
+
+        // Create a vertex buffer.
+        let vbuffer = new VertexBuffer(numVertices, stride, usage);
+        let vba = new VertexBufferAccessor(this.format, vbuffer);
+
+        // Generate geometry.
+        vba.setPosition(0, [u, v, 0]);
+        vba.setPosition(1, [-u, v, 0]);
+        vba.setPosition(2, [u, -v, 0]);
+        vba.setPosition(3, [-u, -v, 0]);
+        vba.setPosition(4, [v, 0, u]);
+        vba.setPosition(5, [v, 0, -u]);
+        vba.setPosition(6, [-v, 0, u]);
+        vba.setPosition(7, [-v, 0, -u]);
+        vba.setPosition(8, [0, u, v]);
+        vba.setPosition(9, [0, -u, v]);
+        vba.setPosition(10, [0, u, -v]);
+        vba.setPosition(11, [0, -u, -v]);
+
+        this.createPlatonicNormals(vba);
+        this.createPlatonicUVs(vba);
+        this.transformData(vba);
+
+        // Generate indices.
+        let ibuffer = new IndexBuffer$1(numIndices, 4, usage);
+        let indices = new Uint32Array(ibuffer.getData().buffer);
+        indices[0] = 0;
+        indices[1] = 8;
+        indices[2] = 4;
+        indices[3] = 0;
+        indices[4] = 5;
+        indices[5] = 10;
+        indices[6] = 2;
+        indices[7] = 4;
+        indices[8] = 9;
+        indices[9] = 2;
+        indices[10] = 11;
+        indices[11] = 5;
+        indices[12] = 1;
+        indices[13] = 6;
+        indices[14] = 8;
+        indices[15] = 1;
+        indices[16] = 10;
+        indices[17] = 7;
+        indices[18] = 3;
+        indices[19] = 9;
+        indices[20] = 6;
+        indices[21] = 3;
+        indices[22] = 7;
+        indices[23] = 11;
+        indices[24] = 0;
+        indices[25] = 10;
+        indices[26] = 8;
+        indices[27] = 1;
+        indices[28] = 8;
+        indices[29] = 10;
+        indices[30] = 2;
+        indices[31] = 9;
+        indices[32] = 11;
+        indices[33] = 3;
+        indices[34] = 11;
+        indices[35] = 9;
+        indices[36] = 4;
+        indices[37] = 2;
+        indices[38] = 0;
+        indices[39] = 5;
+        indices[40] = 0;
+        indices[41] = 2;
+        indices[42] = 6;
+        indices[43] = 1;
+        indices[44] = 3;
+        indices[45] = 7;
+        indices[46] = 3;
+        indices[47] = 1;
+        indices[48] = 8;
+        indices[49] = 6;
+        indices[50] = 4;
+        indices[51] = 9;
+        indices[52] = 4;
+        indices[53] = 6;
+        indices[54] = 10;
+        indices[55] = 5;
+        indices[56] = 7;
+        indices[57] = 11;
+        indices[58] = 7;
+        indices[59] = 5;
+
+        if (this.inside) {
+            this.reverseTriangleOrder(numTriangles, indices);
         }
 
-        ++i;
+        return new TriMesh(format, vbuffer, ibuffer);
     }
-
-    // Duplicate the cylinder ends to form a torus.
-    for (r = 0; r <= radialSamples; ++r, ++i) {
-        vba.setPosition(i, vba.getPosition(r));
-        if (hasNormals) {
-            vba.setNormal(i, vba.getNormal(r));
+    /**
+     * @param {VertexBufferAccessor} vba
+     */
+    transformData(vba) {
+        if (this.transform.isIdentity()) {
+            return;
         }
 
-        for (unit = 0; unit < MAX_UNITS; ++unit) {
-            if (this.hasTCoords[unit]) {
-                vba.setTCoord(unit, i, [vba.getTCoord(unit, r)[0], 1]);
-            }
-        }
-    }
-
-    this.transformData(vba);
-
-    // Generate indices.
-    var ibuffer = new IndexBuffer$1(numIndices, 4, usage);
-    var indices = new Uint32Array(ibuffer.getData().buffer);
-    var i0, i1, i2, i3, offset = 0;
-    var cStart = 0;
-    for (c = 0; c < circleSamples; ++c) {
-        i0 = cStart;
-        i1 = i0 + 1;
-        cStart += radialSamples + 1;
-        i2 = cStart;
-        i3 = i2 + 1;
-        for (i = 0; i < radialSamples; ++i, offset += 6) {
-            if (inside) {
-                indices[offset] = i0++;
-                indices[offset + 1] = i1;
-                indices[offset + 2] = i2;
-                indices[offset + 3] = i1++;
-                indices[offset + 4] = i3++;
-                indices[offset + 5] = i2++;
-            }
-            else {  // inside view
-                indices[offset] = i0++;
-                indices[offset + 1] = i2;
-                indices[offset + 2] = i1;
-                indices[offset + 3] = i1++;
-                indices[offset + 4] = i2++;
-                indices[offset + 5] = i3++;
-            }
-        }
-    }
-
-    // The duplication of vertices at the seam cause the automatically
-    // generated bounding volume to be slightly off center.  Reset the bound
-    // to use the true information.
-    var mesh = new TriMesh(format, vbuffer, ibuffer);
-    mesh.modelBound.center.assign(0, 0, 0);
-    mesh.modelBound.radius = outerRadius;
-    return mesh;
-};
-
-/**
- * 四面体
- */
-StandardMesh.prototype.tetrahedron = function () {
-    const fSqrt2Div3 = _Math.sqrt(2) / 3;
-    const fSqrt6Div3 = _Math.sqrt(6) / 3;
-    const fOneThird = 1 / 3;
-
-    const numVertices = 4;
-    const numTriangles = 4;
-    const numIndices = 12;
-    const stride = this.format.stride;
-
-    // Create a vertex buffer.
-    var vbuffer = new VertexBuffer(numVertices, stride, this.usage);
-    var vba = new VertexBufferAccessor$1(this.format, vbuffer);
-
-    // Generate geometry.
-    vba.setPosition(0, [0, 0, 1]);
-    vba.setPosition(1, [2 * fSqrt2Div3, 0, -fOneThird]);
-    vba.setPosition(2, [-fSqrt2Div3, fSqrt6Div3, -fOneThird]);
-    vba.setPosition(3, [-fSqrt2Div3, -fSqrt6Div3, -fOneThird]);
-    this.createPlatonicNormals(vba);
-    this.createPlatonicUVs(vba);
-    this.transformData(vba);
-
-    // Generate indices.
-    var ibuffer = new IndexBuffer$1(numIndices, 4, this.usage);
-    var indices = new Uint32Array(ibuffer.getData().buffer);
-    indices[0] = 0;
-    indices[1] = 1;
-    indices[2] = 2;
-    indices[3] = 0;
-    indices[4] = 2;
-    indices[5] = 3;
-    indices[6] = 0;
-    indices[7] = 3;
-    indices[8] = 1;
-    indices[9] = 1;
-    indices[10] = 3;
-    indices[11] = 2;
-
-    if (this.inside) {
-        this.reverseTriangleOrder(numTriangles, indices);
-    }
-
-    return new TriMesh(this.format, vbuffer, ibuffer);
-};
-/**
- * 六面体
- */
-StandardMesh.prototype.hexahedron = function () {
-    const fSqrtThird = _Math.sqrt(1 / 3);
-
-    const numVertices = 8;
-    const numTriangles = 12;
-    const numIndices = 36;
-    const format = this.format;
-    const stride = format.stride;
-    const usage = this.usage;
-
-    // Create a vertex buffer.
-    var vbuffer = new VertexBuffer(numVertices, stride, usage);
-    var vba = new VertexBufferAccessor$1(format, vbuffer);
-
-    // Generate geometry.
-    vba.setPosition(0, [-fSqrtThird, -fSqrtThird, -fSqrtThird]);
-    vba.setPosition(1, [fSqrtThird, -fSqrtThird, -fSqrtThird]);
-    vba.setPosition(2, [fSqrtThird, fSqrtThird, -fSqrtThird]);
-    vba.setPosition(3, [-fSqrtThird, fSqrtThird, -fSqrtThird]);
-    vba.setPosition(4, [-fSqrtThird, -fSqrtThird, fSqrtThird]);
-    vba.setPosition(5, [fSqrtThird, -fSqrtThird, fSqrtThird]);
-    vba.setPosition(6, [fSqrtThird, fSqrtThird, fSqrtThird]);
-    vba.setPosition(7, [-fSqrtThird, fSqrtThird, fSqrtThird]);
-    this.createPlatonicNormals(vba);
-    this.createPlatonicUVs(vba);
-    this.transformData(vba);
-
-    // Generate indices.
-    var ibuffer = new IndexBuffer$1(numIndices, 4, usage);
-    var indices = new Uint32Array(ibuffer.getData().buffer);
-    indices[0] = 0;
-    indices[1] = 3;
-    indices[2] = 2;
-    indices[3] = 0;
-    indices[4] = 2;
-    indices[5] = 1;
-    indices[6] = 0;
-    indices[7] = 1;
-    indices[8] = 5;
-    indices[9] = 0;
-    indices[10] = 5;
-    indices[11] = 4;
-    indices[12] = 0;
-    indices[13] = 4;
-    indices[14] = 7;
-    indices[15] = 0;
-    indices[16] = 7;
-    indices[17] = 3;
-    indices[18] = 6;
-    indices[19] = 5;
-    indices[20] = 1;
-    indices[21] = 6;
-    indices[22] = 1;
-    indices[23] = 2;
-    indices[24] = 6;
-    indices[25] = 2;
-    indices[26] = 3;
-    indices[27] = 6;
-    indices[28] = 3;
-    indices[29] = 7;
-    indices[30] = 6;
-    indices[31] = 7;
-    indices[32] = 4;
-    indices[33] = 6;
-    indices[34] = 4;
-    indices[35] = 5;
-
-    if (this.inside) {
-        this.reverseTriangleOrder(numTriangles, indices);
-    }
-
-    return new TriMesh(this.format, vbuffer, ibuffer);
-};
-/**
- * 八面体
- */
-StandardMesh.prototype.octahedron = function () {
-    const numVertices = 6;
-    const numTriangles = 8;
-    const numIndices = 24;
-    const format = this.format;
-    const stride = format.stride;
-    const usage = this.usage;
-
-    // Create a vertex buffer.
-    var vbuffer = new VertexBuffer(numVertices, stride, usage);
-    var vba = new VertexBufferAccessor$1(format, vbuffer);
-
-    // Generate geometry.
-    vba.setPosition(0, [1, 0, 0]);
-    vba.setPosition(1, [-1, 0, 0]);
-    vba.setPosition(2, [0, 1, 0]);
-    vba.setPosition(3, [0, -1, 0]);
-    vba.setPosition(4, [0, 0, 1]);
-    vba.setPosition(5, [0, 0, -1]);
-    this.createPlatonicNormals(vba);
-    this.createPlatonicUVs(vba);
-    this.transformData(vba);
-
-    // Generate indices.
-    var ibuffer = new IndexBuffer$1(numIndices, 4, usage);
-    var indices = new Uint32Array(ibuffer.getData().buffer);
-    indices[0] = 4;
-    indices[1] = 0;
-    indices[2] = 2;
-    indices[3] = 4;
-    indices[4] = 2;
-    indices[5] = 1;
-    indices[6] = 4;
-    indices[7] = 1;
-    indices[8] = 3;
-    indices[9] = 4;
-    indices[10] = 3;
-    indices[11] = 0;
-    indices[12] = 5;
-    indices[13] = 2;
-    indices[14] = 0;
-    indices[15] = 5;
-    indices[16] = 1;
-    indices[17] = 2;
-    indices[18] = 5;
-    indices[19] = 3;
-    indices[20] = 1;
-    indices[21] = 5;
-    indices[22] = 0;
-    indices[23] = 3;
-
-    if (this.inside) {
-        this.reverseTriangleOrder(numTriangles, indices);
-    }
-
-    return new TriMesh(this.format, vbuffer, ibuffer);
-};
-/**
- * 十二面体
- */
-StandardMesh.prototype.dodecahedron = function () {
-    const a = 1 / _Math.sqrt(3);
-    const b = _Math.sqrt((3 - _Math.sqrt(5)) / 6);
-    const c = _Math.sqrt((3 + _Math.sqrt(5)) / 6);
-
-    const numVertices = 20;
-    const numTriangles = 36;
-    const numIndices = 108;
-    const format = this.format;
-    const stride = format.stride;
-    const usage = this.usage;
-
-    // Create a vertex buffer.
-    var vbuffer = new VertexBuffer(numVertices, stride, usage);
-    var vba = new VertexBufferAccessor$1(this.format, vbuffer);
-
-    // Generate geometry.
-    vba.setPosition(0, [a, a, a]);
-    vba.setPosition(1, [a, a, -a]);
-    vba.setPosition(2, [a, -a, a]);
-    vba.setPosition(3, [a, -a, -a]);
-    vba.setPosition(4, [-a, a, a]);
-    vba.setPosition(5, [-a, a, -a]);
-    vba.setPosition(6, [-a, -a, a]);
-    vba.setPosition(7, [-a, -a, -a]);
-    vba.setPosition(8, [b, c, 0]);
-    vba.setPosition(9, [-b, c, 0]);
-    vba.setPosition(10, [b, -c, 0]);
-    vba.setPosition(11, [-b, -c, 0]);
-    vba.setPosition(12, [c, 0, b]);
-    vba.setPosition(13, [c, 0, -b]);
-    vba.setPosition(14, [-c, 0, b]);
-    vba.setPosition(15, [-c, 0, -b]);
-    vba.setPosition(16, [0, b, c]);
-    vba.setPosition(17, [0, -b, c]);
-    vba.setPosition(18, [0, b, -c]);
-    vba.setPosition(19, [0, -b, -c]);
-    this.createPlatonicNormals(vba);
-    this.createPlatonicUVs(vba);
-    this.transformData(vba);
-
-    // Generate indices.
-    var ibuffer = new IndexBuffer$1(numIndices, 4, usage);
-    var indices = new Uint32Array(ibuffer.getData().buffer);
-    indices[0] = 0;
-    indices[1] = 8;
-    indices[2] = 9;
-    indices[3] = 0;
-    indices[4] = 9;
-    indices[5] = 4;
-    indices[6] = 0;
-    indices[7] = 4;
-    indices[8] = 16;
-    indices[9] = 0;
-    indices[10] = 12;
-    indices[11] = 13;
-    indices[12] = 0;
-    indices[13] = 13;
-    indices[14] = 1;
-    indices[15] = 0;
-    indices[16] = 1;
-    indices[17] = 8;
-    indices[18] = 0;
-    indices[19] = 16;
-    indices[20] = 17;
-    indices[21] = 0;
-    indices[22] = 17;
-    indices[23] = 2;
-    indices[24] = 0;
-    indices[25] = 2;
-    indices[26] = 12;
-    indices[27] = 8;
-    indices[28] = 1;
-    indices[29] = 18;
-    indices[30] = 8;
-    indices[31] = 18;
-    indices[32] = 5;
-    indices[33] = 8;
-    indices[34] = 5;
-    indices[35] = 9;
-    indices[36] = 12;
-    indices[37] = 2;
-    indices[38] = 10;
-    indices[39] = 12;
-    indices[40] = 10;
-    indices[41] = 3;
-    indices[42] = 12;
-    indices[43] = 3;
-    indices[44] = 13;
-    indices[45] = 16;
-    indices[46] = 4;
-    indices[47] = 14;
-    indices[48] = 16;
-    indices[49] = 14;
-    indices[50] = 6;
-    indices[51] = 16;
-    indices[52] = 6;
-    indices[53] = 17;
-    indices[54] = 9;
-    indices[55] = 5;
-    indices[56] = 15;
-    indices[57] = 9;
-    indices[58] = 15;
-    indices[59] = 14;
-    indices[60] = 9;
-    indices[61] = 14;
-    indices[62] = 4;
-    indices[63] = 6;
-    indices[64] = 11;
-    indices[65] = 10;
-    indices[66] = 6;
-    indices[67] = 10;
-    indices[68] = 2;
-    indices[69] = 6;
-    indices[70] = 2;
-    indices[71] = 17;
-    indices[72] = 3;
-    indices[73] = 19;
-    indices[74] = 18;
-    indices[75] = 3;
-    indices[76] = 18;
-    indices[77] = 1;
-    indices[78] = 3;
-    indices[79] = 1;
-    indices[80] = 13;
-    indices[81] = 7;
-    indices[82] = 15;
-    indices[83] = 5;
-    indices[84] = 7;
-    indices[85] = 5;
-    indices[86] = 18;
-    indices[87] = 7;
-    indices[88] = 18;
-    indices[89] = 19;
-    indices[90] = 7;
-    indices[91] = 11;
-    indices[92] = 6;
-    indices[93] = 7;
-    indices[94] = 6;
-    indices[95] = 14;
-    indices[96] = 7;
-    indices[97] = 14;
-    indices[98] = 15;
-    indices[99] = 7;
-    indices[100] = 19;
-    indices[101] = 3;
-    indices[102] = 7;
-    indices[103] = 3;
-    indices[104] = 10;
-    indices[105] = 7;
-    indices[106] = 10;
-    indices[107] = 11;
-
-    if (this.inside) {
-        this.reverseTriangleOrder(numTriangles, indices);
-    }
-
-    return new TriMesh(format, vbuffer, ibuffer);
-};
-/**
- * 二十面体
- */
-StandardMesh.prototype.icosahedron = function () {
-    const goldenRatio = 0.5 * (1 + _Math.sqrt(5));
-    const invRoot = 1 / _Math.sqrt(1 + goldenRatio * goldenRatio);
-    const u = goldenRatio * invRoot;
-    const v = invRoot;
-
-    const numVertices = 12;
-    const numTriangles = 20;
-    const numIndices = 60;
-    const format = this.format;
-    const stride = format.stride;
-    const usage = this.usage;
-
-    // Create a vertex buffer.
-    var vbuffer = new VertexBuffer(numVertices, stride, usage);
-    var vba = new VertexBufferAccessor$1(this.format, vbuffer);
-
-    // Generate geometry.
-    vba.setPosition(0, [u, v, 0]);
-    vba.setPosition(1, [-u, v, 0]);
-    vba.setPosition(2, [u, -v, 0]);
-    vba.setPosition(3, [-u, -v, 0]);
-    vba.setPosition(4, [v, 0, u]);
-    vba.setPosition(5, [v, 0, -u]);
-    vba.setPosition(6, [-v, 0, u]);
-    vba.setPosition(7, [-v, 0, -u]);
-    vba.setPosition(8, [0, u, v]);
-    vba.setPosition(9, [0, -u, v]);
-    vba.setPosition(10, [0, u, -v]);
-    vba.setPosition(11, [0, -u, -v]);
-
-    this.createPlatonicNormals(vba);
-    this.createPlatonicUVs(vba);
-    this.transformData(vba);
-
-    // Generate indices.
-    var ibuffer = new IndexBuffer$1(numIndices, 4, usage);
-    var indices = new Uint32Array(ibuffer.getData().buffer);
-    indices[0] = 0;
-    indices[1] = 8;
-    indices[2] = 4;
-    indices[3] = 0;
-    indices[4] = 5;
-    indices[5] = 10;
-    indices[6] = 2;
-    indices[7] = 4;
-    indices[8] = 9;
-    indices[9] = 2;
-    indices[10] = 11;
-    indices[11] = 5;
-    indices[12] = 1;
-    indices[13] = 6;
-    indices[14] = 8;
-    indices[15] = 1;
-    indices[16] = 10;
-    indices[17] = 7;
-    indices[18] = 3;
-    indices[19] = 9;
-    indices[20] = 6;
-    indices[21] = 3;
-    indices[22] = 7;
-    indices[23] = 11;
-    indices[24] = 0;
-    indices[25] = 10;
-    indices[26] = 8;
-    indices[27] = 1;
-    indices[28] = 8;
-    indices[29] = 10;
-    indices[30] = 2;
-    indices[31] = 9;
-    indices[32] = 11;
-    indices[33] = 3;
-    indices[34] = 11;
-    indices[35] = 9;
-    indices[36] = 4;
-    indices[37] = 2;
-    indices[38] = 0;
-    indices[39] = 5;
-    indices[40] = 0;
-    indices[41] = 2;
-    indices[42] = 6;
-    indices[43] = 1;
-    indices[44] = 3;
-    indices[45] = 7;
-    indices[46] = 3;
-    indices[47] = 1;
-    indices[48] = 8;
-    indices[49] = 6;
-    indices[50] = 4;
-    indices[51] = 9;
-    indices[52] = 4;
-    indices[53] = 6;
-    indices[54] = 10;
-    indices[55] = 5;
-    indices[56] = 7;
-    indices[57] = 11;
-    indices[58] = 7;
-    indices[59] = 5;
-
-    if (this.inside) {
-        this.reverseTriangleOrder(numTriangles, indices);
-    }
-
-    return new TriMesh(format, vbuffer, ibuffer);
-};
-
-/**
- * @param vba {VertexBufferAccessor}
- */
-StandardMesh.prototype.transformData = function (vba) {
-    if (this.transform.isIdentity()) {
-        return;
-    }
-
-    const numVertices = vba.numVertices;
-    var i, f3, t;
-    for (i = 0; i < numVertices; ++i) {
-        t = vba.getPosition(i);
-        f3 = new Point$1(t);
-        f3 = this.transform.mulPoint(f3);
-        t[0] = f3.x;
-        t[1] = f3.y;
-        t[2] = f3.z;
-    }
-
-    if (this.hasNormals) {
+        const numVertices = vba.numVertices;
+        let i, f3, t;
         for (i = 0; i < numVertices; ++i) {
-            t = vba.getNormal(i);
-            f3 = (new Vector$1(t)).normalize();
-            t[0] = f3.x;
-            t[1] = f3.y;
-            t[2] = f3.z;
+            f3 = new Point$1(vba.getPosition(i));
+            vba.setPosition(i, this.transform.mulPoint(f3));
+        }
+
+        if (this.hasNormals) {
+            for (i = 0; i < numVertices; ++i) {
+                f3 = (new Vector$1(vba.getNormal(i))).normalize();
+                vba.setNormal(i, f3);
+            }
         }
     }
-};
+}
 
-/**
- * TriFan
- *
- * @param format {L5.VertexFormat}
- * @param vertexBuffer {L5.VertexBuffer}
- * @param indexSize {number}
- */
+def(StandardMesh, 'MAX_UNITS', VertexFormat$1.MAX_TCOORD_UNITS);
 
-/**
- * @param format {L5.VertexFormat}
- * @param vertexBuffer {L5.VertexBuffer}
- * @param indexSize {number}
- */
 class TriStrip extends Triangles {
+
+    /**
+     * @param {VertexFormat} format
+     * @param {VertexBuffer} vertexBuffer
+     * @param {number} indexSize
+     */
     constructor(format, vertexBuffer, indexSize) {
         super(Visual.PT_TRISTRIP, format, vertexBuffer, null);
         console.assert(indexSize === 2 || indexSize === 4, 'Invalid index size.');
 
-        var numVertices = this.vertexBuffer.numElements;
+        let numVertices = this.vertexBuffer.numElements;
         this.indexBuffer = new IndexBuffer(numVertices, indexSize);
-        var i, indices;
+        let i, indices;
 
         if (indexSize == 2) {
             indices = new Uint16Array(this.indexBuffer.getData());
@@ -14212,13 +14531,13 @@ class TriStrip extends Triangles {
 
     /**
      * 获取位置I处的三角形索引
-     * @param i {number}
-     * @param output {Array} 3 elements
+     * @param {number} i
+     * @param {Array<number>} output - 3 elements
      * @returns {boolean}
      */
     getTriangle(i, output) {
         if (0 <= i && i < this.getNumTriangles()) {
-            var data = new Uint32Array(this.indexBuffer.getData());
+            let data = new Uint32Array(this.indexBuffer.getData());
             output[0] = data[i];
             if (i & 1) {
                 output[1] = data[i + 2];
@@ -14236,8 +14555,19 @@ class TriStrip extends Triangles {
     }
 }
 
-D3Object.Register('L5.TriStrip', TriStrip.factory);
+D3Object.Register('TriStrip', TriStrip.factory);
 
+/**
+ * The object to which this is attached must be Polypoint or a class derived fromPolypoint.
+ * 
+ * Point motion, in the model space of the system. 
+ * The velocity vectors should be unit length.
+ * In applications where the points represent a rigid body, you might choose the origin of
+ * the system to be the center of mass of the points and the coordinate axes to correspond
+ * to the principal directions of the inertia tensor.
+ * 
+ * @abstract
+ */
 class PointController extends Controller {
     constructor() {
         super();
@@ -14325,7 +14655,7 @@ class PointController extends Controller {
 
     updatePointMotion(ctrlTime) {
         let points = this.object;
-        let vba = VertexBufferAccessor$1.fromVisual(points);
+        let vba = VertexBufferAccessor.fromVisual(points);
 
         const numPoints = points.numPoints;
         let i, distance, pos, deltaTrn;
@@ -14357,8 +14687,9 @@ class PointController extends Controller {
 class SkinController extends Controller {
 
     /**
-     * @param {number} numVertices
-     * @param {number} numBones
+     * The numbers of vertices and bones are fixed for the lifetime of the object.
+     * @param {number} numVertices - numbers of vertices
+     * @param {number} numBones - numbers of bones
      */
     constructor(numVertices = 0, numBones = 0) {
         super();
@@ -14367,34 +14698,23 @@ class SkinController extends Controller {
         this.__init();
     }
 
+    /**
+     * @private
+     */
     __init() {
-        let numBones = this.numBones,
-            numVertices = this.numVertices;
+        const { numBones, numVertices } = this;
         if (numVertices > 0) {
-            /**
-             * @let {Array<Node>}
-             */
-            this.bones = new Array(numBones);
+            this.bones = new Array(numBones);         // bones[numBones]                -> Node
+            this.weights = new Array(numVertices);    // weights[numVertices][numBones] -> number
+            this.offsets = new Array(numVertices);    // offsets[numVertices][numBones] -> Point
 
-            /**
-             * @type {Array< Array<number> >}
-             */
-            this.weights = new Array(numVertices);
-            /**
-             * @type {Array< Array<Point> >}
-             */
-            this.offsets = new Array(numVertices);
-
-            for (let i = 0; i < numVertices; ++i) {
-                this.weights[i] = new Array(numBones);
-                this.offsets[i] = new Array(numBones);
-            }
+            this.weights.fill(new Array(numBones));
+            this.offsets.fill(new Array(numBones));
         }
     }
 
     /**
-     * 动画更新
-     * @param {number} applicationTime 毫秒
+     * @param {number} applicationTime - milliseconds
      * @returns {boolean}
      */
     update(applicationTime) {
@@ -14405,35 +14725,34 @@ class SkinController extends Controller {
         let visual = this.object;
         console.assert(
             this.numVertices === visual.vertexBuffer.numElements,
-            'Controller must have the same number of vertices as the buffer'
+            'SkinController must have the same number of vertices as the vertex buffer.'
         );
 
         let vba = VertexBufferAccessor.fromVisual(visual);
 
-        // 在骨骼的世界坐标系计算蒙皮顶点, 所以visual的worldTransform必须是单位Transform
-        visual.worldTransform = Transform.IDENTITY;
+        // The skin vertices are calculated in the bone world coordinate system,
+        // so the visual's world transform must be the identity.
+        visual.worldTransform = Transform$1.IDENTITY;
         visual.worldTransformIsCurrent = true;
 
-        // 计算蒙皮顶点位置
-        let nv = this.numVertices,
-            nb = this.numBones,
-            vertex, bone, weight, offset, worldOffset, position;
-        for (vertex = 0; vertex < nv; ++vertex) {
-            position = Point.ORIGIN;
-
-            for (bone = 0; bone < nb; ++bone) {
-                weight = this.weights[vertex][bone];
+        // Compute the skin vertex locations.
+        const { numBones, numVertices } = this;
+        let i, j, weight, offset, worldOffset, position;
+        for (i = 0; i < numVertices; ++i) {
+            position = Point$1.ORIGIN;
+            for (j = 0; j < numBones; ++j) {
+                weight = this.weights[i][j];
                 if (weight !== 0) {
-                    offset = this.offsets[vertex][bone];
-                    worldOffset = this.bones[bone].worldTransform.mulPoint(offset);
-                    position = position.add(worldOffset.scalar(weight));
+                    offset = this.offsets[i][j];
+                    worldOffset = this.bones[j].worldTransform.mulPoint(offset);  // bones[j].worldTransform * offset
+                    position.copy(position.add(worldOffset.scalar(weight)));      // position += worldOffset * weight
                 }
             }
-            vba.setPosition(vertex, position);
+            vba.setPosition(i, position);
         }
 
-        visual.updateModelSpace(Visual.GU_NORMALS);
-        Renderer$1.updateAll(visual.vertexBuffer());
+        visual.updateModelSpace(Visual$1.GU_NORMALS);
+        Renderer$1.updateAll(visual.vertexBuffer);
         return true;
     }
 
@@ -14469,41 +14788,15 @@ class SkinController extends Controller {
     }
 }
 
-D3Object.Register('L5.SkinController', SkinController.factory.bind(SkinController));
-
-/**
- * Color 颜色
- * @author lonphy
- * @version 1.0
- */
-
-
-// Same as L5.TEXTURE_FORMAT_QUANTITY
+D3Object.Register('SkinController', SkinController.factory.bind(SkinController));
 
 /**
  * 广告牌节点
  */
 
 /**
- * 全局特效 - 镜像
- *
- * @author lonphy
- * @version 2.0
- *
- * @type {PlanarReflectionEffect}
  * @extends {D3Object}
  */
-
-/**
- * 全局特效 - 平面投影
- *
- * @type {PlanarShadowEffect}
- * @extends {D3Object}
- *
- * @author lonphy
- * @version 2.0
- */
-
 class ShaderFloat extends D3Object {
     /**
      * @param {number} numRegisters
@@ -14595,7 +14888,7 @@ class ShaderFloat extends D3Object {
 /**
  * 相机位置
  */
-class CameraModelPositionConstant$1 extends ShaderFloat{
+class CameraModelPositionConstant extends ShaderFloat{
     constructor() {
         super(1);
         this.allowUpdater = true;
@@ -14614,9 +14907,12 @@ class CameraModelPositionConstant$1 extends ShaderFloat{
     }
 }
 
-D3Object.Register('L5.CameraModelPositionConstant', CameraModelPositionConstant$1.factory);
+D3Object.Register('L5.CameraModelPositionConstant', CameraModelPositionConstant.factory);
 
-class LightAmbientConstant$1 extends ShaderFloat {
+/**
+ * 着色器常量 - 灯光环境光
+ */
+class LightAmbientConstant extends ShaderFloat {
     /**
      * @param {Light} light - 灯光实例
      */
@@ -14659,7 +14955,7 @@ class LightAmbientConstant$1 extends ShaderFloat {
     }
 }
 
-D3Object.Register('LightAmbientConstant', LightAmbientConstant$1.factory);
+D3Object.Register('LightAmbientConstant', LightAmbientConstant.factory);
 
 /**
  * 灯光 - 衰减系数
@@ -14670,7 +14966,7 @@ D3Object.Register('LightAmbientConstant', LightAmbientConstant$1.factory);
  * @type {L5.LightAttenuationConstant}
  * @extends {L5.ShaderFloat}
  */
-class LightAttenuationConstant$1 extends ShaderFloat {
+class LightAttenuationConstant extends ShaderFloat {
 
     /**
      * @param light {L5.Light} 灯光
@@ -14709,12 +15005,12 @@ class LightAttenuationConstant$1 extends ShaderFloat {
     }
 }
 
-D3Object.Register('L5.LightAttenuationConstant', LightAttenuationConstant$1.factory);
+D3Object.Register('L5.LightAttenuationConstant', LightAttenuationConstant.factory);
 
 /**
  * 灯光 - 漫反射分量
  */
-class LightDiffuseConstant$1 extends ShaderFloat {
+class LightDiffuseConstant extends ShaderFloat {
 
     /**
      * @param light {L5.Light}
@@ -14750,13 +15046,13 @@ class LightDiffuseConstant$1 extends ShaderFloat {
     }
 }
 
-D3Object.Register('L5.LightDiffuseConstant', LightDiffuseConstant$1.factory);
+D3Object.Register('L5.LightDiffuseConstant', LightDiffuseConstant.factory);
 
 /**
  * 灯光 - 入射方向向量
  *
  */
-class LightModelDirectionConstant$1 extends ShaderFloat {
+class LightModelDirectionConstant extends ShaderFloat {
 
     /**
      * @param light {Light}
@@ -14795,7 +15091,7 @@ class LightModelDirectionConstant$1 extends ShaderFloat {
     }
 }
 
-D3Object.Register('L5.LightModelDirectionConstant', LightModelDirectionConstant$1.factory);
+D3Object.Register('L5.LightModelDirectionConstant', LightModelDirectionConstant.factory);
 
 /**
  * 灯光 - 光源位置
@@ -14843,7 +15139,7 @@ D3Object.Register('L5.LightModelPositionConstant', LightModelPositionConstant.fa
 /**
  * 灯光 - 高光分量
  */
-class LightSpecularConstant$1 extends ShaderFloat {
+class LightSpecularConstant extends ShaderFloat {
 
     /**
      * @param light {Light}
@@ -14879,7 +15175,7 @@ class LightSpecularConstant$1 extends ShaderFloat {
     }
 }
 
-D3Object.Register('L5.LightSpecularConstant', LightSpecularConstant$1.factory);
+D3Object.Register('L5.LightSpecularConstant', LightSpecularConstant.factory);
 
 /**
  * 灯光 - 聚光灯参数
@@ -15011,7 +15307,7 @@ D3Object.Register('L5.LightWorldPositionConstant', LightWorldPositionConstant.fa
  * 材质环境光系数
  */
 
-class MaterialAmbientConstant$1 extends ShaderFloat {
+class MaterialAmbientConstant extends ShaderFloat {
 
     /**
      * @param material {Material} 材质
@@ -15047,12 +15343,12 @@ class MaterialAmbientConstant$1 extends ShaderFloat {
     }
 }
 
-D3Object.Register('L5.MaterialAmbientConstant', MaterialAmbientConstant$1.factory);
+D3Object.Register('L5.MaterialAmbientConstant', MaterialAmbientConstant.factory);
 
 /**
  * 材质漫反射系数
  */
-class MaterialDiffuseConstant$1 extends ShaderFloat {
+class MaterialDiffuseConstant extends ShaderFloat {
 
     /**
      * @param material {Material} 材质
@@ -15088,12 +15384,12 @@ class MaterialDiffuseConstant$1 extends ShaderFloat {
     }
 }
 
-D3Object.Register('L5.MaterialDiffuseConstant', MaterialDiffuseConstant$1.factory);
+D3Object.Register('L5.MaterialDiffuseConstant', MaterialDiffuseConstant.factory);
 
 /**
  * 材质自发光系数
  */
-class MaterialEmissiveConstant$1 extends ShaderFloat{
+class MaterialEmissiveConstant extends ShaderFloat{
 
     /**
      * @param material {Material} 材质
@@ -15129,12 +15425,12 @@ class MaterialEmissiveConstant$1 extends ShaderFloat{
     }
 }
 
-D3Object.Register('L5.MaterialEmissiveConstant', MaterialEmissiveConstant$1.factory);
+D3Object.Register('L5.MaterialEmissiveConstant', MaterialEmissiveConstant.factory);
 
 /**
  * 材质高光系数
  */
-class MaterialSpecularConstant$1 extends ShaderFloat {
+class MaterialSpecularConstant extends ShaderFloat {
 
     /**
      * @param material {Material} 材质
@@ -15170,7 +15466,7 @@ class MaterialSpecularConstant$1 extends ShaderFloat {
     }
 }
 
-D3Object.Register('L5.MaterialSpecularConstant', MaterialSpecularConstant$1.factory);
+D3Object.Register('L5.MaterialSpecularConstant', MaterialSpecularConstant.factory);
 
 /**
  * 透视视图坐标系矩阵
@@ -15179,7 +15475,7 @@ D3Object.Register('L5.MaterialSpecularConstant', MaterialSpecularConstant$1.fact
 /**
  * 投影-相机-物体 最终矩阵 PVWMatrixConstant
  */
-class PVWMatrixConstant$1 extends ShaderFloat {
+class PVWMatrixConstant extends ShaderFloat {
     constructor() {
         super(4);
         this.allowUpdater = true;
@@ -15193,7 +15489,7 @@ class PVWMatrixConstant$1 extends ShaderFloat {
     }
 }
 
-D3Object.Register('L5.PVWMatrixConstant', PVWMatrixConstant$1.factory);
+D3Object.Register('L5.PVWMatrixConstant', PVWMatrixConstant.factory);
 
 /**
  * 视图坐标系矩阵
@@ -15219,9 +15515,6 @@ class WMatrixConstant extends ShaderFloat {
 }
 D3Object.Register('L5.WMatrixContant', WMatrixConstant.factory.bind(WMatrixConstant));
 
-/**
- * 默认效果着色器
- */
 class DefaultEffect extends VisualEffect {
     constructor() {
         super();
@@ -15250,7 +15543,7 @@ class DefaultEffect extends VisualEffect {
 
     createInstance() {
         var instance = new VisualEffectInstance(this, 0);
-        instance.setVertexConstant(0, 0, new PVWMatrixConstant$1());
+        instance.setVertexConstant(0, 0, new PVWMatrixConstant());
         return instance;
     }
 }
@@ -15261,31 +15554,19 @@ uniform mat4 PVWMatrix;
 layout(location=0) in vec3 modelPosition;
 void main(){
     gl_Position = uPVWMatrix * vec4(modelPosition, 1.0);
-}
-`,
+}`,
     FS: `#version 300 es
 precision highp float;
 out vec4 fragColor;
 void main (void) {
     fragColor = vec4(1.0, 0.0, 1.0, 1.0);
-}
-`
-});
+}`});
 
-/**
- * 只有环境光和发射光的着色器
- *
- * @author lonphy
- * @version 2.0
- *
- * @type {LightAmbEffect}
- * @extends {VisualEffect}
- */
 class LightAmbEffect extends VisualEffect {
 
     constructor() {
         super();
-        var vs = new VertexShader('LightAmbEffectVS', 1, 5);
+        let vs = new VertexShader('LightAmbEffectVS', 1, 5);
         vs.setInput(0, 'modelPosition', Shader.VT_VEC3, Shader.VS_POSITION);
         vs.setConstant(0, 'PVWMatrix', Shader.VT_MAT4);
         vs.setConstant(1, 'MaterialEmissive', Shader.VT_VEC4);
@@ -15294,12 +15575,12 @@ class LightAmbEffect extends VisualEffect {
         vs.setConstant(4, 'LightAttenuation', Shader.VT_VEC4);
         vs.setProgram(LightAmbEffect.VS);
 
-        var fs = new FragShader('LightAmbEffectFS', 1);
+        let fs = new FragShader('LightAmbEffectFS', 1);
         fs.setProgram(LightAmbEffect.FS);
 
-        var program = new Program('LightAmbProgram', vs, fs);
+        let program = new Program('LightAmbProgram', vs, fs);
 
-        var pass = new VisualPass();
+        let pass = new VisualPass();
         pass.program = program;
         pass.alphaState = new AlphaState();
         pass.cullState = new CullState();
@@ -15307,23 +15588,23 @@ class LightAmbEffect extends VisualEffect {
         pass.offsetState = new OffsetState();
         pass.stencilState = new StencilState();
 
-        var technique = new VisualTechnique();
+        let technique = new VisualTechnique();
         technique.insertPass(pass);
         this.insertTechnique(technique);
     }
 
     createInstance(light, material) {
-        var instance = new VisualEffectInstance(this, 0);
-        instance.setVertexConstant(0, 0, new PVWMatrixConstant$1());
-        instance.setVertexConstant(0, 1, new MaterialEmissiveConstant$1(material));
-        instance.setVertexConstant(0, 2, new MaterialAmbientConstant$1(material));
-        instance.setVertexConstant(0, 3, new LightAmbientConstant$1(light));
-        instance.setVertexConstant(0, 4, new LightAttenuationConstant$1(light));
+        let instance = new VisualEffectInstance(this, 0);
+        instance.setVertexConstant(0, 0, new PVWMatrixConstant());
+        instance.setVertexConstant(0, 1, new MaterialEmissiveConstant(material));
+        instance.setVertexConstant(0, 2, new MaterialAmbientConstant(material));
+        instance.setVertexConstant(0, 3, new LightAmbientConstant(light));
+        instance.setVertexConstant(0, 4, new LightAttenuationConstant(light));
         return instance;
     }
 
     static createUniqueInstance(light, material) {
-        var effect = new LightAmbEffect();
+        let effect = new LightAmbEffect();
         return effect.createInstance(light, material);
     }
 }
@@ -15341,27 +15622,15 @@ void main(){
     gl_Position = PVWMatrix * vec4(modelPosition, 1.0);
     vec3 ambient = LightAttenuation.w * LightAmbient;
     vColor = MaterialEmissive + MaterialAmbient * ambient;
-}
-`,
+}`,
     FS: `#version 300 es
 precision highp float;
 in vec3 vColor;
 out vec4 fragColor;
 void main(){
     fragColor = vec4(vColor, 1.0);
-}
-`
-});
+}`});
 
-/**
- * Gouraud 光照效果 (片段Blinn光照)
- *
- * @author lonphy
- * @version 2.0
- *
- * @type {LightDirPerFragEffect}
- * @extends {VisualEffect}
- */
 class LightDirPerFragEffect extends VisualEffect {
 
     constructor() {
@@ -15408,17 +15677,17 @@ class LightDirPerFragEffect extends VisualEffect {
 
     createInstance(light, material) {
         var instance = new VisualEffectInstance(this, 0);
-        instance.setVertexConstant(0, 0, new PVWMatrixConstant$1());
-        instance.setFragConstant(0, 0, new CameraModelPositionConstant$1());
-        instance.setFragConstant(0, 1, new MaterialEmissiveConstant$1(material));
-        instance.setFragConstant(0, 2, new MaterialAmbientConstant$1(material));
-        instance.setFragConstant(0, 3, new MaterialDiffuseConstant$1(material));
-        instance.setFragConstant(0, 4, new MaterialSpecularConstant$1(material));
-        instance.setFragConstant(0, 5, new LightModelDirectionConstant$1(light));
-        instance.setFragConstant(0, 6, new LightAmbientConstant$1(light));
-        instance.setFragConstant(0, 7, new LightDiffuseConstant$1(light));
-        instance.setFragConstant(0, 8, new LightSpecularConstant$1(light));
-        instance.setFragConstant(0, 9, new LightAttenuationConstant$1(light));
+        instance.setVertexConstant(0, 0, new PVWMatrixConstant());
+        instance.setFragConstant(0, 0, new CameraModelPositionConstant());
+        instance.setFragConstant(0, 1, new MaterialEmissiveConstant(material));
+        instance.setFragConstant(0, 2, new MaterialAmbientConstant(material));
+        instance.setFragConstant(0, 3, new MaterialDiffuseConstant(material));
+        instance.setFragConstant(0, 4, new MaterialSpecularConstant(material));
+        instance.setFragConstant(0, 5, new LightModelDirectionConstant(light));
+        instance.setFragConstant(0, 6, new LightAmbientConstant(light));
+        instance.setFragConstant(0, 7, new LightDiffuseConstant(light));
+        instance.setFragConstant(0, 8, new LightSpecularConstant(light));
+        instance.setFragConstant(0, 9, new LightAttenuationConstant(light));
         return instance;
     }
 
@@ -15486,15 +15755,6 @@ void main () {
 
 D3Object.Register('LightDirPerFragEffect', LightDirPerFragEffect.factory);
 
-/**
- * 平行光 光照效果 (顶点Blinn光照)
- *
- * @author lonphy
- * @version 2.0
- *
- * @type {LightDirPerVerEffect}
- * @extends {VisualEffect}
- */
 class LightDirPerVerEffect extends VisualEffect {
 
     constructor() {
@@ -15536,17 +15796,17 @@ class LightDirPerVerEffect extends VisualEffect {
 
     createInstance(light, material) {
         var instance = new VisualEffectInstance(this, 0);
-        instance.setVertexConstant(0, 0, new PVWMatrixConstant$1());
-        instance.setVertexConstant(0, 1, new CameraModelPositionConstant$1());
-        instance.setVertexConstant(0, 2, new MaterialEmissiveConstant$1(material));
-        instance.setVertexConstant(0, 3, new MaterialAmbientConstant$1(material));
-        instance.setVertexConstant(0, 4, new MaterialDiffuseConstant$1(material));
-        instance.setVertexConstant(0, 5, new MaterialSpecularConstant$1(material));
-        instance.setVertexConstant(0, 6, new LightModelDirectionConstant$1(light));
-        instance.setVertexConstant(0, 7, new LightAmbientConstant$1(light));
-        instance.setVertexConstant(0, 8, new LightDiffuseConstant$1(light));
-        instance.setVertexConstant(0, 9, new LightSpecularConstant$1(light));
-        instance.setVertexConstant(0, 10, new LightAttenuationConstant$1(light));
+        instance.setVertexConstant(0, 0, new PVWMatrixConstant());
+        instance.setVertexConstant(0, 1, new CameraModelPositionConstant());
+        instance.setVertexConstant(0, 2, new MaterialEmissiveConstant(material));
+        instance.setVertexConstant(0, 3, new MaterialAmbientConstant(material));
+        instance.setVertexConstant(0, 4, new MaterialDiffuseConstant(material));
+        instance.setVertexConstant(0, 5, new MaterialSpecularConstant(material));
+        instance.setVertexConstant(0, 6, new LightModelDirectionConstant(light));
+        instance.setVertexConstant(0, 7, new LightAmbientConstant(light));
+        instance.setVertexConstant(0, 8, new LightDiffuseConstant(light));
+        instance.setVertexConstant(0, 9, new LightSpecularConstant(light));
+        instance.setVertexConstant(0, 10, new LightAttenuationConstant(light));
         return instance;
     }
 
@@ -15614,26 +15874,17 @@ void main(){
 
 D3Object.Register('L5.LightDirPerVerEffect', LightDirPerVerEffect.factory);
 
-/**
- * 点光源 片元光照效果
- *
- * @author lonphy
- * @version 2.0
- *
- * @type {LightPointPerFragEffect}
- * @extends {VisualEffect}
- */
 class LightPointPerFragEffect extends VisualEffect {
 
     constructor() {
         super();
-        var vshader = new VertexShader('LightPointPerFragVS', 2, 1);
+        let vshader = new VertexShader('LightPointPerFragVS', 2, 1);
         vshader.setInput(0, 'modelPosition', Shader.VT_VEC3, Shader.VS_POSITION);
         vshader.setInput(1, 'modelNormal', Shader.VT_VEC3, Shader.VS_NORMAL);
         vshader.setConstant(0, 'PVWMatrix', Shader.VT_MAT4);
         vshader.setProgram(LightPointPerFragEffect.VS);
 
-        var fshader = new FragShader('LightPointPerFragFS', 0, 11);
+        let fshader = new FragShader('LightPointPerFragFS', 0, 11);
         fshader.setConstant(0, 'WMatrix', Shader.VT_MAT4);
         fshader.setConstant(1, 'CameraModelPosition', Shader.VT_VEC3);
         fshader.setConstant(2, 'MaterialEmissive', Shader.VT_VEC3);
@@ -15647,9 +15898,9 @@ class LightPointPerFragEffect extends VisualEffect {
         fshader.setConstant(10, 'LightAttenuation', Shader.VT_VEC4);
         fshader.setProgram(LightPointPerFragEffect.FS);
 
-        var program = new Program('LightPointPerFragProgram', vshader, fshader);
+        let program = new Program('LightPointPerFragProgram', vshader, fshader);
 
-        var pass = new VisualPass();
+        let pass = new VisualPass();
         pass.program = program;
         pass.alphaState = new AlphaState();
         pass.cullState = new CullState();
@@ -15657,7 +15908,7 @@ class LightPointPerFragEffect extends VisualEffect {
         pass.offsetState = new OffsetState();
         pass.stencilState = new StencilState();
 
-        var technique = new VisualTechnique();
+        let technique = new VisualTechnique();
         technique.insertPass(pass);
         this.insertTechnique(technique);
     }
@@ -15665,25 +15916,25 @@ class LightPointPerFragEffect extends VisualEffect {
     /**
      * 创建点光源顶点光照程序
      *
-     * @param light {Light}
-     * @param material {Material}
+     * @param {Light} light
+     * @param {Material} material
      * @returns {VisualEffectInstance}
      */
     createInstance(light, material) {
-        var instance = new VisualEffectInstance(this, 0);
-        instance.setVertexConstant(0, 0, new PVWMatrixConstant$1());
+        let instance = new VisualEffectInstance(this, 0);
+        instance.setVertexConstant(0, 0, new PVWMatrixConstant());
         instance.setFragConstant(0, 0, new WMatrixConstant());
 
-        instance.setFragConstant(0, 1, new CameraModelPositionConstant$1());
-        instance.setFragConstant(0, 2, new MaterialEmissiveConstant$1(material));
-        instance.setFragConstant(0, 3, new MaterialAmbientConstant$1(material));
-        instance.setFragConstant(0, 4, new MaterialDiffuseConstant$1(material));
-        instance.setFragConstant(0, 5, new MaterialSpecularConstant$1(material));
+        instance.setFragConstant(0, 1, new CameraModelPositionConstant());
+        instance.setFragConstant(0, 2, new MaterialEmissiveConstant(material));
+        instance.setFragConstant(0, 3, new MaterialAmbientConstant(material));
+        instance.setFragConstant(0, 4, new MaterialDiffuseConstant(material));
+        instance.setFragConstant(0, 5, new MaterialSpecularConstant(material));
         instance.setFragConstant(0, 6, new LightModelPositionConstant(light));
-        instance.setFragConstant(0, 7, new LightAmbientConstant$1(light));
-        instance.setFragConstant(0, 8, new LightDiffuseConstant$1(light));
-        instance.setFragConstant(0, 9, new LightSpecularConstant$1(light));
-        instance.setFragConstant(0, 10, new LightAttenuationConstant$1(light));
+        instance.setFragConstant(0, 7, new LightAmbientConstant(light));
+        instance.setFragConstant(0, 8, new LightDiffuseConstant(light));
+        instance.setFragConstant(0, 9, new LightSpecularConstant(light));
+        instance.setFragConstant(0, 10, new LightAttenuationConstant(light));
         return instance;
     }
 
@@ -15692,12 +15943,12 @@ class LightPointPerFragEffect extends VisualEffect {
      *
      * 注意: 应避免使用该函数多次, 因为WebGL的program实例数量有限
      *
-     * @param light {Light}
-     * @param material {Material}
+     * @param {Light} light
+     * @param {Material} material
      * @returns {VisualEffectInstance}
      */
     static createUniqueInstance(light, material) {
-        var effect = new LightPointPerFragEffect();
+        let effect = new LightPointPerFragEffect();
         return effect.createInstance(light, material);
     }
 
@@ -15712,7 +15963,7 @@ class LightPointPerFragEffect extends VisualEffect {
 
     postLink() {
         super.postLink();
-        var pass = this.techniques[0].getPass(0);
+        let pass = this.techniques[0].getPass(0);
         pass.program.vertexShader.setProgram(LightPointPerFragEffect.VertexSource);
         pass.program.fragShader.setProgram(LightPointPerFragEffect.FragSource);
         this.techniques = this.___;
@@ -15778,27 +16029,15 @@ void main(){
     }
     fragColor.rgb = MaterialEmissive + t * color;
     fragColor.a = MaterialDiffuse.a;
-}
-`
-});
+}`});
 
+D3Object.Register('LightPointPerFragEffect', LightPointPerFragEffect.factory.bind(LightPointPerFragEffect));
 
-D3Object.Register('L5.LightPointPerFragEffect', LightPointPerFragEffect.factory);
-
-/**
- * 点光源 顶点光照效果 (顶点Blinn光照)
- *
- * @author lonphy
- * @version 2.0
- *
- * @type {LightPointPerVertexEffect}
- * @extends {VisualEffect}
- */
 class LightPointPerVertexEffect extends VisualEffect {
 
     constructor() {
         super();
-        var vshader = new VertexShader('LightPointPerVertexVS', 2, 12);
+        let vshader = new VertexShader('LightPointPerVertexVS', 2, 12);
         vshader.setInput(0, 'modelPosition', Shader.VT_VEC3, Shader.VS_POSITION);
         vshader.setInput(1, 'modelNormal', Shader.VT_VEC3, Shader.VS_NORMAL);
         vshader.setConstant(0, 'PVWMatrix', Shader.VT_MAT4);
@@ -15813,14 +16052,14 @@ class LightPointPerVertexEffect extends VisualEffect {
         vshader.setConstant(9, 'LightDiffuse', Shader.VT_VEC3);
         vshader.setConstant(10, 'LightSpecular', Shader.VT_VEC3);
         vshader.setConstant(11, 'LightAttenuation', Shader.VT_VEC4);
-        vshader.setProgram(LightPointPerVertexEffect.VertexSource);
+        vshader.setProgram(LightPointPerVertexEffect.VS);
 
-        var fshader = new FragShader('LightPointPerVertexFS');
-        fshader.setProgram(LightPointPerVertexEffect.FragSource);
+        let fshader = new FragShader('LightPointPerVertexFS');
+        fshader.setProgram(LightPointPerVertexEffect.FS);
 
-        var program = new Program('LightPointPerVertexProgram', vshader, fshader);
+        let program = new Program('LightPointPerVertexProgram', vshader, fshader);
 
-        var pass = new VisualPass();
+        let pass = new VisualPass();
         pass.program = program;
         pass.alphaState = new AlphaState();
         pass.cullState = new CullState();
@@ -15828,7 +16067,7 @@ class LightPointPerVertexEffect extends VisualEffect {
         pass.offsetState = new OffsetState();
         pass.stencilState = new StencilState();
 
-        var technique = new VisualTechnique();
+        let technique = new VisualTechnique();
         technique.insertPass(pass);
         this.insertTechnique(technique);
     }
@@ -15836,24 +16075,24 @@ class LightPointPerVertexEffect extends VisualEffect {
     /**
      * 创建点光源顶点光照程序
      *
-     * @param light {Light}
-     * @param material {Material}
+     * @param {Light} light
+     * @param {Material} material
      * @returns {VisualEffectInstance}
      */
     createInstance(light, material) {
-        var instance = new VisualEffectInstance(this, 0);
-        instance.setVertexConstant(0, 0, new PVWMatrixConstant$1());
+        let instance = new VisualEffectInstance(this, 0);
+        instance.setVertexConstant(0, 0, new PVWMatrixConstant());
         instance.setVertexConstant(0, 1, new WMatrixConstant());
-        instance.setVertexConstant(0, 2, new CameraModelPositionConstant$1());
-        instance.setVertexConstant(0, 3, new MaterialEmissiveConstant$1(material));
-        instance.setVertexConstant(0, 4, new MaterialAmbientConstant$1(material));
-        instance.setVertexConstant(0, 5, new MaterialDiffuseConstant$1(material));
-        instance.setVertexConstant(0, 6, new MaterialSpecularConstant$1(material));
+        instance.setVertexConstant(0, 2, new CameraModelPositionConstant());
+        instance.setVertexConstant(0, 3, new MaterialEmissiveConstant(material));
+        instance.setVertexConstant(0, 4, new MaterialAmbientConstant(material));
+        instance.setVertexConstant(0, 5, new MaterialDiffuseConstant(material));
+        instance.setVertexConstant(0, 6, new MaterialSpecularConstant(material));
         instance.setVertexConstant(0, 7, new LightModelPositionConstant(light));
-        instance.setVertexConstant(0, 8, new LightAmbientConstant$1(light));
-        instance.setVertexConstant(0, 9, new LightDiffuseConstant$1(light));
-        instance.setVertexConstant(0, 10, new LightSpecularConstant$1(light));
-        instance.setVertexConstant(0, 11, new LightAttenuationConstant$1(light));
+        instance.setVertexConstant(0, 8, new LightAmbientConstant(light));
+        instance.setVertexConstant(0, 9, new LightDiffuseConstant(light));
+        instance.setVertexConstant(0, 10, new LightSpecularConstant(light));
+        instance.setVertexConstant(0, 11, new LightAttenuationConstant(light));
         return instance;
     }
 
@@ -15862,12 +16101,12 @@ class LightPointPerVertexEffect extends VisualEffect {
      *
      * 注意: 应避免使用该函数多次, 因为WebGL的program实例数量有限
      *
-     * @param light {Light}
-     * @param material {Material}
+     * @param {Light} light
+     * @param {Material} material
      * @returns {VisualEffectInstance}
      */
     static createUniqueInstance(light, material) {
-        var effect = new LightPointPerVertexEffect();
+        let effect = new LightPointPerVertexEffect();
         return effect.createInstance(light, material);
     }
 
@@ -15882,7 +16121,7 @@ class LightPointPerVertexEffect extends VisualEffect {
 
     postLink() {
         super.postLink.call(this);
-        var pass = this.techniques[0].getPass(0);
+        let pass = this.techniques[0].getPass(0);
         pass.program.vertexShader.setProgram(LightPointPerVertexEffect.VertexSource);
         pass.program.fragShader.setProgram(LightPointPerVertexEffect.FragSource);
         this.techniques = this.___;
@@ -15931,28 +16170,17 @@ void main(){
     }
     vColor = vec4(MaterialEmissive + t*color, MaterialDiffuse.a);
     gl_Position = PVWMatrix * vec4(modelPosition, 1.0);
-}
-`,
+}`,
     FS: `#version 300 es
 precision highp float;
 in vec4 vColor;
 out vec4 fragColor;
 void main() {
     fragColor = vColor;
-}
-`
-});
+}`});
 
-D3Object.Register('L5.LightPointPerVertexEffect', LightPointPerVertexEffect.factory);
+D3Object.Register('LightPointPerVertexEffect', LightPointPerVertexEffect.factory);
 
-/**
- * 聚光灯 片元光照效果
- * @class
- * @extends {VisualEffect}
- *
- * @author lonphy
- * @version 2.0
- */
 class LightSpotPerFragEffect extends VisualEffect {
 
     constructor() {
@@ -16005,20 +16233,20 @@ class LightSpotPerFragEffect extends VisualEffect {
      */
     createInstance(light, material) {
         var instance = new VisualEffectInstance(this, 0);
-        instance.setVertexConstant(0, 0, new PVWMatrixConstant$1());
+        instance.setVertexConstant(0, 0, new PVWMatrixConstant());
         instance.setFragConstant(0, 0, new WMatrixConstant());
-        instance.setFragConstant(0, 1, new CameraModelPositionConstant$1());
-        instance.setFragConstant(0, 2, new MaterialEmissiveConstant$1(material));
-        instance.setFragConstant(0, 3, new MaterialAmbientConstant$1(material));
-        instance.setFragConstant(0, 4, new MaterialDiffuseConstant$1(material));
-        instance.setFragConstant(0, 5, new MaterialSpecularConstant$1(material));
+        instance.setFragConstant(0, 1, new CameraModelPositionConstant());
+        instance.setFragConstant(0, 2, new MaterialEmissiveConstant(material));
+        instance.setFragConstant(0, 3, new MaterialAmbientConstant(material));
+        instance.setFragConstant(0, 4, new MaterialDiffuseConstant(material));
+        instance.setFragConstant(0, 5, new MaterialSpecularConstant(material));
         instance.setFragConstant(0, 6, new LightModelPositionConstant(light));
-        instance.setFragConstant(0, 7, new LightModelDirectionConstant$1(light));
-        instance.setFragConstant(0, 8, new LightAmbientConstant$1(light));
-        instance.setFragConstant(0, 9, new LightDiffuseConstant$1(light));
-        instance.setFragConstant(0, 10, new LightSpecularConstant$1(light));
+        instance.setFragConstant(0, 7, new LightModelDirectionConstant(light));
+        instance.setFragConstant(0, 8, new LightAmbientConstant(light));
+        instance.setFragConstant(0, 9, new LightDiffuseConstant(light));
+        instance.setFragConstant(0, 10, new LightSpecularConstant(light));
         instance.setFragConstant(0, 11, new LightSpotConstant(light));
-        instance.setFragConstant(0, 12, new LightAttenuationConstant$1(light));
+        instance.setFragConstant(0, 12, new LightAttenuationConstant(light));
         return instance;
     }
 
@@ -16095,15 +16323,6 @@ DECLARE_ENUM(LightSpotPerFragEffect, {
     ].join('\n')
 });
 
-/**
- * 聚光灯 顶点光照效果
- *
- * @author lonphy
- * @version 2.0
- *
- * @type {LightSpotPerVertexEffect}
- * @extends {VisualEffect}
- */
 class LightSpotPerVertexEffect extends VisualEffect {
     constructor() {
         super();
@@ -16147,26 +16366,26 @@ class LightSpotPerVertexEffect extends VisualEffect {
     /**
      * 创建点光源顶点光照程序
      *
-     * @param light {Light}
-     * @param material {Material}
+     * @param {Light} light
+     * @param {Material} material
      * @returns {VisualEffectInstance}
      */
     createInstance(light, material) {
         var instance = new VisualEffectInstance(this, 0);
-        instance.setVertexConstant(0, 0, new PVWMatrixConstant$1());
+        instance.setVertexConstant(0, 0, new PVWMatrixConstant());
         instance.setVertexConstant(0, 1, new WMatrixConstant());
-        instance.setVertexConstant(0, 2, new CameraModelPositionConstant$1());
-        instance.setVertexConstant(0, 3, new MaterialEmissiveConstant$1(material));
-        instance.setVertexConstant(0, 4, new MaterialAmbientConstant$1(material));
-        instance.setVertexConstant(0, 5, new MaterialDiffuseConstant$1(material));
-        instance.setVertexConstant(0, 6, new MaterialSpecularConstant$1(material));
+        instance.setVertexConstant(0, 2, new CameraModelPositionConstant());
+        instance.setVertexConstant(0, 3, new MaterialEmissiveConstant(material));
+        instance.setVertexConstant(0, 4, new MaterialAmbientConstant(material));
+        instance.setVertexConstant(0, 5, new MaterialDiffuseConstant(material));
+        instance.setVertexConstant(0, 6, new MaterialSpecularConstant(material));
         instance.setVertexConstant(0, 7, new LightModelPositionConstant(light));
-        instance.setVertexConstant(0, 8, new LightModelDirectionConstant$1(light));
-        instance.setVertexConstant(0, 9, new LightAmbientConstant$1(light));
-        instance.setVertexConstant(0, 10, new LightDiffuseConstant$1(light));
-        instance.setVertexConstant(0, 11, new LightSpecularConstant$1(light));
+        instance.setVertexConstant(0, 8, new LightModelDirectionConstant(light));
+        instance.setVertexConstant(0, 9, new LightAmbientConstant(light));
+        instance.setVertexConstant(0, 10, new LightDiffuseConstant(light));
+        instance.setVertexConstant(0, 11, new LightSpecularConstant(light));
         instance.setVertexConstant(0, 12, new LightSpotConstant(light));
-        instance.setVertexConstant(0, 13, new LightAttenuationConstant$1(light));
+        instance.setVertexConstant(0, 13, new LightAttenuationConstant(light));
         return instance;
     }
 
@@ -16175,8 +16394,8 @@ class LightSpotPerVertexEffect extends VisualEffect {
      *
      * 注意: 应避免使用该函数多次, 因为WebGL的program实例数量有限
      *
-     * @param light {Light}
-     * @param material {Material}
+     * @param {Light} light
+     * @param {Material} material
      * @returns {VisualEffectInstance}
      */
     static createUniqueInstance(light, material) {
@@ -16230,33 +16449,30 @@ void main(){
     }
     vColor = vec4(MaterialEmissive + attr*color, MaterialDiffuse.a);
     gl_Position = PVWMatrix * vec4(modelPosition, 1.0);
-}
-`,
+}`,
     FS: `#version 300 es
 precision highp float;
 in vec4 vColor;
 out vec4 fragColor;
 void main() {
     fragColor = vColor;
-}
-`
-});
+}`});
 
 /**
  * 材质效果着色器
  */
-class MaterialEffect$1 extends VisualEffect {
+class MaterialEffect extends VisualEffect {
     constructor() {
         super();
 
         var vs = new VertexShader('MaterialVS', 1, 1);
         vs.setInput(0, 'modelPosition', Shader.VT_VEC3, Shader.VS_POSITION);
         vs.setConstant(0, 'PVWMatrix', Shader.VT_MAT4);
-        vs.setProgram(MaterialEffect$1.VS);
+        vs.setProgram(MaterialEffect.VS);
 
         var fs = new FragShader('MaterialFS', 0, 1);
         fs.setConstant(0, 'MaterialDiffuse', Shader.VT_VEC4);
-        fs.setProgram(MaterialEffect$1.FS);
+        fs.setProgram(MaterialEffect.FS);
 
         var program = new Program('MaterialProgram', vs, fs);
         var pass = new VisualPass();
@@ -16277,8 +16493,8 @@ class MaterialEffect$1 extends VisualEffect {
      */
     createInstance(material) {
         var instance = new VisualEffectInstance(this, 0);
-        instance.setVertexConstant(0, 0, new PVWMatrixConstant$1());
-        instance.setFragConstant(0, 0, new MaterialDiffuseConstant$1(material));
+        instance.setVertexConstant(0, 0, new PVWMatrixConstant());
+        instance.setFragConstant(0, 0, new MaterialDiffuseConstant(material));
         return instance;
     }
 
@@ -16287,28 +16503,25 @@ class MaterialEffect$1 extends VisualEffect {
      * @returns {VisualEffectInstance}
      */
     static createUniqueInstance(material) {
-        var effect = new MaterialEffect$1();
+        var effect = new MaterialEffect();
         return effect.createInstance(material);
     }
 }
 
-DECLARE_ENUM(MaterialEffect$1, {
+DECLARE_ENUM(MaterialEffect, {
     VS: `#version 300 es
 uniform mat4 PVWMatrix;
 layout(location=0) in vec3 modelPosition;
 void main(){
     gl_Position = PVWMatrix * vec4(modelPosition, 1.0);
-}
-`,
+}`,
     FS: `#version 300 es
 precision highp float;
 uniform vec4 MaterialDiffuse;
 out vec4 fragColor;
 void main(){
     fragColor = MaterialDiffuse;
-}
-`
-});
+}`});
 
 class Texture2DEffect$1 extends VisualEffect {
     /**
@@ -16328,13 +16541,13 @@ class Texture2DEffect$1 extends VisualEffect {
             coordinate1 = Shader.SC_CLAMP_EDGE;
         }
 
-        var vshader = new VertexShader('Texture2DVS', 2, 1, 0);
+        let vshader = new VertexShader('Texture2DVS', 2, 1, 0);
         vshader.setInput(0, 'modelPosition', Shader.VT_VEC3, Shader.VS_POSITION);
         vshader.setInput(1, 'modelTCoord0', Shader.VT_VEC2, Shader.VS_TEXCOORD0);
         vshader.setConstant(0, 'PVWMatrix', Shader.VT_MAT4);
         vshader.setProgram(Texture2DEffect$1.VS);
 
-        var fshader = new FragShader('Texture2DFS', 0, 0, 1);
+        let fshader = new FragShader('Texture2DFS', 0, 0, 1);
         fshader.setSampler(0, 'BaseSampler', Shader.ST_2D);
         fshader.setFilter(0, filter);
         fshader.setCoordinate(0, 0, coordinate0);
@@ -16342,9 +16555,9 @@ class Texture2DEffect$1 extends VisualEffect {
         fshader.setTextureUnit(0, Texture2DEffect$1.FragTextureUnit);
         fshader.setProgram(Texture2DEffect$1.FS);
 
-        var program = new Program('Texture2DProgram', vshader, fshader);
+        let program = new Program('Texture2DProgram', vshader, fshader);
 
-        var pass = new VisualPass();
+        let pass = new VisualPass();
         pass.program = program;
         pass.alphaState = new AlphaState();
         pass.cullState = new CullState();
@@ -16352,7 +16565,7 @@ class Texture2DEffect$1 extends VisualEffect {
         pass.offsetState = new OffsetState();
         pass.stencilState = new StencilState();
 
-        var technique = new VisualTechnique();
+        let technique = new VisualTechnique();
         technique.insertPass(pass);
         this.insertTechnique(technique);
     }
@@ -16374,11 +16587,11 @@ class Texture2DEffect$1 extends VisualEffect {
      * @return {VisualEffectInstance}
      */
     createInstance(texture) {
-        var instance = new VisualEffectInstance(this, 0);
-        instance.setVertexConstant(0, 0, new PVWMatrixConstant$1());
+        let instance = new VisualEffectInstance(this, 0);
+        instance.setVertexConstant(0, 0, new PVWMatrixConstant());
         instance.setFragTexture(0, 0, texture);
 
-        var filter = this.getFragShader().getFilter(0);
+        let filter = this.getFragShader().getFilter(0);
         if (filter !== Shader.SF_NEAREST && filter != Shader.SF_LINEAR && !texture.hasMipmaps) {
             texture.upload();
         }
@@ -16389,15 +16602,15 @@ class Texture2DEffect$1 extends VisualEffect {
     /**
      * Convenience for creating an instance.  The application does not have to
      * create the effect explicitly in order to create an instance from it.
-     * @param texture {Texture2D}
-     * @param filter {number}
-     * @param coordinate0 {number}
-     * @param coordinate1 {number}
+     * @param {Texture2D} texture
+     * @param {number} filter
+     * @param {number} coordinate0
+     * @param {number} coordinate1
      * @returns {VisualEffectInstance}
      */
     static createUniqueInstance(texture, filter, coordinate0, coordinate1) {
-        var effect = new Texture2DEffect$1();
-        var fshader = effect.getFragShader();
+        let effect = new Texture2DEffect$1();
+        let fshader = effect.getFragShader();
         fshader.setFilter(0, filter);
         fshader.setCoordinate(0, 0, coordinate0);
         fshader.setCoordinate(0, 1, coordinate1);
@@ -16415,8 +16628,7 @@ out vec2 vTCoord;
 void main () {
     gl_Position = PVWMatrix * vec4(modelPosition, 1.0);
     vTCoord = modelTCoord0;
-}
-`,
+}`,
     FS: `#version 300 es
 precision highp float;
 uniform sampler2D BaseSampler;
@@ -16424,33 +16636,23 @@ in vec2 vTCoord;
 out vec4 fragColor;
 void main (void) {
     fragColor = texture(BaseSampler, vTCoord);
-}
-`});
+}`});
 
-/**
- * 颜色缓冲 - 效果
- *
- * @author lonphy
- * @version 2.0
- *
- * @type {VertexColor3Effect}
- * @extends {VisualEffect}
- */
 class VertexColor3Effect extends VisualEffect {
     constructor() {
         super();
-        var vs = new VertexShader('VertexColor3VS', 2, 1);
+        let vs = new VertexShader('VertexColor3VS', 2, 1);
         vs.setInput(0, 'modelPosition', Shader.VT_VEC3, Shader.VS_POSITION);
         vs.setInput(0, 'modelColor', Shader.VT_VEC3, Shader.VS_COLOR0);
         vs.setConstant(0, 'PVWMatrix', Shader.VT_MAT4);
         vs.setProgram(VertexColor3Effect.VS);
 
-        var fs = new FragShader('VertexColor3FS');
+        let fs = new FragShader('VertexColor3FS');
         fs.setProgram(VertexColor3Effect.FS);
 
-        var program = new Program('VertexColor3Program', vs, fs);
+        let program = new Program('VertexColor3Program', vs, fs);
 
-        var pass = new VisualPass();
+        let pass = new VisualPass();
         pass.program = program;
         pass.alphaState = new AlphaState();
         pass.cullState = new CullState();
@@ -16458,19 +16660,19 @@ class VertexColor3Effect extends VisualEffect {
         pass.offsetState = new OffsetState();
         pass.stencilState = new StencilState();
 
-        var technique = new VisualTechnique();
+        let technique = new VisualTechnique();
         technique.insertPass(pass);
         this.insertTechnique(technique);
     }
 
     createInstance() {
-        var instance = new VisualEffectInstance(this, 0);
-        instance.setVertexConstant(0, 0, new PVWMatrixConstant$1());
+        let instance = new VisualEffectInstance(this, 0);
+        instance.setVertexConstant(0, 0, new PVWMatrixConstant());
         return instance;
     }
 
     static createUniqueInstance() {
-        var effect = new VertexColor3Effect();
+        let effect = new VertexColor3Effect();
         return effect.createInstance();
     }
 }
@@ -16486,41 +16688,35 @@ void main(){
     gl_Position = PVWMatrix * vec4(modelPosition, 1.0);
     vertexColor = modelColor0;
     gl_PointSize = modelPointSize;
-}
-`,
+}`,
     FS: `#version 300 es
 precision highp float;
 in vec3 vertexColor;
 out vec4 fragColor;
 void main () {
     fragColor = vec4(vertexColor, 1.0);
-}
-`
-});
+}`});
 
-/**
- * 平行光Gouraud 光照+漫射纹理效果 (片段Blinn光照)
- */
 class Texture2DLightDirPerFragEffect extends VisualEffect {
 
     /**
-     * @param filter {number} 纹理格式， 参考Shader.SF_XXX
-     * @param coordinate0 {number} 相当于宽度 参考Shader.SC_XXX
-     * @param coordinate1 {number} 相当于高度 参考Shader.SC_XXX
+     * @param {number} filter - 纹理格式， 参考Shader.SF_XXX
+     * @param {number} coordinate0 - 相当于宽度 参考Shader.SC_XXX
+     * @param {number} coordinate1 - 相当于高度 参考Shader.SC_XXX
      */
     constructor(filter = Shader.SF_NEAREST,
         coordinate0 = Shader.SC_CLAMP_EDGE,
         coordinate1 = Shader.SC_CLAMP_EDGE) {
         super();
 
-        var vshader = new VertexShader('Texture2DLightDirPerFragVS', 3, 1);
+        let vshader = new VertexShader('Texture2DLightDirPerFragVS', 3, 1);
         vshader.setInput(0, 'modelPosition', Shader.VT_VEC3, Shader.VS_POSITION);
         vshader.setInput(1, 'modelNormal', Shader.VT_VEC3, Shader.VS_NORMAL);
         vshader.setInput(2, 'modelTCoord0', Shader.VT_VEC2, Shader.VS_TEXCOORD0);
         vshader.setConstant(0, 'PVWMatrix', Shader.VT_MAT4);
         vshader.setProgram(Texture2DLightDirPerFragEffect.VS);
 
-        var fshader = new FragShader('Texture2DLightDirPerFragFS', 0, 10, 1);
+        let fshader = new FragShader('Texture2DLightDirPerFragFS', 0, 10, 1);
         fshader.setConstant(0, 'CameraModelPosition', Shader.VT_VEC3);
         fshader.setConstant(1, 'MaterialEmissive', Shader.VT_VEC3);
         fshader.setConstant(2, 'MaterialAmbient', Shader.VT_VEC3);
@@ -16540,9 +16736,9 @@ class Texture2DLightDirPerFragEffect extends VisualEffect {
 
         fshader.setProgram(Texture2DLightDirPerFragEffect.FS);
 
-        var program = new Program('TextureLightDirPerFragProgram', vshader, fshader);
+        let program = new Program('TextureLightDirPerFragProgram', vshader, fshader);
 
-        var pass = new VisualPass();
+        let pass = new VisualPass();
         pass.program = program;
         pass.alphaState = new AlphaState();
         pass.cullState = new CullState();
@@ -16550,15 +16746,15 @@ class Texture2DLightDirPerFragEffect extends VisualEffect {
         pass.offsetState = new OffsetState();
         pass.stencilState = new StencilState();
 
-        var technique = new VisualTechnique();
+        let technique = new VisualTechnique();
         technique.insertPass(pass);
         this.insertTechnique(technique);
     }
 
     static createUniqueInstance(texture, light, material) {
-        var effect = new Texture2DLightDirPerFragEffect();
+        let effect = new Texture2DLightDirPerFragEffect();
 
-        var fshader = effect.getFragShader();
+        let fshader = effect.getFragShader();
         fshader.setFilter(0, filter);
         fshader.setCoordinate(0, 0, coordinate0);
         fshader.setCoordinate(0, 1, coordinate1);
@@ -16566,7 +16762,7 @@ class Texture2DLightDirPerFragEffect extends VisualEffect {
     }
 
     createInstance(texture, light, material) {
-        var instance = new VisualEffectInstance(this, 0);
+        let instance = new VisualEffectInstance(this, 0);
         instance.setVertexConstant(0, 0, new PVWMatrixConstant());
         instance.setFragConstant(0, 0, new CameraModelPositionConstant());
         instance.setFragConstant(0, 1, new MaterialEmissiveConstant(material));
@@ -16581,7 +16777,7 @@ class Texture2DLightDirPerFragEffect extends VisualEffect {
 
         instance.setFragTexture(0, 0, texture);
 
-        var filter = this.getFragShader(0, 0).getFilter(0);
+        let filter = this.getFragShader(0, 0).getFilter(0);
         if (filter !== Shader.SF_NEAREST && filter != Shader.SF_LINEAR && !texture.hasMipmaps) {
             texture.generateMipmaps();
         }
@@ -16604,8 +16800,7 @@ void main(){
     vertexNormal = modelNormal;
     vTCoord0 = modelTCoord0;
     gl_Position = PVWMatrix * vec4(modelPosition, 1.0);
-}
-`,
+}`,
     FS: `#version 300 es
 precision highp float;
 uniform vec3 CameraModelPosition;
@@ -16638,8 +16833,7 @@ void main () {
     }
     color = color * LightAttenuation.w + MaterialEmissive;
     fragColor = vec4(color, MaterialDiffuse.a);
-}
-`});
+}`});
 
 /**
  * 按键定义
@@ -16724,31 +16918,23 @@ const MS_LEFT = 1;
 
 const MS_RIGHT = 3;
 
-/**
- * 默认应用核心类
- *
- * @version 1.0
- * @author lonphy
- *
- * @type BaseApplication
- */
 class BaseApplication {
     /**
-     * @param title {string} 应用名称
-     * @param width {number} 绘制区域宽度
-     * @param height {number} 绘制区域高度
-     * @param clearColor {Float32Array} 背景颜色
-     * @param canvas {string} 需要渲染的CanvasID
+     * @param {string} title - 应用名称
+     * @param {number} width - 绘制区域宽度
+     * @param {number} height - 绘制区域高度
+     * @param {Float32Array} clearColor - 背景颜色
+     * @param {string} canvas - 需要渲染的CanvasID
      */
     constructor(title, width, height, clearColor, canvas) {
         BaseApplication._instance = this;
-        var renderDOM = document.getElementById(canvas);
+        let renderDOM = document.getElementById(canvas);
         renderDOM = renderDOM || document.createElement('canvas');
 
         renderDOM.width = width;
         renderDOM.height = height;
 
-        this.title = title; // 实例名称
+        this.title = title;
         this.width = width;
         this.height = height;
         this.clearColor = clearColor;
@@ -16795,7 +16981,7 @@ class BaseApplication {
             this.colorFormat, this.depthStencilFormat, this.numMultisamples);
 
 
-        var handles = BaseApplication.handles;
+        let handles = BaseApplication.handles;
         // TODO : 事件回调定义
         window.addEventListener('resize', handles.ResizeHandler, false);
         window.addEventListener('keydown', handles.KeyDownHandler, false);
@@ -16809,8 +16995,8 @@ class BaseApplication {
         this.onPreIdle();
 
         this.applicationRun = true;
-        var $this = this;
-        var loopFunc = function () {
+        let $this = this;
+        let loopFunc = function () {
             if (!$this.applicationRun) {
                 $this.onTerminate();
                 delete $this.renderer;
@@ -16839,8 +17025,8 @@ class BaseApplication {
 
         // accumulate the time only when the miniature time allows it
         if (--this.timer === 0) {
-            var currentTime = Date.now();
-            var dDelta = currentTime - this.lastTime;
+            let currentTime = Date.now();
+            let dDelta = currentTime - this.lastTime;
             this.lastTime = currentTime;
             this.accumulatedTime += dDelta;
             this.accumulatedFrameCount += this.frameCount;
@@ -16983,15 +17169,15 @@ class BaseApplication {
              * @param evt {Event}
              */
             ResizeHandler: evt => {
-                var ins = this.instance;
+                let ins = this.instance;
                 if (ins) {
                     ins.onResize(window.innerWidth, window.innerHeight);
                 }
             },
 
             KeyDownHandler: evt => {
-                var key$$1 = evt.keyCode;
-                var ins = this.instance;
+                let key$$1 = evt.keyCode;
+                let ins = this.instance;
                 if (ins) {
                     if (key$$1 === KB_ESC && evt.ctrlKey) {
                         ins.onTerminate();
@@ -17002,8 +17188,8 @@ class BaseApplication {
                 }
             },
             KeyUpHandler: evt => {
-                var key$$1 = evt.keyCode;
-                var ins = this.instance;
+                let key$$1 = evt.keyCode;
+                let ins = this.instance;
                 if (ins) {
                     ins.onKeyUp(key$$1, this.mX, this.mY);
                     ins.onSpecialKeyUp(key$$1, this.mX, this.mY);
@@ -17015,7 +17201,7 @@ class BaseApplication {
                 this.mY = evt.y;
             },
             MouseHandler: evt => {
-                var ins = this.instance;
+                let ins = this.instance;
                 if (ins) {
                     this.gModifyButton = evt.ctrlKey;
                     if (evt.state === 'down') {
@@ -17027,13 +17213,13 @@ class BaseApplication {
                 }
             },
             MotionHandler: (x, y) => {
-                var ins = this.instance;
+                let ins = this.instance;
                 if (ins) {
                     ins.onMotion(this.gButton, x, y, this.gModifyButton);
                 }
             },
             PassiveMotionHandler: (x, y) => {
-                var ins = this.instance;
+                let ins = this.instance;
                 if (ins) {
                     ins.onPassiveMotion(x, y);
                 }
@@ -17042,27 +17228,23 @@ class BaseApplication {
     }
 }
 
-/**
- * 3D应用实现类
- *
- * @author lonphy
- * @version 1.0
- **/
 class Application3D extends BaseApplication {
+    /**
+     * @param {string} title
+     * @param {number} width
+     * @param {number} height
+     * @param {ArrayLike<number>} clearColor
+     * @param {string} canvas - canvas's DOM id
+     */
     constructor(title, width, height, clearColor, canvas) {
         super(title, width, height, clearColor, canvas);
         this.camera = null;
-
-        this.worldAxis = [
-            Vector$1.ZERO,
-            Vector$1.ZERO,
-            Vector$1.ZERO
-        ];
+        this.worldAxis = [Vector$1.ZERO, Vector$1.ZERO, Vector$1.ZERO];
 
         this.trnSpeed = 0;
-        this.trnSpeedFactor = 0;
+        this.trnSpeedFactor = 2;
         this.rotSpeed = 0;
-        this.rotSpeedFactor = 0;
+        this.rotSpeedFactor = 2;
 
         this.UArrowPressed = false;
         this.DArrowPressed = false;
@@ -17076,9 +17258,7 @@ class Application3D extends BaseApplication {
         this.DeletePressed = false;
         this.cameraMoveable = false;
 
-        /**
-         * @type {Spatial}
-         */
+        /** @type {Spatial} */
         this.motionObject = null;
         this.doRoll = 0;
         this.doYaw = 0;
@@ -17087,23 +17267,20 @@ class Application3D extends BaseApplication {
         this.xTrack1 = 0;
         this.yTrack0 = 0;
         this.yTrack1 = 0;
-        /**
-         * @type {Matrix}
-         */
+        /** @type {Matrix} */
         this.saveRotate = null;
         this.useTrackBall = true;
         this.trackBallDown = false;
     }
 
     /**
-     * @param motionObject {Spatial}
+     * @param {Spatial} motionObject
      */
-    initializeObjectMotion (motionObject) {
+    initializeObjectMotion(motionObject) {
         this.motionObject = motionObject;
     }
 
-
-    moveObject () {
+    moveObject() {
         // The coordinate system in which the rotations are applied is that of
         // the object's parent, if it has one.  The parent's world rotation
         // matrix is R, of which the columns are the coordinate axis directions.
@@ -17117,7 +17294,7 @@ class Application3D extends BaseApplication {
         //
         // Roll is about the "direction" axis, yaw is about the "up" axis, and
         // pitch is about the "right" axis.
-        var motionObject = this.motionObject;
+        let motionObject = this.motionObject;
 
         if (!this.cameraMoveable || !motionObject) {
             return false;
@@ -17129,11 +17306,11 @@ class Application3D extends BaseApplication {
         }
 
         // Check if the object has been moved by the function keys.
-        var parent = motionObject.parent;
-        var axis = Vector$1.ZERO;
-        var angle;
-        var rot, incr;
-        var rotSpeed = this.rotSpeed;
+        let parent = motionObject.parent;
+        let axis = Vector$1.ZERO;
+        let angle;
+        let rot, incr;
+        let rotSpeed = this.rotSpeed;
 
         if (this.doRoll) {
             rot = motionObject.localTransform.getRotate();
@@ -17192,15 +17369,14 @@ class Application3D extends BaseApplication {
         return false;
     }
 
-
-    rotateTrackBall (x0, y0, x1, y1) {
+    rotateTrackBall(x0, y0, x1, y1) {
         if ((x0 === x1 && y0 === y1) || !this.camera) {
             // Nothing to rotate.
             return;
         }
 
         // Get the first vector on the sphere.
-        var length = _Math.sqrt(x0 * x0 + y0 * y0), invLength, z0, z1;
+        let length = _Math.sqrt(x0 * x0 + y0 * y0), invLength, z0, z1;
         if (length > 1) {
             // Outside the unit disk, project onto it.
             invLength = 1 / length;
@@ -17216,7 +17392,7 @@ class Application3D extends BaseApplication {
         z0 = -z0;
 
         // Use camera world coordinates, order is (D,U,R), so point is (z,y,x).
-        var vec0 = new Vector$1(z0, y0, x0);
+        let vec0 = new Vector$1(z0, y0, x0);
 
         // Get the second vector on the sphere.
         length = _Math.sqrt(x1 * x1 + y1 * y1);
@@ -17235,12 +17411,12 @@ class Application3D extends BaseApplication {
         z1 = -z1;
 
         // Use camera world coordinates, order is (D,U,R), so point is (z,y,x).
-        var vec1 = new Vector$1(z1, y1, x1);
+        let vec1 = new Vector$1(z1, y1, x1);
 
         // Create axis and angle for the rotation.
-        var axis = vec0.cross(vec1);
-        var dot = vec0.dot(vec1);
-        var angle;
+        let axis = vec0.cross(vec1);
+        let dot = vec0.dot(vec1);
+        let angle;
         if (axis.normalize() > _Math.ZERO_TOLERANCE) {
             angle = _Math.acos(dot);
         }
@@ -17264,14 +17440,12 @@ class Application3D extends BaseApplication {
         // Compute the world rotation matrix implied by trackball motion.  The
         // axis vector was computed in camera coordinates.  It must be converted
         // to world coordinates.  Once again, I use the camera ordering (D,U,R).
-        var worldAxis = this.camera.direction.scalar(axis.x).add(
+        let worldAxis = this.camera.direction.scalar(axis.x).add(
             this.camera.up.scalar(axis.y).add(
                 this.camera.right.scalar(axis.z)
             )
         );
-
-
-        var trackRotate = new Matrix$1(worldAxis, angle);
+        let trackRotate = new Matrix$1(worldAxis, angle);
 
         // Compute the new local rotation.  If the object is the root of the
         // scene, the new rotation is simply the *incremental rotation* of the
@@ -17279,10 +17453,10 @@ class Application3D extends BaseApplication {
         // local rotation.  If the object is not the root of the scene, you have
         // to convert the incremental rotation by a change of basis in the
         // parent's coordinate space.
-        var parent = this.motionObject.parent;
-        var localRot;
+        let parent = this.motionObject.parent;
+        let localRot;
         if (parent) {
-            var parWorRotate = parent.worldTransform.GetRotate();
+            let parWorRotate = parent.worldTransform.GetRotate();
             localRot = parWorRotate.transposeTimes(trackRotate) * parWorRotate * this.saveRotate;
         }
         else {
@@ -17293,20 +17467,18 @@ class Application3D extends BaseApplication {
     }
 
     /**
-     * 初始化相机运动参数
-     *
-     * @param trnSpeed {float} 移动速度
-     * @param rotSpeed {float} 旋转速度
-     * @param trnSpeedFactor {float} 移动速度变化因子 默认为2
-     * @param rotSpeedFactor {float} 旋转速度变化因子 默认为2
+     * @param {number} trnSpeed - move speed
+     * @param {number} rotSpeed - rotate speed /rad
+     * @param {number} trnSpeedFactor - move speed factor, default = 2
+     * @param {number} rotSpeedFactor - rotate speed factor, default = 2
      */
-    initializeCameraMotion (trnSpeed, rotSpeed, trnSpeedFactor, rotSpeedFactor) {
+    initializeCameraMotion(trnSpeed, rotSpeed, trnSpeedFactor = 2, rotSpeedFactor = 2) {
         this.cameraMoveable = true;
 
         this.trnSpeed = trnSpeed;
         this.rotSpeed = rotSpeed;
-        this.trnSpeedFactor = trnSpeedFactor || 2;
-        this.rotSpeedFactor = rotSpeedFactor || 2;
+        this.trnSpeedFactor = trnSpeedFactor;
+        this.rotSpeedFactor = rotSpeedFactor;
 
         this.worldAxis[0] = this.camera.direction;
         this.worldAxis[1] = this.camera.up;
@@ -17318,12 +17490,12 @@ class Application3D extends BaseApplication {
      *
      * @returns {boolean}
      */
-    moveCamera () {
+    moveCamera() {
         if (!this.cameraMoveable) {
             return false;
         }
 
-        var moved = false;
+        let moved = false;
 
         if (this.UArrowPressed) {
             this.moveForward();
@@ -17378,80 +17550,79 @@ class Application3D extends BaseApplication {
         return moved;
     }
 
-
-    moveForward () {
-        var pos = this.camera.position;
-        var t = this.worldAxis[0].scalar(this.trnSpeed);
+    moveForward() {
+        let pos = this.camera.position;
+        let t = this.worldAxis[0].scalar(this.trnSpeed);
         this.camera.setPosition(pos.sub(t));
     }
 
-    moveBackward () {
-        var pos = this.camera.position;
-        var t = this.worldAxis[0].scalar(this.trnSpeed);
+    moveBackward() {
+        let pos = this.camera.position;
+        let t = this.worldAxis[0].scalar(this.trnSpeed);
         this.camera.setPosition(pos.add(t));
     }
 
-    moveUp () {
-        var pos = this.camera.position;
-        var t = this.worldAxis[1].scalar(this.trnSpeed);
+    moveUp() {
+        let pos = this.camera.position;
+        let t = this.worldAxis[1].scalar(this.trnSpeed);
         this.camera.setPosition(pos.sub(t));
     }
 
-    moveDown () {
-        var pos = this.camera.position;
-        var t = this.worldAxis[1].scalar(this.trnSpeed);
+    moveDown() {
+        let pos = this.camera.position;
+        let t = this.worldAxis[1].scalar(this.trnSpeed);
         this.camera.setPosition(pos.add(t));
     }
 
-    moveLeft () {
-        var pos = this.camera.position;
-        var t = this.worldAxis[2].scalar(this.trnSpeed);
+    moveLeft() {
+        let pos = this.camera.position;
+        let t = this.worldAxis[2].scalar(this.trnSpeed);
         this.camera.setPosition(pos.sub(t));
     }
 
-    moveRight () {
-        var pos = this.camera.position;
-        var t = this.worldAxis[2].scalar(this.trnSpeed);
+    moveRight() {
+        let pos = this.camera.position;
+        let t = this.worldAxis[2].scalar(this.trnSpeed);
         this.camera.setPosition(pos.add(t));
     }
 
-    turnLeft () {
-        var incr = Matrix$1.makeRotation(this.worldAxis[1], -this.rotSpeed);
+    turnLeft() {
+        let incr = Matrix$1.makeRotation(this.worldAxis[1], -this.rotSpeed);
         this.worldAxis[0] = incr.mulPoint(this.worldAxis[0]);
         this.worldAxis[2] = incr.mulPoint(this.worldAxis[2]);
-        var camera = this.camera;
-        var dir = incr.mulPoint(camera.direction);
-        var up = incr.mulPoint(camera.up);
-        var right = incr.mulPoint(camera.right);
+        let camera = this.camera;
+        let dir = incr.mulPoint(camera.direction);
+        let up = incr.mulPoint(camera.up);
+        let right = incr.mulPoint(camera.right);
         this.camera.setAxes(dir, up, right);
     }
 
-    turnRight () {
-        var incr = Matrix$1.makeRotation(this.worldAxis[1], this.rotSpeed);
+    turnRight() {
+        let incr = Matrix$1.makeRotation(this.worldAxis[1], this.rotSpeed);
         this.worldAxis[0] = incr.mulPoint(this.worldAxis[0]);
         this.worldAxis[2] = incr.mulPoint(this.worldAxis[2]);
-        var camera = this.camera;
-        var dVector = incr.mulPoint(camera.direction);
-        var uVector = incr.mulPoint(camera.up);
-        var rVector = incr.mulPoint(camera.right);
+        let camera = this.camera;
+        let dVector = incr.mulPoint(camera.direction);
+        let uVector = incr.mulPoint(camera.up);
+        let rVector = incr.mulPoint(camera.right);
         this.camera.setAxes(dVector, uVector, rVector);
     }
 
-    lookUp () {
-        var incr = Matrix$1.makeRotation(this.worldAxis[2], -this.rotSpeed);
-        var camera = this.camera;
-        var dVector = incr.mulPoint(camera.direction);
-        var uVector = incr.mulPoint(camera.up);
-        var rVector = incr.mulPoint(camera.right);
+    lookUp() {
+        let incr = Matrix$1.makeRotation(this.worldAxis[2], -this.rotSpeed);
+        let camera = this.camera;
+        let dVector = incr.mulPoint(camera.direction);
+        let uVector = incr.mulPoint(camera.up);
+        let rVector = incr.mulPoint(camera.right);
         this.camera.setAxes(dVector, uVector, rVector);
     }
 
-    lookDown () {
-        var incr = Matrix$1.makeRotation(this.worldAxis[2], this.rotSpeed);
-        var camera = this.camera;
-        var dVector = incr.mulPoint(camera.direction);
-        var uVector = incr.mulPoint(camera.up);
-        var rVector = incr.mulPoint(camera.right);
+    lookDown() {
+        let incr = Matrix$1.makeRotation(this.worldAxis[2], this.rotSpeed);
+        let camera = this.camera;
+        let dVector = incr.mulPoint(camera.direction);
+        let uVector = incr.mulPoint(camera.up);
+        let rVector = incr.mulPoint(camera.right);
         this.camera.setAxes(dVector, uVector, rVector);
     }
 
@@ -17460,7 +17631,7 @@ class Application3D extends BaseApplication {
      * @param isPerspective {Boolean} 透视相机
      * @returns {boolean}
      */
-    onInitialize (isPerspective=true) {
+    onInitialize(isPerspective = true) {
         if (!super.onInitialize()) {
             return false;
         }
@@ -17470,11 +17641,11 @@ class Application3D extends BaseApplication {
         return true;
     }
 
-    onKeyDown (key, x, y) {
+    onKeyDown(key, x, y) {
         if (super.onKeyDown(key, x, y)) {
             return true;
         }
-        var cameraMoveable = this.cameraMoveable;
+        let cameraMoveable = this.cameraMoveable;
 
         switch (key) {
             case KB_1:  // Slower camera translation.
@@ -17502,7 +17673,7 @@ class Application3D extends BaseApplication {
         return false;
     }
 
-    onSpecialKeyDown (key, x, y) {
+    onSpecialKeyDown(key, x, y) {
         if (this.cameraMoveable) {
             switch (key) {
                 case KB_LEFT:
@@ -17546,7 +17717,7 @@ class Application3D extends BaseApplication {
         return false;
     }
 
-    onSpecialKeyUp (key, x, y) {
+    onSpecialKeyUp(key, x, y) {
         if (this.cameraMoveable) {
             if (key === KB_LEFT) {
                 this.LArrowPressed = false;
@@ -17596,16 +17767,16 @@ class Application3D extends BaseApplication {
         return false;
     }
 
-    onMouseClick (button, state, x, y, modifiers) {
-        var width = this.width;
-        var height = this.height;
+    onMouseClick(button, state, x, y, modifiers) {
+        let width = this.width;
+        let height = this.height;
         if (!this.useTrackBall ||
             button !== MS_LEFT || !this.motionObject
         ) {
             return false;
         }
 
-        var mult = 1 / (width >= height ? height : width);
+        let mult = 1 / (width >= height ? height : width);
 
         if (state === MS_RIGHT) {
             // Get the starting point.
@@ -17621,18 +17792,18 @@ class Application3D extends BaseApplication {
         return true;
     }
 
-    onMotion (button, x, y, modifiers) {
+    onMotion(button, x, y, modifiers) {
         if (
             !this.useTrackBall ||
             button !== MS_LEFT || !this.trackBallDown || !this.motionObject
         ) {
             return false;
         }
-        var width = this.width;
-        var height = this.height;
+        let width = this.width;
+        let height = this.height;
 
         // Get the ending point.
-        var mult = 1 / (width >= height ? height : width);
+        let mult = 1 / (width >= height ? height : width);
         this.xTrack1 = (2 * x - width) * mult;
         this.yTrack1 = (2 * (height - 1 - y) - height) * mult;
 
@@ -17648,6 +17819,8 @@ class Application3D extends BaseApplication {
     }
 }
 
+const APP_PATH = location.pathname.replace(/[^\/]+$/, ''); // 获取应用程序路径
+
 class PointLightController extends PointController {
     constructor() {
         super();
@@ -17656,7 +17829,7 @@ class PointLightController extends PointController {
     }
 
     updatePointMotion() {
-        let vba = VertexBufferAccessor$1.fromVisual(this.object);
+        let vba = VertexBufferAccessor.fromVisual(this.object);
         let pos = vba.getPosition(0);
 
         this.angle++;
@@ -17730,7 +17903,7 @@ class Lights extends Application3D {
 
         // Initial update of objects.
         this.scene.update();
-        this.scene.culling = Spatial$1.CULLING_NEVER;
+        this.scene.culling = Spatial.CULLING_NEVER;
 
         // Initial culling of scene,
         this.sceneCuller = new Culler(this.camera);
@@ -17773,7 +17946,7 @@ class Lights extends Application3D {
         // this.lights[0] = l;
 
         // 点光源
-        l = new Light$1(Light$1.LT_POINT);
+        l = new Light(Light.LT_POINT);
         l.ambient.set([0.2, 0.2, 0.2, 1]);
         l.diffuse.set([0.8, 0.8, 0.8, 1]);
         l.specular.set([1, 1, 1, 1]);
@@ -17798,18 +17971,18 @@ class Lights extends Application3D {
         this.createLightsController();
 
         //  地板材质
-        let m1 = new Material$1({
+        let m1 = new Material({
             ambient: [0.2, 0.2, 0.2],
             diffuse: [0.4, 0.3, 0.4]
         });
 
         // 球体材质
-        let m2 = new Material$1({
+        let m2 = new Material({
             emissive: [0, 0.08, 0.05],
             ambient: [0.24725, 0.2245, 0.2645],
             diffuse: [0.2, 0.8, 0.8]
         });
-        let m3 = new Material$1({
+        let m3 = new Material({
             ambient: [0.3, 0.1, 0.1],
             diffuse: [0.8, 0.3, 0.4],
             specular: [0.9, 0.6, 0.7],
@@ -17857,7 +18030,7 @@ class Lights extends Application3D {
         this.sphere1 = std.torus(48, 32, 3, 1);
         this.sphere1.localTransform.setTranslate(new Point$1(6, 4, 0));
         this.sphere1.effect = this.effects.right[2];
-        this.sphere1.culling = Spatial$1.CULLING_NEVER;
+        this.sphere1.culling = Spatial.CULLING_NEVER;
         this.scene.attachChild(this.sphere1);
     }
 
@@ -17871,8 +18044,8 @@ class Lights extends Application3D {
         const stride = format.stride;
         const usage = format.usage;
 
-        let vbo = new VertexBuffer(1, stride, Buffer$1.BU_DYNAMIC);
-        let vba = new VertexBufferAccessor$1(format, vbo);
+        let vbo = new VertexBuffer(1, stride, Buffer.BU_DYNAMIC);
+        let vba = new VertexBufferAccessor(format, vbo);
         vba.setPosition(0, this.lights[1].position);
         vba.setColor(0, 0, this.lights[1].diffuse);
         vba.setPointSize(0, 3);
@@ -17881,7 +18054,7 @@ class Lights extends Application3D {
         this.ptc = new PointLightController();
         this.points.attachController(this.ptc);
         this.points.effect = VertexColor3Effect.createUniqueInstance();
-        this.points.culling = Spatial$1.CULLING_NEVER;
+        this.points.culling = Spatial.CULLING_NEVER;
         this.scene.attachChild(this.points);
     }
 }

@@ -1,10 +1,4 @@
-/**
- * Transform
- *
- * @author lonphy
- * @version 2.0
- */
-import {_Math, Matrix, Point}from '../../math/index'
+import { Matrix, Point } from '../../math/index';
 
 /**
  * 变换用公式 Y= M*X+T 表示:  
@@ -26,7 +20,7 @@ import {_Math, Matrix, Point}from '../../math/index'
  *
  * 构造默认是个单位变换
  */
-export class Transform {
+class Transform {
     constructor() {
         // The full 4x4 homogeneous matrix H = {{M,T},{0,1}} and its inverse
         // H^{-1} = {M^{-1},-M^{-1}*T},{0,1}}.  The inverse is computed only
@@ -47,6 +41,22 @@ export class Transform {
         this._isRSMatrix = true;
         this._isUniformScale = true;
         this._inverseNeedsUpdate = false;
+    }
+
+    /**
+     * depth copy a Transform
+     * @param {Transform} transform 
+     */
+    copy(transform) {
+        this.__matrix.copy(transform.__matrix);
+        this._invMatrix.copy(transform._invMatrix);
+        this._matrix.copy(transform._matrix);
+        this._scale.copy(transform._scale);
+        this._translate.copy(transform._translate);
+        this._isIdentity = transform._isIdentity;
+        this._isRSMatrix = transform._isRSMatrix;
+        this._isUniformScale = transform._isUniformScale;
+        this._inverseNeedsUpdate = transform._inverseNeedsUpdate;
     }
 
     /**
@@ -75,7 +85,6 @@ export class Transform {
     }
 
     /**
-     * I
      * @returns {boolean}
      */
     isIdentity() {
@@ -113,7 +122,7 @@ export class Transform {
     //     GetInverse is called, the inverse must be computed in this case and
     //     the inverse-needs-update is reset to false.
     /**
-     * @param rotate {Matrix}
+     * @param {Matrix} rotate
      */
     setRotate(rotate) {
         this._matrix.copy(rotate);
@@ -124,19 +133,21 @@ export class Transform {
     }
 
     /**
-     * @param matrix {Matrix}
+     * @param {Matrix} matrix
      */
     setMatrix(matrix) {
         this._matrix.copy(matrix);
         this._isIdentity = false;
         this._isRSMatrix = false;
         this._isUniformScale = false;
-        this._updateMatrix();
+        this._inverseNeedsUpdate = true;
+        this._translate.copy([matrix[12], matrix[13], matrix[14]]);
+        this.__matrix.copy(matrix);
         return this;
     }
 
     /**
-     * @param translate {Point}
+     * @param {Point} translate
      */
     setTranslate(translate) {
         this._translate.copy(translate);
@@ -146,7 +157,7 @@ export class Transform {
     }
 
     /**
-     * @param scale {Point}
+     * @param {Point} scale
      */
     setScale(scale) {
         console.assert(this._isRSMatrix, 'Matrix is not a rotation');
@@ -159,7 +170,7 @@ export class Transform {
     }
 
     /**
-     * @param scale {number}
+     * @param {number} scale
      */
     setUniformScale(scale) {
         console.assert(this._isRSMatrix, 'Matrix is not a rotation');
@@ -219,9 +230,9 @@ export class Transform {
      * @returns {number}
      */
     getNorm() {
-        const abs = _Math.abs;
+        const abs = Math.abs;
         if (this._isRSMatrix) {
-            var maxValue = abs(this._scale[0]);
+            let maxValue = abs(this._scale[0]);
             if (abs(this._scale[1]) > maxValue) {
                 maxValue = abs(this._scale[1]);
             }
@@ -235,14 +246,14 @@ export class Transform {
         // norm (the maximum absolute value of the eigenvalues) is smaller or
         // equal to this norm.  Therefore, this function returns an approximation
         // to the maximum scale.
-        var m = this._matrix;
-        var maxRowSum = abs(m.item(0, 0)) + abs(m.item(0, 1)) + abs(m.item(0, 2));
-        var rowSum = abs(m.item(1, 0)) + abs(m.item(1, 1)) + abs(m.item(1, 2));
+        let m = this._matrix;
+        let maxRowSum = abs(m[0]) + abs(m[4]) + abs(m[8]);
+        let rowSum = abs(m[1]) + abs(m[5]) + abs(m[9]);
 
         if (rowSum > maxRowSum) {
             maxRowSum = rowSum;
         }
-        rowSum = abs(m.item(2, 0)) + abs(m.item(2, 1)) + abs(m.item(2, 2));
+        rowSum = abs(m[2]) + abs(m[6]) + abs(m[10]);
         if (rowSum > maxRowSum) {
             maxRowSum = rowSum;
         }
@@ -251,7 +262,7 @@ export class Transform {
     }
 
     /**
-     * @param p {Point|Vector}
+     * @param {Point|Vector} p
      * Matrix-point/vector 乘法, M*p.
      */
     mulPoint(p) {
@@ -260,7 +271,7 @@ export class Transform {
 
     /**
      * Matrix-matrix multiplication.
-     * @param transform {Transform}
+     * @param {Transform} transform
      * @returns {Transform}
      */
     mul(transform) {
@@ -272,11 +283,11 @@ export class Transform {
             return this;
         }
         const IsRS = this._isRSMatrix;
-        var product = new Transform();
+        let product = new Transform();
 
         if (IsRS && transform.isRSMatrix()) {
             if (this._isUniformScale) {
-                var scale0 = this._scale[0];
+                let scale0 = this._scale[0];
                 product.setRotate(this._matrix.mul(transform.getMatrix()));
 
                 product.setTranslate(
@@ -296,8 +307,8 @@ export class Transform {
         }
 
         // In all remaining cases, the matrix cannot be written as R*S*X+T.
-        var matMA = (IsRS ? this._matrix.timesDiagonal(this._scale) : this._matrix);
-        var matMB = (
+        let matMA = (IsRS ? this._matrix.timesDiagonal(this._scale) : this._matrix);
+        let matMB = (
             transform.isRSMatrix() ?
                 transform.getMatrix().timesDiagonal(transform.getScale()) :
                 transform.getMatrix()
@@ -331,54 +342,49 @@ export class Transform {
             return this._invMatrix;
         }
 
-        var im = this._invMatrix,
+        let im = this._invMatrix,
             m = this._matrix;
 
         if (this._isRSMatrix) {
-            var s0 = this._scale[0],
-                s1 = this._scale[1],
-                s2 = this._scale[2];
-
+            let [s0, s1, s2] = this._scale;
             if (this._isUniformScale) {
-                var invScale = 1 / s0;
-                im.setItem(0, 0, invScale * m.item(0, 0));
-                im.setItem(0, 1, invScale * m.item(1, 0));
-                im.setItem(0, 2, invScale * m.item(2, 0));
-                im.setItem(1, 0, invScale * m.item(0, 1));
-                im.setItem(1, 1, invScale * m.item(1, 1));
-                im.setItem(1, 2, invScale * m.item(2, 1));
-                im.setItem(2, 0, invScale * m.item(0, 2));
-                im.setItem(2, 1, invScale * m.item(1, 2));
-                im.setItem(2, 2, invScale * m.item(2, 2));
+                let invScale = 1 / s0;
+                im[0] = invScale * m[0];
+                im[4] = invScale * m[1];
+                im[8] = invScale * m[2];
+                im[1] = invScale * m[4];
+                im[5] = invScale * m[5];
+                im[9] = invScale * m[6];
+                im[2] = invScale * m[8];
+                im[6] = invScale * m[9];
+                im[10] = invScale * m[10];
             } else {
                 // Replace 3 reciprocals by 6 multiplies and 1 reciprocal.
-                var s01 = s0 * s1;
-                var s02 = s0 * s2;
-                var s12 = s1 * s2;
-                var invs012 = 1 / (s01 * s2);
-                var invS0 = s12 * invs012;
-                var invS1 = s02 * invs012;
-                var invS2 = s01 * invs012;
-                im.setItem(0, 0, invS0 * m.item(0, 0));
-                im.setItem(0, 1, invS0 * m.item(1, 0));
-                im.setItem(0, 2, invS0 * m.item(2, 0));
-                im.setItem(1, 0, invS1 * m.item(0, 1));
-                im.setItem(1, 1, invS1 * m.item(1, 1));
-                im.setItem(1, 2, invS1 * m.item(2, 1));
-                im.setItem(2, 0, invS2 * m.item(0, 2));
-                im.setItem(2, 1, invS2 * m.item(1, 2));
-                im.setItem(2, 2, invS2 * m.item(2, 2));
+                let s01 = s0 * s1;
+                let s02 = s0 * s2;
+                let s12 = s1 * s2;
+                let invs012 = 1 / (s01 * s2);
+                let invS0 = s12 * invs012;
+                let invS1 = s02 * invs012;
+                let invS2 = s01 * invs012;
+                im[0] = invS0 * m[0];
+                im[4] = invS0 * m[1];
+                im[8] = invS0 * m[2];
+                im[1] = invS1 * m[4];
+                im[5] = invS1 * m[5];
+                im[9] = invS1 * m[6];
+                im[2] = invS2 * m[8];
+                im[6] = invS2 * m[9];
+                im[10] = invS2 * m[10];
             }
         } else {
             Transform.invert3x3(this.__matrix, im);
         }
 
-        var t0 = this._translate[0],
-            t1 = this._translate[1],
-            t2 = this._translate[2];
-        im.setItem(0, 3, -(im.item(0, 0) * t0 + im.item(0, 1) * t1 + im.item(0, 2) * t2));
-        im.setItem(1, 3, -(im.item(1, 0) * t0 + im.item(1, 1) * t1 + im.item(1, 2) * t2));
-        im.setItem(2, 3, -(im.item(2, 0) * t0 + im.item(2, 1) * t1 + im.item(2, 2) * t2));
+        let [t0, t1, t2] = this._translate;
+        im[12] = -(im[0] * t0 + im[4] * t1 + im[8] * t2);
+        im[13] = -(im[1] * t0 + im[5] * t1 + im[9] * t2);
+        im[14] = -(im[2] * t0 + im[6] * t1 + im[10] * t2);
 
         this._inverseNeedsUpdate = false;
         return this._invMatrix;
@@ -395,17 +401,17 @@ export class Transform {
             return Transform.IDENTITY;
         }
 
-        var inverse = new Transform();
-        var invTrn = Point.ORIGIN;
+        let inverse = new Transform();
+        let invTrn = Point.ORIGIN;
 
         if (this._isRSMatrix) {
-            var invRot = this._matrix.transpose();
-            var invScale;
+            let invRot = this._matrix.transpose();
+            let invScale;
             inverse.setRotate(invRot);
             if (this._isUniformScale) {
                 invScale = 1 / this._scale[0];
                 inverse.setUniformScale(invScale);
-                invTrn = invRot.mulPoint(this._translate).scalar(-invScale);
+                invTrn.copy(invRot.mulPoint(this._translate).scalar(-invScale));
             }
             else {
                 invScale = new Point(1 / this._scale[0], 1 / this._scale[1], 1 / this._scale[2]);
@@ -417,10 +423,10 @@ export class Transform {
             }
         }
         else {
-            var invMat = new Matrix();
+            let invMat = new Matrix();
             Transform.invert3x3(this._matrix, invMat);
             inverse.setMatrix(invMat);
-            invTrn = invMat.mulPoint(this._translate).negative();
+            invTrn.copy(invMat.mulPoint(this._translate).negative());
         }
         inverse.setTranslate(invTrn);
 
@@ -434,42 +440,34 @@ export class Transform {
      */
     _updateMatrix() {
         if (this._isIdentity) {
-            this.__matrix = Matrix.IDENTITY;
-        }
-        else {
-            var mm = this.__matrix;
-            var m = this._matrix;
-
+            this.__matrix.identity();
+        } else {
+            let mm = this.__matrix;
+            const m = this._matrix;
             if (this._isRSMatrix) {
-                var s0 = this._scale[0],
-                    s1 = this._scale[1],
-                    s2 = this._scale[2];
-
-                mm.setItem(0, 0, m.item(0, 0) * s0);
-                mm.setItem(0, 1, m.item(0, 1) * s1);
-                mm.setItem(0, 2, m.item(0, 2) * s2);
-                mm.setItem(1, 0, m.item(1, 0) * s0);
-                mm.setItem(1, 1, m.item(1, 1) * s1);
-                mm.setItem(1, 2, m.item(1, 2) * s2);
-                mm.setItem(2, 0, m.item(2, 0) * s0);
-                mm.setItem(2, 1, m.item(2, 1) * s1);
-                mm.setItem(2, 2, m.item(2, 2) * s2);
+                let [s0, s1, s2] = this._scale;
+                mm[0] = m[0] * s0;
+                mm[4] = m[4] * s1;
+                mm[8] = m[8] * s2;
+                mm[1] = m[1] * s0;
+                mm[5] = m[5] * s1;
+                mm[9] = m[9] * s2;
+                mm[2] = m[2] * s0;
+                mm[6] = m[6] * s1;
+                mm[10] = m[10] * s2;
             }
             else {
-                mm.setItem(0, 0, m.item(0, 0));
-                mm.setItem(0, 1, m.item(0, 1));
-                mm.setItem(0, 2, m.item(0, 2));
-                mm.setItem(1, 0, m.item(1, 0));
-                mm.setItem(1, 1, m.item(1, 1));
-                mm.setItem(1, 2, m.item(1, 2));
-                mm.setItem(2, 0, m.item(2, 0));
-                mm.setItem(2, 1, m.item(2, 1));
-                mm.setItem(2, 2, m.item(2, 2));
+                mm[0] = m[0];
+                mm[1] = m[1];
+                mm[2] = m[2];
+                mm[4] = m[4];
+                mm[5] = m[5];
+                mm[6] = m[6];
+                mm[8] = m[8];
+                mm[9] = m[9];
+                mm[10] = m[10];
             }
-
-            mm.setItem(0, 3, this._translate[0]);
-            mm.setItem(1, 3, this._translate[1]);
-            mm.setItem(2, 3, this._translate[2]);
+            [mm[12], mm[13], mm[14]] = this._translate;
 
             // The last row of mm is always (0,0,0,1) for an affine
             // transformation, so it is set once in the constructor.  It is not
@@ -481,42 +479,40 @@ export class Transform {
 
     /**
      * Invert the 3x3 upper-left block of the input matrix.
-     * @param mat {Matrix}
-     * @param invMat {Matrix}
+     * @param {Matrix} mat
+     * @param {Matrix} invMat
      * @private
      */
     static invert3x3(mat, invMat) {
         // Compute the adjoint of M (3x3).
-        invMat.setItem(0, 0, mat.item(1, 1) * mat.item(2, 2) - mat.item(1, 2) * mat.item(2, 1));
-        invMat.setItem(0, 1, mat.item(0, 2) * mat.item(2, 1) - mat.item(0, 1) * mat.item(2, 2));
-        invMat.setItem(0, 2, mat.item(0, 1) * mat.item(1, 2) - mat.item(0, 2) * mat.item(1, 1));
-        invMat.setItem(1, 0, mat.item(1, 2) * mat.item(2, 0) - mat.item(1, 0) * mat.item(2, 2));
-        invMat.setItem(1, 1, mat.item(0, 0) * mat.item(2, 2) - mat.item(0, 2) * mat.item(2, 0));
-        invMat.setItem(1, 2, mat.item(0, 2) * mat.item(1, 0) - mat.item(0, 0) * mat.item(1, 2));
-        invMat.setItem(2, 0, mat.item(1, 0) * mat.item(2, 1) - mat.item(1, 1) * mat.item(2, 0));
-        invMat.setItem(2, 1, mat.item(0, 1) * mat.item(2, 0) - mat.item(0, 0) * mat.item(2, 1));
-        invMat.setItem(2, 2, mat.item(0, 0) * mat.item(1, 1) - mat.item(0, 1) * mat.item(1, 0));
+        invMat[0] = mat[5] * mat[10] - mat[9] * mat[6];
+        invMat[4] = mat[8] * mat[6] - mat[4] * mat[10];
+        invMat[8] = mat[4] * mat[9] - mat[8] * mat[5];
+        invMat[1] = mat[9] * mat[2] - mat[1] * mat[10];
+        invMat[5] = mat[0] * mat[10] - mat[8] * mat[2];
+        invMat[9] = mat[8] * mat[1] - mat[0] * mat[9];
+        invMat[2] = mat[1] * mat[6] - mat[5] * mat[2];
+        invMat[6] = mat[4] * mat[2] - mat[0] * mat[6];
+        invMat[10] = mat[0] * mat[5] - mat[4] * mat[1];
 
         // Compute the reciprocal of the determinant of M.
-        var invDet = 1 / (
-                mat.item(0, 0) * invMat.item(0, 0) +
-                mat.item(0, 1) * invMat.item(1, 0) +
-                mat.item(0, 2) * invMat.item(2, 0)
-            );
+        let invDet = 1 / (mat[0] * invMat[0] + mat[4] * invMat[1] + mat[8] * invMat[2]);
 
         // inverse(M) = adjoint(M)/determinant(M).
-        invMat.setItem(0, 0, invMat.item(0, 0) * invDet);
-        invMat.setItem(0, 1, invMat.item(0, 1) * invDet);
-        invMat.setItem(0, 2, invMat.item(0, 2) * invDet);
-        invMat.setItem(1, 0, invMat.item(1, 0) * invDet);
-        invMat.setItem(1, 1, invMat.item(1, 1) * invDet);
-        invMat.setItem(1, 2, invMat.item(1, 2) * invDet);
-        invMat.setItem(2, 0, invMat.item(2, 0) * invDet);
-        invMat.setItem(2, 1, invMat.item(2, 1) * invDet);
-        invMat.setItem(2, 2, invMat.item(2, 2) * invDet);
+        invMat[0] = invMat[0] * invDet;
+        invMat[4] = invMat[4] * invDet;
+        invMat[8] = invMat[8] * invDet;
+        invMat[1] = invMat[1] * invDet;
+        invMat[5] = invMat[5] * invDet;
+        invMat[9] = invMat[9] * invDet;
+        invMat[2] = invMat[2] * invDet;
+        invMat[6] = invMat[6] * invDet;
+        invMat[10] = invMat[10] * invDet;
     }
 
     static get IDENTITY() {
         return new Transform().makeIdentity();
     }
 }
+
+export { Transform };

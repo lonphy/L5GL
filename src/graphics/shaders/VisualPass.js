@@ -1,13 +1,7 @@
-/**
- * VisualPass
- *
- * @author lonphy
- * @version 2.0
- */
-import {D3Object} from '../../core/D3Object'
-import {Program} from './Program'
+import { D3Object } from '../../core/D3Object';
+import { Program } from './Program';
 
-export class VisualPass extends D3Object {
+class VisualPass extends D3Object {
     constructor() {
         super('VisualPass');
         /**
@@ -34,10 +28,6 @@ export class VisualPass extends D3Object {
          * @type {StencilState}
          */
         this.stencilState = null;
-        /**
-         * @type {WireState}
-         */
-        this.wireState = null;
     }
 
     /**
@@ -57,8 +47,8 @@ export class VisualPass extends D3Object {
 
     load(inStream) {
         super.load(inStream);
-        var vertexShader = inStream.readPointer();
-        var fragShader = inStream.readPointer();
+        let vertexShader = inStream.readPointer();
+        let fragShader = inStream.readPointer();
         this.program = new Program('Program', vertexShader, fragShader);
         this.alphaState = inStream.readPointer();
         this.cullState = inStream.readPointer();
@@ -88,10 +78,12 @@ export class VisualPass extends D3Object {
     }
 
     static factory(inStream) {
-        var obj = new VisualPass();
+        let obj = new VisualPass();
         obj.load(inStream);
         return obj;
     }
 };
 
 D3Object.Register('VisualPass', VisualPass.factory);
+
+export { VisualPass };

@@ -1,8 +1,7 @@
-import { D3Object } from '../../core/D3Object'
-import { InStream } from '../../core/InStream'
-import * as util from '../../util/util'
+import { D3Object } from '../../core/D3Object';
+import { DECLARE_ENUM } from '../../util/util';
 
-export class AlphaState extends D3Object {
+class AlphaState extends D3Object {
 
     constructor() {
         super();
@@ -32,21 +31,16 @@ export class AlphaState extends D3Object {
         this.constantColor = new Float32Array(inStream.readFloat32Range(4));
     }
 
-    /**
-     * 文件解析工厂方法
-     * @param {InStream} inStream
-     * @returns {AlphaState}
-     */
     static factory(inStream) {
-        var obj = new AlphaState();
+        let obj = new AlphaState();
         obj.load(inStream);
         return obj;
     }
 
 }
 
-/* 混合模式 */
-util.DECLARE_ENUM(AlphaState, {
+/* blend mode */
+DECLARE_ENUM(AlphaState, {
     BM_ZERO: 0,
     BM_ONE: 1,
     BM_SRC_COLOR: 2, // can be assign to AlphaState.dstBlend only
@@ -64,5 +58,7 @@ util.DECLARE_ENUM(AlphaState, {
     BM_ONE_MINUS_CONSTANT_ALPHA: 14
 });
 
-D3Object.Register('L5.AlphaState', AlphaState.factory);
+D3Object.Register('AlphaState', AlphaState.factory);
+
+export { AlphaState };
 

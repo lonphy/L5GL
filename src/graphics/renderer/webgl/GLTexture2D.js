@@ -1,88 +1,73 @@
-import { default as webgl } from './GLMapping'
+import { default as webgl } from './GLMapping';
 
-export class GLTexture2D {
-    constructor(renderer, texture) {
-        let gl = renderer.gl;
-        let _format = texture.format;
-        this.internalFormat = webgl.TextureFormat[_format];
+class GLTexture2D {
 
+    /**
+     * @param {WebGL2RenderingContext} gl 
+     * @param {Texture2D} texture
+     */
+    constructor(gl, texture) {
+        const _format = texture.format;
+
+        this.internalFormat = webgl.TextureInternalFormat[_format];
         this.format = webgl.TextureFormat[_format];
         this.type = webgl.TextureType[_format];
+
         this.hasMipMap = texture.hasMipmaps;
 
         this.width = texture.width;
         this.height = texture.height;
-        this.depth = texture.depth;
+        this.isCompressed = texture.isCompressed();
 
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0); // 纹理垂直翻转
+        this.static = texture.static;
 
         // Create a texture structure.
         this.texture = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, this.texture);
 
-        let width, height;
-        // Create the mipmap level structures.  No image initialization occurs.
-        // this.isCompressed = texture.isCompressed();
-        // if (this.isCompressed) {
-        // for (level = 0; level < levels; ++level) {
-        //     width = this.dimension[0][level];
-        //     height = this.dimension[1][level];
-        //
-        //     gl.compressedTexImage2D(
-        //         gl.TEXTURE_2D,
-        //         level,
-        //         this.internalFormat,
-        //         width,
-        //         height,
-        //         0,
-        //         this.numLevelBytes[level],
-        //         0);
-        // }
-        //} else {
-        gl.texImage2D(
-            gl.TEXTURE_2D,             // target
-            0,                         // level
-            this.internalFormat,       // internalformat
-            this.width,      // width
-            this.height,      // height
-            0,                         // border
-            this.format,               // format
-            this.type,                 // type
-            texture.getData()         // pixels
-        );
-        if (this.hasMipMap) {
-            gl.generateMipmap(gl.TEXTURE_2D);
+        // upload pixel with pbo
+        let pbo = gl.createBuffer();
+        gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, pbo);
+        gl.bufferData(gl.PIXEL_UNPACK_BUFFER, texture.getData(), gl.STATIC_DRAW, 0);
+        if (this.isCompressed) {
+            gl.compressedTexImage2D(gl.TEXTURE_2D, 0, this.internalFormat, this.width, this.height, 0, 0);
+        } else {
+            gl.texImage2D(gl.TEXTURE_2D, /*level*/0, this.internalFormat, this.width, this.height, 0, this.format, this.type, 0);
         }
-        //}
+        gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, null);
+        gl.deleteBuffer(pbo);
+        this.hasMipMap && gl.generateMipmap(gl.TEXTURE_2D);
     }
 
-    update(renderer, textureUnit, data) {
-        let gl = renderer.gl;
-        gl.activeTexture(gl.TEXTURE0 + textureUnit);
-        gl.bindTexture(gl.TEXTURE_2D, this.texture);
-        gl.texImage2D(
-            gl.TEXTURE_2D,             // target
-            0,                         // level
-            this.internalFormat,       // internalformat
-            this.width,      // width
-            this.height,      // height
-            0,                         // border
-            this.format,               // format
-            this.type,                 // type
-            data         // pixels
-        );
-        if (this.hasMipMap) {
-            gl.generateMipmap(gl.TEXTURE_2D);
+    update(gl, textureUnit, data) {
+        if (this.static) {
+            return;
         }
+        gl.activeTexture(gl.TEXTURE0 + textureUnit);
+        gl.bindTexture(gl.TEXTURE_2D, this.texture);
+
+        let pbo = gl.createBuffer();
+        gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, pbo);
+        gl.bufferData(gl.PIXEL_UNPACK_BUFFER, data, gl.STATIC_DRAW, 0);
+        if (this.isCompressed) {
+            gl.compressedTexImage2D(gl.TEXTURE_2D, 0, this.internalFormat, this.width, this.height, 0, 0);
+        } else {
+            gl.texImage2D(gl.TEXTURE_2D, /*level*/0, this.internalFormat, this.width, this.height, 0, this.format, this.type, 0);
+        }
+        gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, null);
+        gl.deleteBuffer(pbo);
+        this.hasMipMap && gl.generateMipmap(gl.TEXTURE_2D);
     }
-    enable(renderer, textureUnit) {
-        let gl = renderer.gl;
+
+    enable(gl, textureUnit) {
         gl.activeTexture(gl.TEXTURE0 + textureUnit);
         gl.bindTexture(gl.TEXTURE_2D, this.texture);
     }
-    disable(renderer, textureUnit) {
-        let gl = renderer.gl;
-        gl.activeTexture(gl.TEXTURE0 + textureUnit);
-        gl.bindTexture(gl.TEXTURE_2D, null);
+
+    disable(gl, textureUnit) {
+        // gl.activeTexture(gl.TEXTURE0 + textureUnit);
+        // gl.bindTexture(gl.TEXTURE_2D, null);
     }
 }
+
+export { GLTexture2D };

@@ -1,17 +1,11 @@
-/**
- * Program GPU程序
- *
- * @author lonphy
- * @version 2.0
- */
-import { D3Object } from '../../core/D3Object'
+import { D3Object } from '../../core/D3Object';
 
-export class Program extends D3Object {
+class Program extends D3Object {
 
     /**
-     * @param name {string} 程序名称
-     * @param vs {L5.VertexShader}
-     * @param fs {L5.FragShader}
+     * @param {string} name
+     * @param {VertexShader} vs
+     * @param {FragShader} fs
      */
     constructor(name, vs, fs) {
         super(name);
@@ -21,3 +15,4 @@ export class Program extends D3Object {
     }
 }
 
+export { Program };

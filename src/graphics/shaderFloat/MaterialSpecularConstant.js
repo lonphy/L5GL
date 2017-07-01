@@ -1,13 +1,10 @@
-/**
- * 材质高光系数
- */
-import {ShaderFloat} from './ShaderFloat'
-import {D3Object} from '../../core/D3Object'
+import { ShaderFloat } from './ShaderFloat';
+import { D3Object } from '../../core/D3Object';
 
-export class MaterialSpecularConstant extends ShaderFloat {
+class MaterialSpecularConstant extends ShaderFloat {
 
     /**
-     * @param material {Material} 材质
+     * @param {Material} material
      */
     constructor(material) {
         super(1);
@@ -16,9 +13,8 @@ export class MaterialSpecularConstant extends ShaderFloat {
     }
 
     /**
-     * 更新材高光系数
-     * @param visual {Visual}
-     * @param camera {Camera}
+     * @param {Visual} visual
+     * @param {Camera} camera
      */
     update(visual, camera) {
         this.copy(this.material.specular);
@@ -40,4 +36,6 @@ export class MaterialSpecularConstant extends ShaderFloat {
     }
 };
 
-D3Object.Register('L5.MaterialSpecularConstant', MaterialSpecularConstant.factory);
+D3Object.Register('MaterialSpecularConstant', MaterialSpecularConstant.factory);
+
+export { MaterialSpecularConstant };

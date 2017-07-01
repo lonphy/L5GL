@@ -1,11 +1,3 @@
-/**
- * 聚光灯 片元光照效果
- * @class
- * @extends {VisualEffect}
- *
- * @author lonphy
- * @version 2.0
- */
 import { D3Object } from '../../core/D3Object'
 import { DECLARE_ENUM } from '../../util/util'
 import { VisualEffect } from '../shaders/VisualEffect'

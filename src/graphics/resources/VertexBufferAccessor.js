@@ -1,4 +1,4 @@
-import { VertexFormat } from './VertexFormat'
+import { VertexFormat } from './VertexFormat';
 
 export let VBAAttr = {
     offset: -1, // 偏移
@@ -98,7 +98,7 @@ export class VertexBufferAccessor {
     }
 
     /**
-     * @param visual {Visual}
+     * @param {Visual} visual
      * @returns {VertexBufferAccessor}
      */
     static fromVisual(visual) {
@@ -117,13 +117,20 @@ export class VertexBufferAccessor {
         return this.data;
     }
 
-    ////////////////// 顶点 ///////////////////////////////
+    /**
+     * @param {number} index
+     * @return {ArrayBufferView}
+     */
     getPosition(index) {
         let t = this.position;
         let startOffset = t.offset + index * this.stride;
         return new t.eType(this.data.buffer.slice(startOffset, startOffset + t.eNum * t.eType.BYTES_PER_ELEMENT));
     }
 
+    /**
+     * @param {number} index 
+     * @param {ArrayBuffer} dataArr 
+     */
     setPosition(index, dataArr) {
         let t = this.position;
         let startOffset = t.offset + index * this.stride;

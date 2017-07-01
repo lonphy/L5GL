@@ -1,37 +1,17 @@
-/**
- * 只有环境光和发射光的着色器
- *
- * @author lonphy
- * @version 2.0
- *
- * @type {LightAmbEffect}
- * @extends {VisualEffect}
- */
-import {DECLARE_ENUM} from '../../util/util'
-import {VisualEffect} from '../shaders/VisualEffect'
-import {VisualEffectInstance} from '../shaders/VisualEffectInstance'
-import {VisualTechnique} from '../shaders/VisualTechnique'
-import {VisualPass} from '../shaders/VisualPass'
-import {Program} from '../shaders/Program'
-import {Shader} from '../shaders/Shader'
-import {VertexShader} from '../shaders/VertexShader'
-import {FragShader} from '../shaders/FragShader'
-import {AlphaState} from '../shaders/AlphaState'
-import {CullState} from '../shaders/CullState'
-import {DepthState} from '../shaders/DepthState'
-import {OffsetState} from '../shaders/OffsetState'
-import {StencilState} from '../shaders/StencilState'
-import {PVWMatrixConstant} from '../shaderFloat/PVWMatrixConstant'
-import {MaterialEmissiveConstant} from '../shaderFloat/MaterialEmissiveConstant'
-import {MaterialAmbientConstant} from '../shaderFloat/MaterialAmbientConstant'
-import {LightAmbientConstant} from '../shaderFloat/LightAmbientConstant'
-import {LightAttenuationConstant} from '../shaderFloat/LightAttenuationConstant'
+import { DECLARE_ENUM } from '../../util/util';
 
-export class LightAmbEffect extends VisualEffect {
+import {
+    VisualEffect, VisualEffectInstance, VisualTechnique, VisualPass,
+    Program, Shader, VertexShader, FragShader,
+    AlphaState, CullState, DepthState, OffsetState, StencilState
+} from '../shaders/namespace';
+import { PVWMatrixConstant, MaterialEmissiveConstant, MaterialAmbientConstant, LightAmbientConstant, LightAttenuationConstant } from '../shaderFloat/namespace';
+
+class LightAmbEffect extends VisualEffect {
 
     constructor() {
         super();
-        var vs = new VertexShader('LightAmbEffectVS', 1, 5);
+        let vs = new VertexShader('LightAmbEffectVS', 1, 5);
         vs.setInput(0, 'modelPosition', Shader.VT_VEC3, Shader.VS_POSITION);
         vs.setConstant(0, 'PVWMatrix', Shader.VT_MAT4);
         vs.setConstant(1, 'MaterialEmissive', Shader.VT_VEC4);
@@ -40,12 +20,12 @@ export class LightAmbEffect extends VisualEffect {
         vs.setConstant(4, 'LightAttenuation', Shader.VT_VEC4);
         vs.setProgram(LightAmbEffect.VS);
 
-        var fs = new FragShader('LightAmbEffectFS', 1);
+        let fs = new FragShader('LightAmbEffectFS', 1);
         fs.setProgram(LightAmbEffect.FS);
 
-        var program = new Program('LightAmbProgram', vs, fs);
+        let program = new Program('LightAmbProgram', vs, fs);
 
-        var pass = new VisualPass();
+        let pass = new VisualPass();
         pass.program = program;
         pass.alphaState = new AlphaState();
         pass.cullState = new CullState();
@@ -53,13 +33,13 @@ export class LightAmbEffect extends VisualEffect {
         pass.offsetState = new OffsetState();
         pass.stencilState = new StencilState();
 
-        var technique = new VisualTechnique();
+        let technique = new VisualTechnique();
         technique.insertPass(pass);
         this.insertTechnique(technique);
     }
 
     createInstance(light, material) {
-        var instance = new VisualEffectInstance(this, 0);
+        let instance = new VisualEffectInstance(this, 0);
         instance.setVertexConstant(0, 0, new PVWMatrixConstant());
         instance.setVertexConstant(0, 1, new MaterialEmissiveConstant(material));
         instance.setVertexConstant(0, 2, new MaterialAmbientConstant(material));
@@ -69,7 +49,7 @@ export class LightAmbEffect extends VisualEffect {
     }
 
     static createUniqueInstance(light, material) {
-        var effect = new LightAmbEffect();
+        let effect = new LightAmbEffect();
         return effect.createInstance(light, material);
     }
 }
@@ -87,14 +67,13 @@ void main(){
     gl_Position = PVWMatrix * vec4(modelPosition, 1.0);
     vec3 ambient = LightAttenuation.w * LightAmbient;
     vColor = MaterialEmissive + MaterialAmbient * ambient;
-}
-`,
+}`,
     FS: `#version 300 es
 precision highp float;
 in vec3 vColor;
 out vec4 fragColor;
 void main(){
     fragColor = vec4(vColor, 1.0);
-}
-`
-});
+}`});
+
+export { LightAmbEffect };

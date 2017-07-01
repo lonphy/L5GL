@@ -1,21 +1,10 @@
-/**
- * 全局特效 - 镜像
- *
- * @author lonphy
- * @version 2.0
- *
- * @type {PlanarReflectionEffect}
- * @extends {D3Object}
- */
-import {D3Object} from '../../core/D3Object'
-import {AlphaState} from '../shaders/AlphaState'
-import {DepthState} from '../shaders/DepthState'
-import {StencilState} from '../shaders/StencilState'
+import { D3Object } from '../../core/D3Object';
+import { AlphaState, DepthState, StencilState } from '../shaders/namespace';
 
-export class PlanarReflectionEffect extends D3Object {
+class PlanarReflectionEffect extends D3Object {
 
     /**
-     * @param numPlanes {Number} 镜像平面数量
+     * @param {number} numPlanes 镜像平面数量
      */
     constructor(numPlanes) {
         super();
@@ -29,30 +18,30 @@ export class PlanarReflectionEffect extends D3Object {
     }
 
     /**
-     * @param renderer {Renderer}
-     * @param visibleSet {VisibleSet}
+     * @param {Renderer} renderer
+     * @param {VisibleSet} visibleSet
      */
     draw(renderer, visibleSet) {
-        // 保存全局覆盖状态
+        // save global overrideDepthState
         const oldDepthState = renderer.overrideDepthState;
         const oldStencilState = renderer.overrideStencilState;
 
-        var depthState = this.depthState;
-        var stencilState = this.stencilState;
-        var alphaState = this.alphaState;
+        let depthState = this.depthState;
+        let stencilState = this.stencilState;
+        let alphaState = this.alphaState;
 
         // 使用当前特效的状态
         renderer.overrideDepthState = depthState;
         renderer.overrideStencilState = stencilState;
 
         // 获取默认深度范围
-        var depthRange = renderer.getDepthRange();
+        let depthRange = renderer.getDepthRange();
 
         // 存储摄像机的后世界变换
-        var camera = renderer.camera;
+        let camera = renderer.camera;
 
         const numVisible = visibleSet.getNumVisible();
-        var i, j;
+        let i, j;
         for (i = 0; i < this.numPlanes; ++i) {
             // 在模板平面渲染镜像.
             // 所有可见镜像像素都持有模板值,确保没有其他任何像素写入深度缓冲或颜色缓冲
@@ -122,8 +111,8 @@ export class PlanarReflectionEffect extends D3Object {
 
             // Compute the equation for the mirror plane in model coordinates
             // and get the reflection matrix in world coordinates.
-            var reflection = Matrix.ZERO;
-            var modelPlane = new Plane([], 0);
+            let reflection = Matrix.ZERO;
+            let modelPlane = new Plane([], 0);
             this.getReflectionMatrixAndModelPlane(i, reflection, modelPlane);
 
             // TODO:  Add clip plane support to the renderer.
@@ -144,8 +133,8 @@ export class PlanarReflectionEffect extends D3Object {
             // Render the reflected object.  Only render where the stencil buffer
             // contains the reference value.
             for (j = 0; j < numVisible; ++j) {
-                var m = visibleSet.getVisible(j);
-                if ( m != this.planes[i]) {
+                let m = visibleSet.getVisible(j);
+                if (m != this.planes[i]) {
                     renderer.drawVisible(visibleSet.getVisible(j));
                 }
             }
@@ -199,20 +188,17 @@ export class PlanarReflectionEffect extends D3Object {
         }
     }
 
-
-
     /**
      * 计算镜像矩阵以及物体平面
-     * @param i {int} 镜像平面索引
-     * @param reflection {Matrix} 反射矩阵输出
-     * @param modelPlane {Plane} 物体平面
-     *
+     * @param {int} i - 镜像平面索引
+     * @param {Matrix} reflection - 反射矩阵输出
+     * @param {Plane} modelPlane - 物体平面
      */
     getReflectionMatrixAndModelPlane(i, reflection, modelPlane) {
         // 在世界坐标系计算镜像反射平面方程
-        var vertex = new Array(3);
+        let vertex = new Array(3);
         this.planes[i].getWorldTriangle(0, vertex);
-        var worldPlane = Plane.fromPoint3(vertex[0], vertex[1], vertex[2]);
+        let worldPlane = Plane.fromPoint3(vertex[0], vertex[1], vertex[2]);
 
         // 计算镜像矩阵
         reflection.makeReflection(vertex[0], worldPlane.normal);
@@ -225,8 +211,8 @@ export class PlanarReflectionEffect extends D3Object {
 
     /**
      * 设置镜像平面
-     * @param i {int} 索引
-     * @param plane {TriMesh}
+     * @param {number} i - 索引
+     * @param {TriMesh} plane
      */
     setPlane(i, plane) {
         // plane.culling = Spatial.CULLING_ALWAYS;
@@ -235,7 +221,7 @@ export class PlanarReflectionEffect extends D3Object {
 
     /**
      * 获取镜像平面
-     * @param i {int} 索引
+     * @param {number} i - 索引
      * @returns {TriMesh}
      */
     getPlane(i) {
@@ -244,8 +230,8 @@ export class PlanarReflectionEffect extends D3Object {
 
     /**
      * 设置镜像反射系数
-     * @param i {int} 索引
-     * @param reflectance {float} 反射系数
+     * @param {number} i - 索引
+     * @param {number} reflectance - 反射系数
      */
     setReflectance(i, reflectance) {
         this.reflectances[i] = reflectance;
@@ -253,10 +239,12 @@ export class PlanarReflectionEffect extends D3Object {
 
     /**
      * 获取镜像反射系数
-     * @param i {int} 索引
+     * @param {number} i - 索引
      * @returns {float}
      */
     getReflectance(i) {
         return this.reflectances[i];
     }
 }
+
+export { PlanarReflectionEffect };

@@ -1,37 +1,36 @@
-/**
- * 渲染对象
- *
- * @param numTargets {number}
- * @param format {number}
- * @param width {number}
- * @param height {number}
- * @param hasMipmaps {boolean}
- * @param hasDepthStencil {boolean}
- * @type {RenderTarget}
- */
-export class RenderTarget {
+import { Texture2D } from './Texture2D';
+import { Buffer } from './Buffer';
+import { Texture } from './Texture';
 
+class RenderTarget {
+
+    /**
+     * @param {number} numTargets 
+     * @param {number} format 
+     * @param {number} width 
+     * @param {number} height 
+     * @param {boolean} hasMipmaps 
+     * @param {boolean} hasDepthStencil 
+     */
     constructor(numTargets, format, width, height, hasMipmaps, hasDepthStencil) {
         console.assert(numTargets > 0, 'Number of targets must be at least one.');
 
         this.numTargets = numTargets;
         this.hasMipmaps = hasMipmaps;
+        this.depthStencilTexture = null;
 
         /**
-         * @type {L5.Texture2D}
+         * @type {Array<Texture2D>}
          */
         this.colorTextures = new Array(numTargets);
 
-        var i;
+        let i;
         for (i = 0; i < numTargets; ++i) {
-            this.colorTextures[i] = new L5.Texture2D(format, width, height, hasMipmaps, Buffer.BU_RENDER_TARGET);
+            this.colorTextures[i] = new Texture2D(format, width, height, hasMipmaps);
         }
 
         if (hasDepthStencil) {
-            this.depthStencilTexture = new L5.Texture2D(L5.TEXTURE_FORMAT_D24S8, width, height, 1, Buffer.BU_DEPTH_STENCIL);
-        }
-        else {
-            this.depthStencilTexture = null;
+            this.depthStencilTexture = new Texture2D(Texture.TF_D24S8, width, height, false);
         }
     }
 
@@ -55,3 +54,5 @@ export class RenderTarget {
         return this.depthStencilTexture !== null;
     }
 }
+
+export { RenderTarget };

@@ -1,8 +1,8 @@
-import { Controller } from './Controller'
-import { Vector, Matrix } from '../../math/index'
-import { Renderer } from '../renderer/Renderer'
-import { VertexBufferAccessor } from '../resources/namespace'
-import { PolyPoint } from '../sceneTree/namespace'
+import { Controller } from './Controller';
+import { Vector, Matrix } from '../../math/index';
+import { Renderer } from '../renderer/Renderer';
+import { VertexBufferAccessor } from '../resources/namespace';
+import { PolyPoint } from '../sceneTree/namespace';
 
 /**
  * The object to which this is attached must be Polypoint or a class derived fromPolypoint.
@@ -15,7 +15,7 @@ import { PolyPoint } from '../sceneTree/namespace'
  * 
  * @abstract
  */
-export class PointController extends Controller {
+class PointController extends Controller {
     constructor() {
         super();
 
@@ -130,3 +130,5 @@ export class PointController extends Controller {
         Renderer.updateAll(points.vertexBuffer);
     }
 }
+
+export { PointController };

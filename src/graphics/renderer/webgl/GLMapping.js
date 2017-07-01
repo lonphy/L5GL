@@ -570,6 +570,7 @@ mapping.DEPTH_STENCIL_ATTACHMENT = 0x821A;
 mapping.DEPTH_STENCIL = 0x84F9;
 mapping.UNSIGNED_INT_24_8 = 0x84FA;
 mapping.DEPTH24_STENCIL8 = 0x88F0;
+
 mapping.UNSIGNED_NORMALIZED = 0x8C17;
 mapping.DRAW_FRAMEBUFFER_BINDING = 0x8CA6; /* Same as FRAMEBUFFER_BINDING */
 mapping.READ_FRAMEBUFFER = 0x8CA8;
@@ -685,6 +686,21 @@ mapping.TEXTURE_IMMUTABLE_LEVELS = 0x82DF;
 mapping.TIMEOUT_IGNORED = -1;
 mapping.MAX_CLIENT_WAIT_TIMEOUT_WEBGL = 0x9247;
 
+// ext ENUM for WEBGL_compressed_texture_s3tc
+mapping.COMPRESSED_RGB_S3TC_DXT1_EXT = 0x83F0;
+mapping.COMPRESSED_RGBA_S3TC_DXT1_EXT = 0x83F1;
+mapping.COMPRESSED_RGBA_S3TC_DXT3_EXT = 0x83F2;
+mapping.COMPRESSED_RGBA_S3TC_DXT5_EXT = 0x83F3;
+
+// ext ENUM for WEBGL_compressed_texture_s3tc_srgb
+mapping.COMPRESSED_SRGB_S3TC_DXT1_EXT = 0x8C4C;
+mapping.COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT = 0x8C4D;
+mapping.COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT = 0x8C4E;
+mapping.COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT = 0x8C4F;
+
+// ext ENUM for EXT_texture_filter_anisotropic
+mapping.TEXTURE_MAX_ANISOTROPY_EXT = 0x84FE;
+mapping.MAX_TEXTURE_MAX_ANISOTROPY_EXT = 0x84FF;
 
 let NS = mapping;
 
@@ -733,11 +749,10 @@ mapping.TextureTarget = [
 ];
 
 // 纹理包装方式
-mapping.WrapMode = [
-    NS.CLAMP_TO_EDGE,   // SC_NONE
-    NS.REPEAT,          // SC_REPEAT
-    NS.MIRRORED_REPEAT, // SC_MIRRORED_REPEAT
-    NS.CLAMP_TO_EDGE    // SC_CLAMP_EDGE
+mapping.SamplerWrapMode = [
+    NS.REPEAT,          // SamplerState.REPEAT
+    NS.MIRRORED_REPEAT, // SamplerState.MIRRORED_REPEAT
+    NS.CLAMP_TO_EDGE    // SamplerState.CLAMP_EDGE
 ];
 
 mapping.DepthCompare = [
@@ -790,14 +805,39 @@ mapping.AlphaBlend = [
     NS.ONE_MINUS_CONSTANT_ALPHA
 ];
 
-mapping.TextureFilter = [
-    0,                          // SF_NONE
-    NS.NEAREST,                 // SF_NEAREST
-    NS.LINEAR,                  // SF_LINEAR
-    NS.NEAREST_MIPMAP_NEAREST,  // SF_NEAREST_MIPMAP_NEAREST
-    NS.NEAREST_MIPMAP_LINEAR,   // SF_NEAREST_MIPMAP_LINEAR
-    NS.LINEAR_MIPMAP_NEAREST,   // SF_LINEAR_MIPMAP_NEAREST
-    NS.LINEAR_MIPMAP_LINEAR     // SF_LINEAR_MIPMAP_LINEAR
+mapping.SamplerFilter = [
+    NS.NEAREST,                 // SamplerState.NEAREST
+    NS.LINEAR,                  // SamplerState.LINEAR
+    NS.NEAREST_MIPMAP_NEAREST,  // SamplerState.NEAREST_MIPMAP_NEAREST
+    NS.NEAREST_MIPMAP_LINEAR,   // SamplerState.NEAREST_MIPMAP_LINEAR
+    NS.LINEAR_MIPMAP_NEAREST,   // SamplerState.LINEAR_MIPMAP_NEAREST
+    NS.LINEAR_MIPMAP_LINEAR     // SamplerState.LINEAR_MIPMAP_LINEAR
+];
+
+mapping.TextureInternalFormat = [
+    0,                                  // TF_NONE
+    NS.RGB,                             // TF_R5G6B5
+    NS.RGB5_A1,                         // TF_A1R5G5B5
+    NS.RGBA4,                           // TF_A4R4G4B4
+    NS.ALPHA,                           // TF_A8
+    NS.LUMINANCE,                      // TF_L8
+    NS.LUMINANCE_ALPHA,                 // TF_A8L8
+    NS.RGB8,                            // TF_R8G8B8
+    NS.RGBA,                            // TF_A8R8G8B8
+    NS.RGBA,                            // TF_A8B8G8R8
+    NS.LUMINANCE,                       // TF_L16
+    NS.RG16I,                           // TF_G16R16
+    NS.RGBA,                            // TF_A16B16G16R16
+    NS.R16F,                            // TF_R16F
+    NS.RG16F,                           // TF_G16R16F
+    NS.RGBA16F_ARB,                     // TF_A16B16G16R16F
+    NS.R32F,                            // TF_R32F
+    NS.RG32F,                           // TF_G32R32F
+    NS.RGBA32F_ARB,                     // TF_A32B32G32R32F
+    NS.COMPRESSED_RGBA_S3TC_DXT1_EXT,   // TF_DXT1
+    NS.COMPRESSED_RGBA_S3TC_DXT3_EXT,   // TF_DXT3
+    NS.COMPRESSED_RGBA_S3TC_DXT5_EXT,   // TF_DXT5
+    NS.DEPTH24_STENCIL8                 // TF_D24S8
 ];
 
 mapping.TextureFormat = [
@@ -812,13 +852,13 @@ mapping.TextureFormat = [
     NS.RGBA,                            // TF_A8R8G8B8
     NS.RGBA,                            // TF_A8B8G8R8
     NS.LUMINANCE,                       // TF_L16
-    0,                                  // TF_G16R16
+    NS.RG,                              // TF_G16R16
     NS.RGBA,                            // TF_A16B16G16R16
-    0,                                  // TF_R16F
-    0,                                  // TF_G16R16F
+    NS.RED,                             // TF_R16F
+    NS.RG,                              // TF_G16R16F
     NS.RGBA,                            // TF_A16B16G16R16F
-    0,                                  // TF_R32F
-    0,                                  // TF_G32R32F
+    NS.RED,                             // TF_R32F
+    NS.RG,                              // TF_G32R32F
     NS.RGBA,                            // TF_A32B32G32R32F
     NS.COMPRESSED_RGBA_S3TC_DXT1_EXT,   // TF_DXT1
     NS.COMPRESSED_RGBA_S3TC_DXT3_EXT,   // TF_DXT3

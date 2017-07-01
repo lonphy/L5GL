@@ -1,16 +1,7 @@
-/**
- * StencilState - 模板状态
- *
- * @author lonphy
- * @version 1.0
- *
- * @extends {L5.D3Object}
- * @type {L5.StencilState}
- */
-import {D3Object} from '../../core/D3Object'
-import * as util from '../../util/util'
+import { D3Object } from '../../core/D3Object';
+import { DECLARE_ENUM } from '../../util/util';
 
-export class StencilState extends D3Object {
+class StencilState extends D3Object {
 
     constructor() {
         super();
@@ -50,7 +41,7 @@ export class StencilState extends D3Object {
     }
 
     static factory(inStream) {
-        var obj = new StencilState();
+        let obj = new StencilState();
         obj.mask = 0;
         obj.writeMask = 0;
         obj.load(inStream);
@@ -59,25 +50,27 @@ export class StencilState extends D3Object {
 };
 
 // 操作类型
-util.DECLARE_ENUM(StencilState, {
-    OP_KEEP:      0,
-    OP_ZERO:      1,
-    OP_REPLACE:   2,
+DECLARE_ENUM(StencilState, {
+    OP_KEEP: 0,
+    OP_ZERO: 1,
+    OP_REPLACE: 2,
     OP_INCREMENT: 3,
     OP_DECREMENT: 4,
-    OP_INVERT:    5
+    OP_INVERT: 5
 }, false);
 
 // 比较模式
-util.DECLARE_ENUM(StencilState, {
-    NEVER:    0,
-    LESS:     1,
-    EQUAL:    2,
-    LEQUAL:   3,
-    GREATER:  4,
+DECLARE_ENUM(StencilState, {
+    NEVER: 0,
+    LESS: 1,
+    EQUAL: 2,
+    LEQUAL: 3,
+    GREATER: 4,
     NOTEQUAL: 5,
-    GEQUAL:   6,
-    ALWAYS:   7
+    GEQUAL: 6,
+    ALWAYS: 7
 });
 
-D3Object.Register('L5.StencilState', StencilState.factory);
+D3Object.Register('StencilState', StencilState.factory);
+
+export { StencilState };

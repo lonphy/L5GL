@@ -1,16 +1,6 @@
-/**
- * OffsetState - 偏移状态
- *
- * @author lonphy
- * @version 2.0
- *
- * @extends {L5.D3Object}
- * @type {L5.OffsetState}
- */
-import {D3Object} from '../../core/D3Object'
-import {InStream} from '../../core/InStream'
+import { D3Object } from '../../core/D3Object';
 
-export class OffsetState extends D3Object {
+class OffsetState extends D3Object {
 
     constructor() {
         super();
@@ -39,11 +29,13 @@ export class OffsetState extends D3Object {
     }
 
     static factory(inStream) {
-        var obj = new OffsetState();
+        let obj = new OffsetState();
         obj.load(inStream);
         return obj;
     }
 
-};
+}
 
-D3Object.Register('L5.OffsetState', OffsetState.factory);
+D3Object.Register('OffsetState', OffsetState.factory);
+
+export { OffsetState };

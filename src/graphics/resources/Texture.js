@@ -1,11 +1,8 @@
-/**
- * Texture 纹理基类
- */
-import {D3Object} from '../../core/D3Object'
-import {BinDataView} from '../../core/BinDataView'
-import * as util from '../../util/util'
+import { D3Object } from '../../core/D3Object';
+import { BinDataView } from '../../core/BinDataView';
+import { DECLARE_ENUM } from '../../util/util';
 
-export class Texture extends D3Object {
+class Texture extends D3Object {
 
     /**
      * @param {number} format 纹理格式， 参考Texture.TF_XXX
@@ -22,6 +19,7 @@ export class Texture extends D3Object {
         this.height = 0;
         this.depth = 0;
         this.data = null;
+        this.static = true;
     }
 
     /**
@@ -69,12 +67,12 @@ export class Texture extends D3Object {
 
     /**
      *
-     * @param buffer {ArrayBuffer}
-     * @returns {Promise}
+     * @param {ArrayBuffer} buffer
+     * @param {Texture} texture
      */
-    static unpack(buffer) {
+    static unpackTo(buffer, texture) {
 
-        var io = new BinDataView(buffer);
+        let io = new BinDataView(buffer);
         let format = io.int8();
         let type = io.int8();
         let hasMipMaps = (io.int8() == 1);
@@ -83,35 +81,40 @@ export class Texture extends D3Object {
         let height = io.int16();
         let depth = io.int16();
         let numTotalBytes = io.int32();
-
-        let texture;
-        switch (type) {
-            case Texture.TT_2D:
-                texture = new Texture2D(format, width, height, hasMipMaps);
-                break;
-            case Texture.TT_CUBE:
-                texture = new TextureCube(format, width, hasMipMaps);
-                break;
-            default:
-                console.assert(false, 'Unknown texture type.');
-                return Promise.reject(null);
+        if (type !== texture.type) {
+            return new Error('Invalid type for ' + texture.name);
         }
-        texture.data.set(io.bytes(numTotalBytes));
+
+        texture.format = format;
+        texture.hasMipmaps = hasMipMaps;
         texture.numDimensions = numDimensions;
         texture.depth = depth;
+
+        switch (type) {
+            case Texture.TT_2D:
+                texture.width = width;
+                texture.height = height;
+                break;
+            case Texture.TT_CUBE:
+                texture.width = width;
+                break;
+        }
+        texture.enableMipMaps = hasMipMaps;
+        texture._update();
+        texture.data.set(io.bytes(numTotalBytes));
         io = null;
-        return Promise.resolve(texture);
+        return null;
     }
 
     /**
      * 将纹理对象处理成文件形式
-     * @param texture {Texture}
+     * @param {Texture} texture
      * @returns {ArrayBuffer}
      */
     static pack(texture) {
         let size = texture.getFileSize();
         let buffer = new ArrayBuffer(size);
-        var io = new L5.Util.DataView(buffer);
+        let io = new BinDataView(buffer);
 
         io.setInt8(texture.format);
         io.setInt8(texture.type);
@@ -126,62 +129,62 @@ export class Texture extends D3Object {
     }
 }
 
-//////////////////////////////// 纹理格式定义 /////////////////////////////////
-util.DECLARE_ENUM(Texture, {
-    TF_NONE:          0,
-    TF_R5G6B5:        1,
-    TF_A1R5G5B5:      2,
-    TF_A4R4G4B4:      3,
-    TF_A8:            4,
-    TF_L8:            5,
-    TF_A8L8:          6,
-    TF_R8G8B8:        7,
-    TF_A8R8G8B8:      8,
-    TF_A8B8G8R8:      9,
-    TF_L16:           10,
-    TF_G16R16:        11,
-    TF_A16B16G16R16:  12,
-    TF_R16F:          13,  // not support
-    TF_G16R16F:       14,  // not support
+// 纹理格式定义
+DECLARE_ENUM(Texture, {
+    TF_NONE: 0,
+    TF_R5G6B5: 1,
+    TF_A1R5G5B5: 2,
+    TF_A4R4G4B4: 3,
+    TF_A8: 4,
+    TF_L8: 5,
+    TF_A8L8: 6,
+    TF_R8G8B8: 7,
+    TF_A8R8G8B8: 8,
+    TF_A8B8G8R8: 9,
+    TF_L16: 10,
+    TF_G16R16: 11,
+    TF_A16B16G16R16: 12,
+    TF_R16F: 13,  // not support
+    TF_G16R16F: 14,  // not support
     TF_A16B16G16R16F: 15,  // not support
-    TF_R32F:          16,
-    TF_G32R32F:       17,
+    TF_R32F: 16,
+    TF_G32R32F: 17,
     TF_A32B32G32R32F: 18,
-    TF_DXT1:          19,
-    TF_DXT3:          20,
-    TF_DXT5:          21,
-    TF_D24S8:         22,
-    TF_QUANTITY:      23
+    TF_DXT1: 19,
+    TF_DXT3: 20,
+    TF_DXT5: 21,
+    TF_D24S8: 22,
+    TF_QUANTITY: 23
 }, false);
 
-////////////////////////// 每种格式纹理是否支持生成MipMaps /////////////////////
-util.DECLARE_ENUM(Texture, {
-    TT_2D:      1,
-    TT_CUBE:    3,
+// 每种格式纹理是否支持生成MipMaps
+DECLARE_ENUM(Texture, {
+    TT_2D: 1,
+    TT_CUBE: 3,
     MIPMAPABLE: [
-        false,  // L5.Texture.TF_NONE
-        true,   // L5.Texture.TF_R5G6B5
-        true,   // L5.Texture.TF_A1R5G5B5
-        true,   // L5.Texture.TF_A4R4G4B4
-        true,   // L5.Texture.TF_A8
-        true,   // L5.Texture.TF_L8
-        true,   // L5.Texture.TF_A8L8
-        true,   // L5.Texture.TF_R8G8B8
-        true,   // L5.Texture.TF_A8R8G8B8
-        true,   // L5.Texture.TF_A8B8G8R8
-        true,   // L5.Texture.TF_L16
-        true,   // L5.Texture.TF_G16R16
-        true,   // L5.Texture.TF_A16B16G16R16
-        false,   // L5.Texture.TF_R16F
-        false,   // L5.Texture.TF_G16R16F
-        false,   // L5.Texture.TF_A16B16G16R16F
-        false,  // L5.Texture.TF_R32F
-        false,  // L5.Texture.TF_G32R32F
-        false,  // L5.Texture.TF_A32B32G32R32F,
-        true,   // L5.Texture.TF_DXT1 (special handling)
-        true,   // L5.Texture.TF_DXT3 (special handling)
-        true,   // L5.Texture.TF_DXT5 (special handling)
-        false   // L5.Texture.TF_D24S8
+        false,  // Texture.TF_NONE
+        true,   // Texture.TF_R5G6B5
+        true,   // Texture.TF_A1R5G5B5
+        true,   // Texture.TF_A4R4G4B4
+        true,   // Texture.TF_A8
+        true,   // Texture.TF_L8
+        true,   // Texture.TF_A8L8
+        true,   // Texture.TF_R8G8B8
+        true,   // Texture.TF_A8R8G8B8
+        true,   // Texture.TF_A8B8G8R8
+        true,   // Texture.TF_L16
+        true,   // Texture.TF_G16R16
+        true,   // Texture.TF_A16B16G16R16
+        false,   // Texture.TF_R16F
+        false,   // Texture.TF_G16R16F
+        false,   // Texture.TF_A16B16G16R16F
+        false,  // Texture.TF_R32F
+        false,  // Texture.TF_G32R32F
+        false,  // Texture.TF_A32B32G32R32F,
+        true,   // Texture.TF_DXT1 (special handling)
+        true,   // Texture.TF_DXT3 (special handling)
+        true,   // Texture.TF_DXT5 (special handling)
+        false   // Texture.TF_D24S8
     ],
 
     /////////////////////////    纹理类型维度    //////////////////////////////////
@@ -191,31 +194,33 @@ util.DECLARE_ENUM(Texture, {
     ]
 }, false);
 
-////////////////// 每种像素格式单个像素占用的尺寸单位，字节  //////////////////////
-util.DECLARE_ENUM(Texture, {
+// 每种像素格式单个像素占用的尺寸单位，字节
+DECLARE_ENUM(Texture, {
     PIXEL_SIZE: [
-        0,              // L5.Texture.TF_NONE
-        2,              // L5.Texture.TF_R5G6B5
-        2,              // L5.Texture.TF_A1R5G5B5
-        2,              // L5.Texture.TF_A4R4G4B4
-        1,              // L5.Texture.TF_A8
-        1,              // L5.Texture.TF_L8
-        2,              // L5.Texture.TF_A8L8
-        3,              // L5.Texture.TF_R8G8B8
-        4,              // L5.Texture.TF_A8R8G8B8
-        4,              // L5.Texture.TF_A8B8G8R8
-        2,              // L5.Texture.TF_L16
-        4,              // L5.Texture.TF_G16R16
-        8,              // L5.Texture.TF_A16B16G16R16
-        2,              // L5.Texture.TF_R16F
-        4,              // L5.Texture.TF_G16R16F
-        8,              // L5.Texture.TF_A16B16G16R16F
-        4,              // L5.Texture.TF_R32F
-        8,              // L5.Texture.TF_G32R32F
-        16,             // L5.Texture.TF_A32B32G32R32F,
-        0,              // L5.Texture.TF_DXT1 (special handling)
-        0,              // L5.Texture.TF_DXT3 (special handling)
-        0,              // L5.Texture.TF_DXT5 (special handling)
-        4               // L5.Texture.TF_D24S8
+        0,              // Texture.TF_NONE
+        2,              // Texture.TF_R5G6B5
+        2,              // Texture.TF_A1R5G5B5
+        2,              // Texture.TF_A4R4G4B4
+        1,              // Texture.TF_A8
+        1,              // Texture.TF_L8
+        2,              // Texture.TF_A8L8
+        3,              // Texture.TF_R8G8B8
+        4,              // Texture.TF_A8R8G8B8
+        4,              // Texture.TF_A8B8G8R8
+        2,              // Texture.TF_L16
+        4,              // Texture.TF_G16R16
+        8,              // Texture.TF_A16B16G16R16
+        2,              // Texture.TF_R16F
+        4,              // Texture.TF_G16R16F
+        8,              // Texture.TF_A16B16G16R16F
+        4,              // Texture.TF_R32F
+        8,              // Texture.TF_G32R32F
+        16,             // Texture.TF_A32B32G32R32F,
+        0,              // Texture.TF_DXT1 (special handling)
+        0,              // Texture.TF_DXT3 (special handling)
+        0,              // Texture.TF_DXT5 (special handling)
+        4               // Texture.TF_D24S8
     ]
 });
+
+export { Texture };

@@ -1,8 +1,5 @@
-import { D3Object } from '../../core/D3Object'
+import { D3Object } from '../../core/D3Object';
 
-/**
- * @extends {D3Object}
- */
 class ShaderFloat extends D3Object {
     /**
      * @param {number} numRegisters
@@ -14,6 +11,7 @@ class ShaderFloat extends D3Object {
         this.allowUpdater = false;
         this.setNumRegisters(numRegisters);
     }
+
     /**
      * @param {number} numRegisters
      */
@@ -43,12 +41,14 @@ class ShaderFloat extends D3Object {
         console.assert(0 <= i && i < this.numElements / 4, 'Invalid register');
         this.data.set(data.subarray(0, 4), 4 * i);
     }
+
     /**
      * @param {Float32Array} data
      */
     setRegister(data) {
         this.data.set(data.subarray(0, this.numElements));
     }
+
     /**
      * @param {number} i
      * @returns {Float32Array}
@@ -57,24 +57,26 @@ class ShaderFloat extends D3Object {
         console.assert(0 <= i && i < this.numElements / 4, 'Invalid register');
         return new Float32Array(this.data.subarray(4 * i, 4 * i + 4));
     }
+
     getRegisters() {
-        return new Float32Array(this.data);
+        return new Float32Array(this.data.buffer);
     }
+
     /**
      * @param {Float32Array} data
      */
     copy(data) {
-        //this.data.set(data.subarray(0, this.numElements));
         this.data.set(data);
         return this;
     }
+
     /**
      * @param {Visual} visual
      * @param {Camera} camera
+     * @abstract
      */
-    update(visual, camera) {
-        // 占位函数,子类实现
-    }
+    update(visual, camera) { }
+
     /**
      * @param {Instream} inStream 
      */
@@ -84,6 +86,7 @@ class ShaderFloat extends D3Object {
         this.numElements = this.data.length;
         this.allowUpdater = inStream.readBool();
     }
+    
     save(outStream) {
         super.save(outStream);
         outStream.writeFloat32Array(this.numElements, this.data);
@@ -91,4 +94,4 @@ class ShaderFloat extends D3Object {
     }
 }
 
-export { ShaderFloat }
+export { ShaderFloat };

@@ -5,6 +5,8 @@ import {
 } from '../shaders/namespace'
 // import { PVWMatrixConstant, MaterialDiffuseConstant } from '../shaderFloat/namespace'
 
-export class MaterialTextureEffect extends VisualEffect {
+class MaterialTextureEffect extends VisualEffect {
 
 }
+
+export {MaterialTextureEffect};

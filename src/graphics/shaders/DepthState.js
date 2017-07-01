@@ -1,10 +1,7 @@
-/**
- * DepthState - 深度测试状态
- */
-import {D3Object} from '../../core/D3Object'
-import * as util from '../../util/util'
+import { D3Object } from '../../core/D3Object';
+import { DECLARE_ENUM } from '../../util/util';
 
-export class DepthState extends D3Object {
+class DepthState extends D3Object {
     constructor() {
         super();
         this.enabled = true;
@@ -37,7 +34,7 @@ export class DepthState extends D3Object {
 }
 
 // 比较模式
-util.DECLARE_ENUM(DepthState, {
+DECLARE_ENUM(DepthState, {
     COMPARE_MODE_NEVER: 0,
     COMPARE_MODE_LESS: 1,
     COMPARE_MODE_EQUAL: 2,
@@ -48,4 +45,6 @@ util.DECLARE_ENUM(DepthState, {
     COMPARE_MODE_ALWAYS: 7
 });
 
-D3Object.Register('L5.CullState', DepthState.factory);
+D3Object.Register('CullState', DepthState.factory);
+
+export { DepthState };

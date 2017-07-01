@@ -1,7 +1,10 @@
-export {_Math} from './Math'
-export {Point} from './Point';
-export {Vector} from './Vector';
-export {Plane} from './Plane';
-export {Matrix} from './Matrix';
-export {Quaternion} from './Quaternion';
-export {Polynomial1} from './Polynomial1';
+export { _Math } from './Math';
+export { Point } from './Point';
+export { Vector } from './Vector';
+export { Plane } from './Plane';
+export { Matrix } from './Matrix';
+export { Matrix3 } from './Matrix3';
+export { Quaternion } from './Quaternion';
+export { Polynomial1 } from './Polynomial1';
+export { Triangle3 } from './Triangle3';
+export { Line3 } from './Line3';

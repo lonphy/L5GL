@@ -1,13 +1,7 @@
-/**
- * Math - 通用工具类
- * @version 2.0
- * @author lonphy
- */
-
 const _Math = {
     // 一些通用常量.
-    EPSILON: 1e-07,
-    ZERO_TOLERANCE: 1e-07,
+    EPSILON: Number.EPSILON,
+    ZERO_TOLERANCE: Number.EPSILON,
     MAX_REAL: window.Infinity,
     PI: 3.14159265358979323846,
     TWO_PI: 2 * 3.14159265358979323846,
@@ -36,6 +30,7 @@ const _Math = {
     cos: Math.cos,
     sin: Math.sin,
     tan: Math.tan,
+    sign: Math.sign,
 
     /**
      * 开平方
@@ -201,22 +196,6 @@ const _Math = {
      */
     sqr(value) {
         return value * value;
-    },
-
-    /**
-     * 获取值的符号
-     * -1 负 1 正 0 零值
-     * @param {number} value
-     * @returns {number}
-     */
-    sign(value) {
-        if (value > 0) {
-            return 1;
-        }
-        if (value < 0) {
-            return -1;
-        }
-        return 0;
     },
 
     /**

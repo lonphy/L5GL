@@ -1,14 +1,11 @@
-/**
- * 工具类 - 2进制流读写
- */
-export class BinDataView {
+class BinDataView {
 
     /**
      * @param {ArrayBuffer} buf
      * @param {number} offset
      * @param {number} size
      */
-    constructor(buf, offset=0, size=0) {
+    constructor(buf, offset = 0, size = 0) {
         if (size === 0) {
             size = buf.byteLength - offset;
         }
@@ -32,13 +29,13 @@ export class BinDataView {
 
     uint16() {
         let val = this.dv.getUint16(this.offset, true);
-        this.offset +=2;
+        this.offset += 2;
         return val;
     }
 
     setUint16(val) {
         this.dv.setUint16(this.offset, val, true);
-        this.offset +=2;
+        this.offset += 2;
     }
 
     int16() {
@@ -48,7 +45,7 @@ export class BinDataView {
     }
     setInt16(val) {
         this.dv.setInt16(this.offset, val, true);
-        this.offset +=2;
+        this.offset += 2;
     }
 
     int32() {
@@ -58,7 +55,7 @@ export class BinDataView {
     }
     setInt32(val) {
         this.dv.setInt32(this.offset, val, true);
-        this.offset +=4;
+        this.offset += 4;
     }
 
     uint32() {
@@ -69,7 +66,7 @@ export class BinDataView {
 
     setUint32(val) {
         this.dv.setUint32(this.offset, val, true);
-        this.offset +=4;
+        this.offset += 4;
     }
 
     float32() {
@@ -80,7 +77,7 @@ export class BinDataView {
 
     setFloat32(val) {
         this.dv.setFloat32(this.offset, val, true);
-        this.offset +=4;
+        this.offset += 4;
     }
 
     float64() {
@@ -91,12 +88,12 @@ export class BinDataView {
 
     setFloat64(val) {
         this.dv.setFloat64(this.offset, val, true);
-        this.offset +=8;
+        this.offset += 8;
     }
 
     string() {
-        let size = this.uint16(), ret='';
-        for (let i=0; i<size;++i) {
+        let size = this.uint16(), ret = '';
+        for (let i = 0; i < size; ++i) {
             ret += String.fromCharCode(this.uint8());
         }
         return ret;
@@ -104,7 +101,7 @@ export class BinDataView {
     setString(val) {
         let size = val.length;
         this.setUint16(size);
-        for( let i=0; i<size; ++i ) {
+        for (let i = 0; i < size; ++i) {
             this.setUint8(val[i].charCodeAt(i));
         }
         this.offset += size;
@@ -121,3 +118,5 @@ export class BinDataView {
         this.offset += val.byteLength;
     }
 }
+
+export { BinDataView };

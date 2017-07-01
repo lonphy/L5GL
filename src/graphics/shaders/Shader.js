@@ -1,20 +1,27 @@
-import { D3Object } from '../../core/D3Object'
-import * as util from '../../util/util'
+import { D3Object } from '../../core/D3Object';
+import { DECLARE_ENUM } from '../../util/util';
+import { SamplerState } from './SamplerState';
 
 /**
- * 着色器基类  
- * 该类是顶点着色器和片元着色器的基类
- * >类成员定义了着色器, 但不持有任何uniform以及纹理实例,
- * 因此每一个着色器实例也许是单例方式存在, 通过name属性标识.
- * 一个需要渲染的几何体包含 Shader实例 和 ShaderParameters 实例(包含uniform, 采样器实例)
+ * Abstract base class. The class is the base for VertexShader and FragShader.
+ * The class data defines the shader but does not contain instances of shader 
+ * constants and shader textures.  Each instance of Shader may therefore be a 
+ * singleton, identified by 'shaderName'.  The drawing of geometry involves a 
+ * Shader (the abstraction) and a ShaderParameters (the instance of constants 
+ * and textures).
+ * 
+ * The constructor arrays must be dynamically allocated.  Shader assumes
+ * responsibility for deleting them.  The construction of a Shader is not
+ * complete until all programs (for the letious profiles) are provided
+ * via the setProgram function.
  */
-export class Shader extends D3Object {
+class Shader extends D3Object {
 
     /**
-     * @param name {string} 着色器名称
-     * @param numInputs {number} 输入属性数量
-     * @param numConstants {number} uniform 数量
-     * @param numSamplers {number} 采样器数量
+     * @param {string} name - The name of Shader for identified
+     * @param {number} numInputs - number of input attributers
+     * @param {number} numConstants - number of input uniforms
+     * @param {number} numSamplers - number of input samplers
      */
     constructor(name, numInputs = 0, numConstants = 0, numSamplers = 0) {
         super(name);
@@ -28,6 +35,7 @@ export class Shader extends D3Object {
             this.inputType = null;
             this.inputSemantic = null;
         }
+
         this.numInputs = numInputs;
         let i, dim;
         this.numConstants = numConstants;
@@ -44,76 +52,52 @@ export class Shader extends D3Object {
         }
 
         this.numSamplers = numSamplers;
-        this.coordinate = new Array(3);
         this.textureUnit = [];
         if (numSamplers > 0) {
             this.samplerName = new Array(numSamplers);
             this.samplerType = new Array(numSamplers);
-
-            this.filter = new Array(numSamplers);
-            this.coordinate[0] = new Array(numSamplers);
-            this.coordinate[1] = new Array(numSamplers);
-            this.coordinate[2] = new Array(numSamplers);
-            this.lodBias = new Float32Array(numSamplers);
-            this.anisotropy = new Float32Array(numSamplers);
-            this.borderColor = new Float32Array(numSamplers * 4);
-
+            this.samplers = new Array(numSamplers);
             for (i = 0; i < numSamplers; ++i) {
-                this.filter[i] = Shader.SF_NEAREST;
-                this.coordinate[0][i] = Shader.SC_CLAMP_EDGE;
-                this.coordinate[1][i] = Shader.SC_CLAMP_EDGE;
-                this.coordinate[2][i] = Shader.SC_CLAMP_EDGE;
-                this.lodBias[i] = 0;
-                this.anisotropy[i] = 1;
-
-                this.borderColor[i * 4] = 0;
-                this.borderColor[i * 4 + 1] = 0;
-                this.borderColor[i * 4 + 2] = 0;
-                this.borderColor[i * 4 + 3] = 0;
+                this.samplers[i] = null;
             }
             this.textureUnit = new Array(numSamplers);
         } else {
             this.samplerName = null;
             this.samplerType = null;
-            this.filter = null;
-            for (dim = 0; dim < 3; ++dim) {
-                this.coordinate[dim] = null;
-            }
-            this.lodBias = null;
-            this.anisotropy = null;
-            this.borderColor = null;
+            this.samplers = null;
             this.textureUnit = null;
         }
 
         this.program = '';
     }
+
     /**
-     * 着色器属性变量声明
-     * @param i {number} 属性变量索引
-     * @param name {string} 属性变量名称
-     * @param type {number} Shader.VT_XXX 属性变量类型
-     * @param semantic {number} Shader.VS_XXX 属性变量语义
+     * Declear a attribute at position i
+     * @param {number} i index
+     * @param {string} name
+     * @param {number} type - Shader.VT_XXX
+     * @param {number} semantic - Shader.VS_XXX
      */
-    setInput(i, name, type, semantic) {
-        if (0 <= i && i < this.numInputs) {
-            this.inputName[i] = name;
-            this.inputType[i] = type;
-            this.inputSemantic[i] = semantic;
+    setInput(index, name, type, semantic) {
+        if (0 <= index && index < this.numInputs) {
+            this.inputName[index] = name;
+            this.inputType[index] = type;
+            this.inputSemantic[index] = semantic;
             return;
         }
         console.assert(false, 'Invalid index.');
     }
 
     /**
-     * @param i {number}
-     * @param name {string}
-     * @param type {number} Shader.VT_XXX uniform类型
+     * @param {number} i
+     * @param {string} name
+     * @param {number} type - Shader.VT_XXX(uniform)
      */
     setConstant(i, name, type) {
         if (0 <= i && i < this.numConstants) {
             this.constantName[i] = name;
             this.constantType[i] = type;
-            var f = '', s = 0;
+            let f = '', s = 0;
             switch (type) {
                 case Shader.VT_MAT4:
                     f = 'uniformMatrix4fv';
@@ -172,9 +156,9 @@ export class Shader extends D3Object {
     }
 
     /**
-     * @param i {number}
-     * @param name {string} 采样器名称
-     * @param type {number} Shader.ST_XXX 采样器类型
+     * @param {number} i
+     * @param {string} name
+     * @param {number} type - Shader.ST_XXX(sampler)
      */
     setSampler(i, name, type) {
         if (0 <= i && i < this.numSamplers) {
@@ -186,65 +170,12 @@ export class Shader extends D3Object {
     }
 
     /**
-     * @param i {number}
-     * @param filter {number} Shader.SF_XXX 过滤器类型
+     * @param {number} i 
+     * @param {SamplerState} sampler 
      */
-    setFilter(i, filter) {
+    setSamplerState(i, sampler) {
         if (0 <= i && i < this.numSamplers) {
-            this.filter[i] = filter;
-            return;
-        }
-        console.assert(false, 'Invalid index.');
-    }
-
-    /**
-     * @param i {number}
-     * @param dim {number}
-     * @param coordinate {number} Shader.SC_XXX
-     */
-    setCoordinate(i, dim, coordinate) {
-        if (0 <= i && i < this.numSamplers) {
-            if (0 <= dim && dim < 3) {
-                this.coordinate[dim][i] = coordinate;
-                return;
-            }
-            console.assert(false, 'Invalid dimension.');
-        }
-        console.assert(false, 'Invalid index.');
-    }
-
-    /**
-     * @param i {number}
-     * @param lodBias {number}
-     */
-    setLodBias(i, lodBias) {
-        if (0 <= i && i < this.numSamplers) {
-            this.lodBias[i] = lodBias;
-            return;
-        }
-        console.assert(false, 'Invalid index.');
-    }
-
-    /**
-     * @param i {number}
-     * @param anisotropy {number}
-     */
-    setAnisotropy(i, anisotropy) {
-        if (0 <= i && i < this.numSamplers) {
-            this.anisotropy[i] = anisotropy;
-            return;
-        }
-        console.assert(false, 'Invalid index.');
-    }
-
-    /**
-     *
-     * @param i {number}
-     * @param borderColor {Float32Array} 4 length
-     */
-    setBorderColor(i, borderColor) {
-        if (0 <= i && i < this.numSamplers) {
-            this.borderColor[i].set(borderColor.subarray(0, 4), 0);
+            this.samplers[i] = sampler;
             return;
         }
         console.assert(false, 'Invalid index.');
@@ -258,10 +189,6 @@ export class Shader extends D3Object {
         console.assert(false, 'Invalid index.');
     }
 
-    /**
-     * 着色器源码赋值
-     * @param program {string}
-     */
     setProgram(program) {
         this.program = program;
     }
@@ -288,11 +215,6 @@ export class Shader extends D3Object {
         return Shader.VT_NONE;
     }
 
-    /**
-     * 获取属性语义
-     * @param i {number}
-     * @returns {number} Shader.VS_XXX
-     */
     getInputSemantic(i) {
         if (0 <= i && i < this.numInputs) {
             return this.inputSemantic[i];
@@ -356,53 +278,12 @@ export class Shader extends D3Object {
         return Shader.ST_NONE;
     }
 
-    getFilter(i) {
+    getSamplerState(i) {
         if (0 <= i && i < this.numSamplers) {
-            return this.filter[i];
+            return this.samplers[i];
         }
-
-        console.assert(false, 'Invalid index.');
-        return Shader.SF_NONE;
-    }
-
-    getCoordinate(i, dim) {
-        if (0 <= i && i < this.numSamplers) {
-            if (0 <= dim && dim < 3) {
-                return this.coordinate[dim][i];
-            }
-            console.assert(false, 'Invalid dimension.');
-            return Shader.SC_NONE;
-        }
-
-        console.assert(false, 'Invalid index.');
-        return Shader.SC_NONE;
-    }
-
-    getLodBias(i) {
-        if (0 <= i && i < this.numSamplers) {
-            return this.lodBias[i];
-        }
-
         console.assert(false, 'Invalid index.');
         return 0;
-    }
-
-    getAnisotropy(i) {
-        if (0 <= i && i < this.numSamplers) {
-            return this.anisotropy[i];
-        }
-
-        console.assert(false, 'Invalid index.');
-        return 1;
-    }
-
-    getBorderColor(i) {
-        if (0 <= i && i < this.numSamplers) {
-            return this.borderColor[i];
-        }
-
-        console.assert(false, 'Invalid index.');
-        return new Float32Array(4);
     }
 
     getTextureUnit(i) {
@@ -431,32 +312,23 @@ export class Shader extends D3Object {
         this.samplerName = inStream.readStringArray();
         this.numSamplers = this.samplerName.length;
         this.samplerType = inStream.readSizedEnumArray(this.numSamplers);
-        this.filter = inStream.readSizedEnumArray(this.numSamplers);
-        this.coordinate[0] = inStream.readSizedEnumArray(this.numSamplers);
-        this.coordinate[1] = inStream.readSizedEnumArray(this.numSamplers);
-        this.coordinate[2] = inStream.readSizedEnumArray(this.numSamplers);
-        this.lodBias = inStream.readSizedInt32Array(this.numSamplers);
-        this.anisotropy = inStream.readSizedInt32Array(this.numSamplers);
-        this.borderColor = inStream.readSizedFFloatArray(this.numSamplers);
-        var maxProfiles = inStream.readUint32();
+        let maxProfiles = inStream.readUint32();
 
         this.profileOwner = inStream.readBool();
     }
 
     static factory(inStream) {
-        var obj = new this();
+        let obj = new this();
         obj.load(inStream);
         return obj;
     }
 }
 
 // Maximum value for anisotropic filtering.
-util.DECLARE_ENUM(Shader, {
-    MAX_ANISOTROPY: 16
-}, false);
+DECLARE_ENUM(Shader, { MAX_ANISOTROPY: 16 }, false);
 
 // Types for the input and output variables of the shader program.
-util.DECLARE_ENUM(Shader, {
+DECLARE_ENUM(Shader, {
     VT_NONE: 0,
     VT_BOOL: 1,
     VT_BVEC2: 2,
@@ -475,36 +347,35 @@ util.DECLARE_ENUM(Shader, {
     VT_IVEC4: 15
 }, false);
 
-// Semantics for the input and output variables of the shader program.
-util.DECLARE_ENUM(Shader, {
+// Semantics for the input letiables of the shader program.
+DECLARE_ENUM(Shader, {
     VS_NONE: 0,
-    VS_POSITION: 1,        // ATTR0
-    VS_BLENDWEIGHT: 2,        // ATTR1
-    VS_NORMAL: 3,        // ATTR2
-    VS_COLOR0: 4,        // ATTR3 (and for render targets)
-    VS_COLOR1: 5,        // ATTR4 (and for render targets)
-    VS_FOGCOORD: 6,        // ATTR5
-    VS_PSIZE: 7,        // ATTR6
-    VS_BLENDINDICES: 8,        // ATTR7
-    VS_TEXCOORD0: 9,        // ATTR8
-    VS_TEXCOORD1: 10,       // ATTR9
-    VS_TEXCOORD2: 11,       // ATTR10
-    VS_TEXCOORD3: 12,       // ATTR11
-    VS_TEXCOORD4: 13,       // ATTR12
-    VS_TEXCOORD5: 14,       // ATTR13
-    VS_TEXCOORD6: 15,       // ATTR14
-    VS_TEXCOORD7: 16,       // ATTR15
-    VS_FOG: 17,       // same as L5.Shader.VS_FOGCOORD (ATTR5)
+    VS_POSITION: 1,       // ATTR0
+    VS_BLENDWEIGHT: 2,    // ATTR1
+    VS_NORMAL: 3,         // ATTR2
+    VS_COLOR0: 4,         // ATTR3 (and for render targets)
+    VS_COLOR1: 5,         // ATTR4 (and for render targets)
+    VS_FOGCOORD: 6,       // ATTR5
+    VS_PSIZE: 7,          // ATTR6
+    VS_BLENDINDICES: 8,   // ATTR7
+    VS_TEXCOORD0: 9,      // ATTR8
+    VS_TEXCOORD1: 10,     // ATTR9
+    VS_TEXCOORD2: 11,     // ATTR10
+    VS_TEXCOORD3: 12,     // ATTR11
+    VS_TEXCOORD4: 13,     // ATTR12
+    VS_TEXCOORD5: 14,     // ATTR13
+    VS_TEXCOORD6: 15,     // ATTR14
+    VS_TEXCOORD7: 16,     // ATTR15
+    VS_FOG: 17,           // same as L5.Shader.VS_FOGCOORD (ATTR5)
     VS_TANGENT: 18,       // same as L5.Shader.VS_TEXCOORD6 (ATTR14)
-    VS_BINORMAL: 19,       // same as L5.Shader.VS_TEXCOORD7 (ATTR15)
-    VS_COLOR2: 20,       // support for multiple render targets
-    VS_COLOR3: 21,       // support for multiple render targets
-    VS_DEPTH0: 22,       // support for multiple render targets
-    VS_QUANTITY: 23
+    VS_BINORMAL: 19,      // same as L5.Shader.VS_TEXCOORD7 (ATTR15)
+    VS_COLOR2: 20,        // support for multiple render targets
+    VS_COLOR3: 21,        // support for multiple render targets
+    VS_DEPTH0: 22        // support for multiple render targets
 }, false);
 
 // The sampler type for interpreting the texture assigned to the sampler.
-util.DECLARE_ENUM(Shader, {
+DECLARE_ENUM(Shader, {
     ST_NONE: 0,
     ST_2D: 1,
     ST_3D: 2,
@@ -512,23 +383,4 @@ util.DECLARE_ENUM(Shader, {
     ST_2D_ARRAY: 4
 }, false);
 
-
-// Texture coordinate modes for the samplers.
-util.DECLARE_ENUM(Shader, {
-    SC_NONE: 0,
-    SC_REPEAT: 1,
-    SC_MIRRORED_REPEAT: 2,
-    SC_CLAMP_EDGE: 3
-}, false);
-
-
-// Filtering modes for the samplers.
-util.DECLARE_ENUM(Shader, {
-    SF_NONE: 0,
-    SF_NEAREST: 1,
-    SF_LINEAR: 2,
-    SF_NEAREST_MIPMAP_NEAREST: 3,
-    SF_NEAREST_MIPMAP_LINEAR: 4,
-    SF_LINEAR_MIPMAP_NEAREST: 5,
-    SF_LINEAR_MIPMAP_LINEAR: 6
-});
+export { Shader };

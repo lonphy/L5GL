@@ -1,12 +1,6 @@
-/**
- * VisualTechnique
- *
- * @author lonphy
- * @version 2.0
- */
-import {D3Object} from '../../core/D3Object'
+import { D3Object } from '../../core/D3Object';
 
-export class VisualTechnique extends D3Object {
+class VisualTechnique extends D3Object {
 
     constructor() {
         super();
@@ -151,3 +145,5 @@ export class VisualTechnique extends D3Object {
 }
 
 D3Object.Register('VisualTechnique', VisualTechnique.factory.bind(VisualTechnique));
+
+export { VisualTechnique };

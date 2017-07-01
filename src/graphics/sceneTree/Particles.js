@@ -1,8 +1,8 @@
-import { TriMesh } from './TriMesh'
-import { Visual } from './Visual'
-import { VertexBufferAccessor, IndexBuffer } from '../resources/namespace'
-import { Renderer } from '../renderer/Renderer'
-import { Point } from '../../math/index'
+import { TriMesh } from './TriMesh';
+import { Visual } from './Visual';
+import { VertexBufferAccessor, IndexBuffer } from '../resources/namespace';
+import { Renderer } from '../renderer/Renderer';
+import { Point } from '../../math/index';
 
 /**
  * The VertexFormat object must have 3-tuple positions. 
@@ -13,7 +13,7 @@ import { Point } from '../../math/index'
  * The index buffer is automatically generated.
  * The 'positionSizes' contain position in the first three components and size in the fourth component.
  */
-export class Particles extends TriMesh {
+class Particles extends TriMesh {
 
     /**
      * @param {VertexFormat} vformat
@@ -153,3 +153,5 @@ export class Particles extends TriMesh {
         super.getVisibleSet(culler, noCull);
     }
 }
+
+export { Particles };

@@ -1,14 +1,11 @@
-/**
- * TriFan
- *
- * @param format {L5.VertexFormat}
- * @param vertexBuffer {L5.VertexBuffer}
- * @param indexSize {number}
- */
-import { Triangles } from './Triangles'
+import { Triangles } from './Triangles';
 
-export class TriFan extends Triangles {
-
+class TriFan extends Triangles {
+    /**
+     * @param {VertexFormat} format
+     * @param {VertexBuffer} vertexBuffer
+     * @param {number} indexSize
+     */
     constructor(format, vertexBuffer, indexSize) {
         super(Visual.PT_TRIFAN, format, vertexBuffer, null)
         console.assert(indexSize === 2 || indexSize === 4, 'Invalid index size.');
@@ -36,10 +33,11 @@ export class TriFan extends Triangles {
     getNumTriangles() {
         return this.indexBuffer.numElements - 2;
     }
+    
     /**
      * 获取位置I处的三角形索引
-     * @param i {number}
-     * @param output {Array} 3 elements
+     * @param {number} i
+     * @param {Array<number>} output - 3 elements
      * @returns {boolean}
      */
     getTriangle(i, output) {
@@ -53,3 +51,4 @@ export class TriFan extends Triangles {
         return false;
     }
 }
+export { TriFan };

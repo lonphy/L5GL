@@ -1,14 +1,10 @@
-/**
- * 材质环境光系数
- */
+import { ShaderFloat } from './ShaderFloat';
+import { D3Object } from '../../core/D3Object';
 
-import {ShaderFloat} from './ShaderFloat'
-import {D3Object} from '../../core/D3Object'
-
-export class MaterialAmbientConstant extends ShaderFloat {
+class MaterialAmbientConstant extends ShaderFloat {
 
     /**
-     * @param material {Material} 材质
+     * @param {Material} material
      */
     constructor(material) {
         super(1);
@@ -16,11 +12,6 @@ export class MaterialAmbientConstant extends ShaderFloat {
         this.material = material;
     }
 
-    /**
-     * 更新材质环境光系数
-     * @param visual {Visual}
-     * @param camera {Camera}
-     */
     update(visual, camera) {
         this.copy(this.material.ambient);
     }
@@ -39,6 +30,8 @@ export class MaterialAmbientConstant extends ShaderFloat {
         super.save(outStream);
         outStream.writePointer(this.material);
     }
-};
+}
 
-D3Object.Register('L5.MaterialAmbientConstant', MaterialAmbientConstant.factory);
+D3Object.Register('MaterialAmbientConstant', MaterialAmbientConstant.factory);
+
+export { MaterialAmbientConstant };

@@ -1,16 +1,12 @@
-/**
- * Camera - 摄像机
- *
- * @param isPerspective {boolean} 是否是透视相机, true-透视, false-正交
- * @author lonphy
- * @version 2.0
- */
-import { D3Object } from '../../core/D3Object'
-import { _Math, Point, Vector, Matrix } from '../../math/index'
-import * as util from '../../util/util'
+import { D3Object } from '../../core/D3Object';
+import { _Math, Point, Vector, Matrix } from '../../math/index';
+import { DECLARE_ENUM } from '../../util/util';
 
-export class Camera extends D3Object {
+class Camera extends D3Object {
 
+    /**
+     * @param {boolean} isPerspective - 是否是透视相机, true-透视, false-正交
+     */
     constructor(isPerspective = false) {
         super();
 
@@ -69,15 +65,15 @@ export class Camera extends D3Object {
         this.position.copy(eye);
 
         // 这里可直接计算正-Z方向, 上面已经做过判断
-        var z = eye.subAsVector(center);
+        let z = eye.subAsVector(center);
         z.normalize();
 
         // 计算右方向
-        var x = up.cross(z);
+        let x = up.cross(z);
         x.normalize();
 
         // 计算右方向
-        var y = z.cross(x);
+        let y = z.cross(x);
         y.normalize();
 
         this.direction.copy(z);
@@ -97,7 +93,7 @@ export class Camera extends D3Object {
      */
     setFrame(position, direction, up) {
         this.position.copy(position);
-        var right = direction.cross(up);
+        let right = direction.cross(up);
         this.setAxes(direction, up, right);
     }
 
@@ -125,7 +121,7 @@ export class Camera extends D3Object {
         this.right.copy(right);
 
         // 判断3个轴是否正交, 否则需要校正
-        var det = direction.dot(up.cross(right));
+        let det = direction.dot(up.cross(right));
         if (_Math.abs(1 - det) > 0.00001) {
             Vector.orthoNormalize(this.direction, this.up, this.right);
         }
@@ -140,8 +136,8 @@ export class Camera extends D3Object {
      * @param far {float} 远平面
      */
     setPerspective(fov, aspect, near, far) {
-        var top = near * _Math.tan(fov * _Math.PI / 360);
-        var right = top * aspect;
+        let top = near * _Math.tan(fov * _Math.PI / 360);
+        let right = top * aspect;
 
         this.frustum[Camera.VF_TOP] = top;
         this.frustum[Camera.VF_BOTTOM] = -top;
@@ -158,13 +154,13 @@ export class Camera extends D3Object {
      * returns {Float32Array} [fov, aspect, near, far]
      */
     getPerspective() {
-        var ret = new Float32Array(4);
+        let ret = new Float32Array(4);
 
         if (
             this.frustum[Camera.VF_LEFT] == -this.frustum[Camera.VF_RIGHT] &&
             this.frustum[Camera.VF_BOTTOM] == -this.frustum[Camera.VF_TOP]
         ) {
-            var tmp = this.frustum[Camera.VF_TOP] / this.frustum[Camera.VF_NEAR];
+            let tmp = this.frustum[Camera.VF_TOP] / this.frustum[Camera.VF_NEAR];
             ret[0] = _Math.atan(tmp) * 360 / _Math.PI;
             ret[1] = this.frustum[Camera.VF_RIGHT] / this.frustum[Camera.VF_TOP];
             ret[2] = this.frustum[Camera.VF_NEAR];
@@ -206,7 +202,7 @@ export class Camera extends D3Object {
     setProjectionMatrix(p00, p10, p11, p01,
         nearExtrude, farExtrude) {
 
-        var // 计算近平面
+        let // 计算近平面
             q000 = p00.scalar(nearExtrude),
             q100 = p01.scalar(nearExtrude),
             q110 = p11.scalar(nearExtrude),
@@ -219,26 +215,26 @@ export class Camera extends D3Object {
             q011 = p01.scalar(farExtrude);
 
         // Compute the representation of q111.
-        var u0 = q100.sub(q000),
+        let u0 = q100.sub(q000),
             u1 = q010.sub(q000),
             u2 = q001.sub(q000);
 
-        var m = Matrix.IPMake(u0, u1, u2, q000);
-        var invM = m.inverse(0.001);
-        var a = invM.mulPoint(q111);
+        let m = Matrix.IPMake(u0, u1, u2, q000);
+        let invM = m.inverse(0.001);
+        let a = invM.mulPoint(q111);
 
         // Compute the coeffients in the fractional linear transformation.
         //   y[i] = n[i]*x[i]/(d[0]*x[0] + d[1]*x[1] + d[2]*x[2] + d[3])
-        var n0 = 2 * a.x;
-        var n1 = 2 * a.y;
-        var n2 = 2 * a.z;
-        var d0 = +a.x - a.y - a.z + 1;
-        var d1 = -a.x + a.y - a.z + 1;
-        var d2 = -a.x - a.y + a.z + 1;
-        var d3 = +a.x + a.y + a.z - 1;
+        let n0 = 2 * a.x;
+        let n1 = 2 * a.y;
+        let n2 = 2 * a.z;
+        let d0 = +a.x - a.y - a.z + 1;
+        let d1 = -a.x + a.y - a.z + 1;
+        let d2 = -a.x - a.y + a.z + 1;
+        let d3 = +a.x + a.y + a.z - 1;
 
         // 从规范正方体[-1,1]^2 x [0,1]计算透视投影
-        var n20 = n2 / n0,
+        let n20 = n2 / n0,
             n21 = n2 / n1,
             n20d0 = n20 * d0,
             n21d1 = n21 * d1,
@@ -290,22 +286,22 @@ export class Camera extends D3Object {
      */
     computeBoundingAABB(numVertices, vertices, stride, worldMatrix) {
         // 计算当前物体，世界视图投影矩阵.
-        var vpMatrix = this.projectionMatrix.mul(this.viewMatrix);
+        let vpMatrix = this.projectionMatrix.mul(this.viewMatrix);
         if (!this.postProjectionIsIdentity) {
             vpMatrix.copy(this.postProjectionMatrix.mul(vpMatrix));
         }
-        var wvpMatrix = vpMatrix.mul(worldMatrix);
-        var xmin, xmax, ymin, ymax;
+        let wvpMatrix = vpMatrix.mul(worldMatrix);
+        let xmin, xmax, ymin, ymax;
         // 计算规范化后的显示坐标包围盒
         xmin = ymin = Infinity;
         xmax = ymax = -Infinity;
 
-        for (var i = 0; i < numVertices; ++i) {
-            var pos = new Point(vertices[i + stride], vertices[i + stride + 1], vertices[i + stride + 2]);
-            var hpos = wvpMatrix.mulPoint(pos);
-            var invW = 1 / hpos.w;
-            var xNDC = hpos.x * invW;
-            var yNDC = hpos.y * invW;
+        for (let i = 0; i < numVertices; ++i) {
+            let pos = new Point(vertices[i + stride], vertices[i + stride + 1], vertices[i + stride + 2]);
+            let hpos = wvpMatrix.mulPoint(pos);
+            let invW = 1 / hpos.w;
+            let xNDC = hpos.x * invW;
+            let yNDC = hpos.y * invW;
             if (xNDC < xmin) {
                 xmin = xNDC;
             }
@@ -327,8 +323,8 @@ export class Camera extends D3Object {
      * @returns {void}
      */
     onFrameChange() {
-        var nPos = this.position;
-        var x = this.right, y = this.up, z = this.direction;
+        let nPos = this.position;
+        let x = this.right, y = this.up, z = this.direction;
 
         this.viewMatrix[0] = x[0];
         this.viewMatrix[1] = y[0];
@@ -358,8 +354,8 @@ export class Camera extends D3Object {
      * @returns {void}
      */
     onFrustumChange() {
-        var f = this.frustum;
-        var near = f[Camera.VF_NEAR],
+        let f = this.frustum;
+        let near = f[Camera.VF_NEAR],
             far = f[Camera.VF_FAR],
             bottom = f[Camera.VF_BOTTOM],
             top = f[Camera.VF_TOP],
@@ -373,7 +369,7 @@ export class Camera extends D3Object {
         this.projectionMatrix.zero();
 
         if (this.isPerspective) {
-            var near2 = 2 * near;
+            let near2 = 2 * near;
             this.projectionMatrix[0] = near2 / rl;
             this.projectionMatrix[5] = near2 / tb;
             this.projectionMatrix[8] = (right + left) / rl;
@@ -397,36 +393,26 @@ export class Camera extends D3Object {
 
     /**
      * 计算postproj-proj-view-preview的乘积
-     * @returns {void}
      */
     updatePVMatrix() {
-
         this.projectionViewMatrix.copy(this.projectionMatrix.mul(this.viewMatrix));
-
-
         if (!this.postProjectionIsIdentity) {
             this.projectionViewMatrix.copy(this.postProjectionMatrix.mul(this.projectionViewMatrix));
         }
-
         if (!this.preViewIsIdentity) {
             this.projectionViewMatrix.copy(this.projectionViewMatrix.mul(this.preViewMatrix));
         }
     }
 
     debug() {
-        if (!this.output) {
-            this.output = document.createElement('div');
-            document.querySelector('.nodes-info').appendChild(this.output);
-        }
         let pos = this.position;
         let dir = this.direction;
-        this.output.innerHTML = `pos:[${pos.x.toFixed(4)}, ${pos.y.toFixed(4)}, ${pos.z.toFixed(4)}]<br/>
-                        dir:[${dir.x.toFixed(4)}, ${dir.y.toFixed(4)}, ${dir.z.toFixed(4)}]<br/>`;
+        console.log(`pos:[${pos.x.toFixed(4)}, ${pos.y.toFixed(4)}, ${pos.z.toFixed(4)}]
+dir:[${dir.x.toFixed(4)}, ${dir.y.toFixed(4)}, ${dir.z.toFixed(4)}]`);
     }
 };
 
-////////////////////// const 视截体常量定义 //////////////////////
-util.DECLARE_ENUM(Camera, {
+DECLARE_ENUM(Camera, {
     VF_NEAR: 0,
     VF_FAR: 1,
     VF_BOTTOM: 2,
@@ -435,6 +421,4 @@ util.DECLARE_ENUM(Camera, {
     VF_RIGHT: 5,
     VF_QUANTITY: 6
 });
-
-
-
+export { Camera };

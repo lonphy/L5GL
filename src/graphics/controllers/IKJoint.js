@@ -1,7 +1,7 @@
-import { D3Object } from '../../core/D3Object'
-import { _Math, Vector, Matrix } from '../../math/index'
+import { D3Object } from '../../core/D3Object';
+import { _Math, Vector, Matrix, Matrix3 } from '../../math/index';
 
-export class IKJoint extends D3Object {
+class IKJoint extends D3Object {
 
 	/**
 	 * @param {Spatial} object 
@@ -19,8 +19,8 @@ export class IKJoint extends D3Object {
 			this.minTranslation.push(-_Math.MAX_REAL);
 			this.maxTranslation.push(_Math.MAX_REAL);
 			this.allowRotation.push(false);
-			this.minRotation.push(-_Math.PI);
-			this.maxRotation.push(_Math.PI);
+			this.minRotation.push(-Math.PI);
+			this.maxRotation.push(Math.PI);
 		}
 	}
 	/**
@@ -153,15 +153,16 @@ export class IKJoint extends D3Object {
 		let theta = _Math.atan2(numer, denom);
 
 		// Factor local rotation into Euler angles.
-		// let euler[3];
 		let rotate = this.object.localTransform.getRotate();
 
-		// Matrix3f rot(
-		//     rotate[0][0], rotate[0][1], rotate[0][2],
-		//     rotate[1][0], rotate[1][1], rotate[1][2],
-		//     rotate[2][0], rotate[2][1], rotate[2][2]);
+		let rot = new Matrix3(
+			rotate[0], rotate[1], rotate[2],
+			rotate[4], rotate[5], rotate[6],
+			rotate[8], rotate[9], rotate[10]
+		);
 
-		rot.ExtractEulerZYX(euler[2], euler[1], euler[0]);
+		let euler = VECTOR.ZERO;
+		rot.extractEulerZYX(euler);
 
 		// Clamp to range.
 		let desired = euler[i] + theta;
@@ -181,11 +182,11 @@ export class IKJoint extends D3Object {
 
 		// Test whether step should be taken.
 		let newNorm = 0;
-		rotate.MakeRotation(U, theta);
+		rotate = Matrix.makeRotation(U, theta);
 		for (g = 0; g < this.numGoals; ++g) {
 			goal = this.goals[g];
 			let EmP = goal.getEffectorPosition().subAsVector(this.object.worldTransform.getTranslate());
-			let newE = this.object.worldTransform.getTranslate() + rotate * EmP;
+			let newE = this.object.worldTransform.getTranslate().add(rotate.mulPoint(Emp));
 			let GmE = goal.getTargetPosition().subAsVector(newE);
 			newNorm += GmE.squaredLength();
 		}
@@ -196,15 +197,17 @@ export class IKJoint extends D3Object {
 		}
 
 		// Update the local rotation.
-		rot.MakeEulerZYX(euler[2], euler[1], euler[0]);
+		rot.makeEulerZYX(euler);
 
 		rotate = new Matrix(
-			rot[0][0], rot[0][1], rot[0][2], 0,
-			rot[1][0], rot[1][1], rot[1][2], 0,
-			rot[2][0], rot[2][1], rot[2][2], 0,
+			rot[0], rot[1], rot[2], 0,
+			rot[3], rot[4], rot[5], 0,
+			rot[6], rot[7], rot[8], 0,
 			0, 0, 0, 1);
 
-		this.object.LocalTransform.setRotate(rotate);
+		this.object.localTransform.setRotate(rotate);
 		return true;
 	}
 }
+
+export { IKJoint };

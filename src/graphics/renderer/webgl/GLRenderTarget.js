@@ -1,12 +1,7 @@
-/**
- * 渲染目标
- * @author lonphy
- * @version 2.0
- */
-import { Texture2D } from '../../resources/Texture2D'
-import { GLTexture2D } from './GLTexture2D'
+import { Texture2D } from '../../resources/Texture2D';
+import { GLTexture2D } from './GLTexture2D';
 
-export class GLRenderTarget {
+class GLRenderTarget {
     constructor(renderer, renderTarget) {
         this.numTargets = renderTarget.numTargets;
         console.assert(this.numTargets >= 1, 'Number of render targets must be at least one.');
@@ -154,7 +149,7 @@ export class GLRenderTarget {
             }
         }
         else {
-            texture = new Texture2D(format, width, height, 1);
+            texture = new Texture2D(format, width, height, true);
         }
 
         gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, texture.getData(0));
@@ -162,3 +157,5 @@ export class GLRenderTarget {
         this.disable(renderer);
     }
 }
+
+export { GLRenderTarget };

@@ -82,7 +82,7 @@ class StateLoader extends L5.Application3D {
 
         ++this.loadWait;
 
-        return L5.XhrTask('data/miku_v2.pmd').then(PMDPaser).then(mesh=>{
+        return L5.XhrTask('data/miku_v2.pmd', 'arraybuffer').then(PMDPaser).then(mesh=>{
             console.log(mesh);
             this.ground = mesh;
             this.ground.culling = L5.Spatial.CULLING_NEVER;

@@ -1,15 +1,7 @@
-// @ts-check
-/**
- * 对象系统 - 基类
- * @abstract
- */
+
 class D3Object {
     constructor(name = '') {
-        /** @type {string} */
-        this.name = name;
-        if (name === '') {
-            this.name = new.target.name;
-        }
+        this.name = name || new.target.name;
     }
 
     getObjectByName(name) {
@@ -30,8 +22,8 @@ class D3Object {
         inStream.readUniqueID(this);
         this.name = inStream.readString();
     }
-    link(inStream) {}
-    postLink() {}
+    link(inStream) { }
+    postLink() { }
 
     save(tar) {
         tar.writeString(this.constructor.name);
@@ -53,13 +45,17 @@ class D3Object {
         return obj;
     }
 
+    /**
+     * @param {string} name 
+     * @param {function(InStream):D3Object} factory 
+     */
     static Register(name, factory) {
         D3Object.factories.set(name, factory);
     }
 }
 
 /**
- * @type {Map<string, function(InStream)=>D3Object>}
+ * @type {Map<string, function(InStream):D3Object>}
  */
 D3Object._factories = new Map();
-export { D3Object }
+export { D3Object };

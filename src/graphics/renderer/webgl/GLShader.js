@@ -1,20 +1,14 @@
-/**
- * Shader 底层包装
- * @author lonphy
- * @version 2.0
- */
-import { default as webgl } from './GLMapping'
-import { Shader } from '../../shaders/Shader'
+import { default as webgl } from './GLMapping';
+import { Shader } from '../../shaders/Shader';
 
-export class GLShader {
+class GLShader {
     /**
+     * @param {Renderer} renderer
      * @param {Shader} shader
      * @param {ShaderParameters} parameters
      * @param {number} maxSamplers
-     * @param {Renderer} renderer
-     * @param {number} currentSS RendererData::SamplerState
      */
-    setSamplerState(renderer, shader, parameters, maxSamplers, currentSS) {
+    setSamplerState(renderer, shader, parameters, maxSamplers) {
         let gl = renderer.gl;
 
         let numSamplers = shader.numSamplers;
@@ -27,81 +21,36 @@ export class GLShader {
             let target = webgl.TextureTarget[type];
             let textureUnit = shader.getTextureUnit(i);
             const texture = parameters.getTexture(i);
-            let current = currentSS[textureUnit];
             let wrap0, wrap1;
+
+            let samplerState = shader.getSamplerState(i);
 
             switch (type) {
                 case Shader.ST_2D:
                     {
                         renderer._enableTexture2D(texture, textureUnit);
-                        current.getCurrent(renderer, target);
-
-                        wrap0 = webgl.WrapMode[shader.getCoordinate(i, 0)];
-                        if (wrap0 != current.wrap[0]) {
-                            current.wrap[0] = wrap0;
-                            gl.texParameteri(target, gl.TEXTURE_WRAP_S, wrap0);
-                        }
-
-                        wrap1 = webgl.WrapMode[shader.getCoordinate(i, 1)];
-                        if (wrap1 != current.wrap[1]) {
-                            current.wrap[1] = wrap1;
-                            gl.texParameteri(target, gl.TEXTURE_WRAP_T, wrap1);
+                        renderer._enableSamplerState(samplerState, textureUnit);
+                        if (samplerState.maxAnisotropy !== gl.getTexParameter(gl.TEXTURE_2D, webgl.TEXTURE_MAX_ANISOTROPY_EXT)) {
+                            gl.texParameterf(gl.TEXTURE_2D, webgl.TEXTURE_MAX_ANISOTROPY_EXT, samplerState.maxAnisotropy);
                         }
                         break;
                     }
                 case Shader.ST_CUBE:
                     {
                         renderer._enableTextureCube(texture, textureUnit);
-                        current.getCurrent(renderer, target);
-
-                        wrap0 = webgl.WrapMode[shader.getCoordinate(i, 0)];
-                        if (wrap0 != current.wrap[0]) {
-                            current.wrap[0] = wrap0;
-                            gl.texParameteri(target, gl.TEXTURE_WRAP_S, wrap0);
-                        }
-
-                        wrap1 = webgl.WrapMode[shader.getCoordinate(i, 1)];
-                        if (wrap1 != current.wrap[1]) {
-                            current.wrap[1] = wrap1;
-                            gl.texParameteri(target, gl.TEXTURE_WRAP_T, wrap1);
+                        renderer._enableSamplerState(samplerState, textureUnit);
+                        if (samplerState.maxAnisotropy !== gl.getTexParameter(gl.TEXTURE_CUBE_MAP, webgl.TEXTURE_MAX_ANISOTROPY_EXT)) {
+                            gl.texParameterf(gl.TEXTURE_CUBE_MAP, webgl.TEXTURE_MAX_ANISOTROPY_EXT, samplerState.maxAnisotropy);
                         }
                         break;
                     }
+                case Shader.ST_3D:
+                    break;
+                case Shader.ST_2D_ARRAY:
+                    break;
                 default:
                     console.assert(false, 'Invalid sampler type');
                     break;
-            }
-
-            // Set the anisotropic filtering value.
-            const maxAnisotropy = Shader.MAX_ANISOTROPY;
-            let anisotropy = shader.getAnisotropy(i);
-            if (anisotropy < 1 || anisotropy > maxAnisotropy) {
-                anisotropy = 1;
-            }
-            if (anisotropy != current.anisotropy) {
-                current.anisotropy = anisotropy;
-                gl.texParameterf(target, webgl.TEXTURE_MAX_ANISOTROPY_EXT, anisotropy);
-            }
-
-            // Set the magfilter mode.
-            let filter = shader.getFilter(i);
-            if (filter === Shader.SF_NEAREST) {
-                if (gl.NEAREST !== current.magFilter) {
-                    current.magFilter = gl.NEAREST;
-                    gl.texParameteri(target, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-                }
-            } else {
-                if (gl.LINEAR != current.magFilter) {
-                    current.magFilter = gl.LINEAR;
-                    gl.texParameteri(target, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-                }
-            }
-
-            // Set the minfilter mode.
-            let minFilter = webgl.TextureFilter[filter];
-            if (minFilter != current.minFilter) {
-                current.minFilter = minFilter;
-                gl.texParameteri(target, gl.TEXTURE_MIN_FILTER, minFilter);
             }
         }
     }
@@ -136,10 +85,16 @@ export class GLShader {
                         renderer._disableTextureCube(texture, textureUnit);
                         break;
                     }
+                case Shader.ST_3D:
+                    break;
+                case Shader.ST_2D_ARRAY:
+                    break;
                 default:
-                    console.assert(false, "Invalid sampler type\n");
+                    console.assert(false, 'Invalid sampler type');
                     break;
             }
         }
     }
 }
+
+export { GLShader };

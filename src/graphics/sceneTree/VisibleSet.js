@@ -1,4 +1,4 @@
-export class VisibleSet {
+class VisibleSet {
     constructor() {
         this.numVisible = 0;
         this.visibles = [];
@@ -18,7 +18,7 @@ export class VisibleSet {
     }
 
     insert(visible) {
-        var size = this.visibles.length;
+        const size = this.visibles.length;
         if (this.numVisible < size) {
             this.visibles[this.numVisible] = visible;
         }
@@ -32,3 +32,5 @@ export class VisibleSet {
         this.numVisible = 0;
     }
 }
+
+export { VisibleSet };

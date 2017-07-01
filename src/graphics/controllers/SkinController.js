@@ -1,12 +1,17 @@
-import { Controller } from './Controller'
-import { D3Object } from '../../core/D3Object'
-import { Renderer } from '../renderer/Renderer'
+import { Controller } from './Controller';
+import { D3Object } from '../../core/D3Object';
+import { Renderer } from '../renderer/Renderer';
+import { VertexBufferAccessor } from '../resources/namespace';
+import { Transform } from '../dataTypes/Transform';
+import { Point } from '../../math/index';
+import { Visual } from '../sceneTree/namespace';
 
-export class SkinController extends Controller {
+class SkinController extends Controller {
 
     /**
-     * @param {number} numVertices
-     * @param {number} numBones
+     * The numbers of vertices and bones are fixed for the lifetime of the object.
+     * @param {number} numVertices - numbers of vertices
+     * @param {number} numBones - numbers of bones
      */
     constructor(numVertices = 0, numBones = 0) {
         super();
@@ -15,25 +20,17 @@ export class SkinController extends Controller {
         this.__init();
     }
 
+    /**
+     * @private
+     */
     __init() {
-        let numBones = this.numBones,
-            numVertices = this.numVertices;
+        const { numBones, numVertices } = this;
         if (numVertices > 0) {
-            /**
-             * @let {Array<Node>}
-             */
-            this.bones = new Array(numBones);
+            this.bones = new Array(numBones);         // bones[numBones]                -> Node
+            this.weights = new Array(numVertices);    // weights[numVertices][numBones] -> number
+            this.offsets = new Array(numVertices);    // offsets[numVertices][numBones] -> Point
 
-            /**
-             * @type {Array< Array<number> >}
-             */
-            this.weights = new Array(numVertices);
-            /**
-             * @type {Array< Array<Point> >}
-             */
-            this.offsets = new Array(numVertices);
-
-            for (let i = 0; i < numVertices; ++i) {
+            for(let i=0;i<numVertices;++i) {
                 this.weights[i] = new Array(numBones);
                 this.offsets[i] = new Array(numBones);
             }
@@ -41,8 +38,7 @@ export class SkinController extends Controller {
     }
 
     /**
-     * 动画更新
-     * @param {number} applicationTime 毫秒
+     * @param {number} applicationTime - milliseconds
      * @returns {boolean}
      */
     update(applicationTime) {
@@ -53,42 +49,37 @@ export class SkinController extends Controller {
         let visual = this.object;
         console.assert(
             this.numVertices === visual.vertexBuffer.numElements,
-            'Controller must have the same number of vertices as the buffer'
+            'SkinController must have the same number of vertices as the vertex buffer.'
         );
 
         let vba = VertexBufferAccessor.fromVisual(visual);
 
-        // 在骨骼的世界坐标系计算蒙皮顶点, 所以visual的worldTransform必须是单位Transform
+        // The skin vertices are calculated in the bone world coordinate system,
+        // so the visual's world transform must be the identity.
         visual.worldTransform = Transform.IDENTITY;
         visual.worldTransformIsCurrent = true;
 
-        // 计算蒙皮顶点位置
-        let nv = this.numVertices,
-            nb = this.numBones,
-            vertex, bone, weight, offset, worldOffset, position;
-        for (vertex = 0; vertex < nv; ++vertex) {
+        // Compute the skin vertex locations.
+        const { numBones, numVertices } = this;
+        let i, j, weight, offset, worldOffset, position;
+        for (i = 0; i < numVertices; ++i) {
             position = Point.ORIGIN;
-
-            for (bone = 0; bone < nb; ++bone) {
-                weight = this.weights[vertex][bone];
+            for (j = 0; j < numBones; ++j) {
+                weight = this.weights[i][j];
                 if (weight !== 0) {
-                    offset = this.offsets[vertex][bone];
-                    worldOffset = this.bones[bone].worldTransform.mulPoint(offset);
-                    position = position.add(worldOffset.scalar(weight));
+                    offset = this.offsets[i][j];
+                    worldOffset = this.bones[j].worldTransform.mulPoint(offset);  // bones[j].worldTransform * offset
+                    position.copy(position.add(worldOffset.scalar(weight)));      // position += worldOffset * weight
                 }
             }
-            vba.setPosition(vertex, position);
+            vba.setPosition(i, position);
         }
 
         visual.updateModelSpace(Visual.GU_NORMALS);
-        Renderer.updateAll(visual.vertexBuffer());
+        Renderer.updateAll(visual.vertexBuffer);
         return true;
     }
 
-    /**
-     * 文件载入支持
-     * @param {InStream} inStream
-     */
     load(inStream) {
         super.load(inStream);
         let numVertices = inStream.readUint32();
@@ -107,14 +98,12 @@ export class SkinController extends Controller {
         this.bones = inStream.readSizedPointerArray(numBones);
     }
 
-    /**
-     * 文件载入支持
-     * @param {InStream} inStream
-     */
     link(inStream) {
         super.link(inStream);
         inStream.resolveArrayLink(this.numBones, this.bones);
     }
 }
 
-D3Object.Register('L5.SkinController', SkinController.factory.bind(SkinController));
+D3Object.Register('SkinController', SkinController.factory.bind(SkinController));
+
+export { SkinController };

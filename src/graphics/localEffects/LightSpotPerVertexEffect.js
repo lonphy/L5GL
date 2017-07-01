@@ -1,47 +1,47 @@
-/**
- * 聚光灯 顶点光照效果
- *
- * @author lonphy
- * @version 2.0
- *
- * @type {LightSpotPerVertexEffect}
- * @extends {VisualEffect}
- */
-import {D3Object} from '../../core/D3Object'
-import {DECLARE_ENUM} from '../../util/util'
-import {VisualEffect} from '../shaders/VisualEffect'
-import {VisualEffectInstance} from '../shaders/VisualEffectInstance'
-import {VisualTechnique} from '../shaders/VisualTechnique'
-import {VisualPass} from '../shaders/VisualPass'
-import {Program} from '../shaders/Program'
-import {Shader} from '../shaders/Shader'
-import {VertexShader} from '../shaders/VertexShader'
-import {FragShader} from '../shaders/FragShader'
-import {AlphaState} from '../shaders/AlphaState'
-import {CullState} from '../shaders/CullState'
-import {DepthState} from '../shaders/DepthState'
-import {OffsetState} from '../shaders/OffsetState'
-import {StencilState} from '../shaders/StencilState'
+import { D3Object } from '../../core/D3Object';
+import { DECLARE_ENUM } from '../../util/util';
+import {
+    VisualEffect,
+    VisualEffectInstance,
+    VisualTechnique,
+    VisualPass,
 
-import {PVWMatrixConstant} from '../shaderFloat/PVWMatrixConstant'
-import {WMatrixConstant} from '../shaderFloat/WMatrixConstant'
-import {CameraModelPositionConstant} from '../shaderFloat/CameraModelPositionConstant'
-import {MaterialEmissiveConstant} from '../shaderFloat/MaterialEmissiveConstant'
-import {MaterialAmbientConstant} from '../shaderFloat/MaterialAmbientConstant'
-import {MaterialDiffuseConstant} from '../shaderFloat/MaterialDiffuseConstant'
-import {MaterialSpecularConstant} from '../shaderFloat/MaterialSpecularConstant'
-import {LightModelPositionConstant} from '../shaderFloat/LightModelPositionConstant'
-import {LightModelDirectionConstant} from '../shaderFloat/LightModelDirectionConstant'
-import {LightAmbientConstant} from '../shaderFloat/LightAmbientConstant'
-import {LightDiffuseConstant} from '../shaderFloat/LightDiffuseConstant'
-import {LightSpecularConstant} from '../shaderFloat/LightSpecularConstant'
-import {LightSpotConstant} from '../shaderFloat/LightSpotConstant'
-import {LightAttenuationConstant} from '../shaderFloat/LightAttenuationConstant'
+    Program,
+    Shader,
+    VertexShader,
+    FragShader,
 
-export class LightSpotPerVertexEffect extends VisualEffect {
+    AlphaState,
+    CullState,
+    DepthState,
+    OffsetState,
+    StencilState
+} from '../shaders/namespace';
+import {
+    PVWMatrixConstant,
+    WMatrixConstant,
+    CameraModelPositionConstant,
+
+    MaterialEmissiveConstant,
+    MaterialAmbientConstant,
+    MaterialDiffuseConstant,
+    MaterialSpecularConstant,
+
+    LightModelPositionConstant,
+    LightModelDirectionConstant,
+
+    LightAmbientConstant,
+    LightDiffuseConstant,
+    LightSpecularConstant,
+
+    LightSpotConstant,
+    LightAttenuationConstant
+} from '../shaderFloat/namespace';
+
+class LightSpotPerVertexEffect extends VisualEffect {
     constructor() {
         super();
-        var vshader = new VertexShader('LightSpotPerVertexVS', 2, 14);
+        let vshader = new VertexShader('LightSpotPerVertexVS', 2, 14);
         vshader.setInput(0, 'modelPosition', Shader.VT_VEC3, Shader.VS_POSITION);
         vshader.setInput(1, 'modelNormal', Shader.VT_VEC3, Shader.VS_NORMAL);
         vshader.setConstant(0, 'PVWMatrix', Shader.VT_MAT4);
@@ -60,20 +60,18 @@ export class LightSpotPerVertexEffect extends VisualEffect {
         vshader.setConstant(13, 'LightAttenuation', Shader.VT_VEC4);
         vshader.setProgram(LightSpotPerVertexEffect.VS);
 
-        var fshader = new FragShader('LightSpotPerVertexFS');
+        let fshader = new FragShader('LightSpotPerVertexFS');
         fshader.setProgram(LightSpotPerVertexEffect.FS);
 
-        var program = new Program('LightSpotPerVertexProgram', vshader, fshader);
-
-        var pass = new VisualPass();
-        pass.program = program;
+        let pass = new VisualPass();
+        pass.program = new Program('LightSpotPerVertexProgram', vshader, fshader);
         pass.alphaState = new AlphaState();
         pass.cullState = new CullState();
         pass.depthState = new DepthState();
         pass.offsetState = new OffsetState();
         pass.stencilState = new StencilState();
 
-        var technique = new VisualTechnique();
+        let technique = new VisualTechnique();
         technique.insertPass(pass);
         this.insertTechnique(technique);
     }
@@ -81,12 +79,12 @@ export class LightSpotPerVertexEffect extends VisualEffect {
     /**
      * 创建点光源顶点光照程序
      *
-     * @param light {Light}
-     * @param material {Material}
+     * @param {Light} light
+     * @param {Material} material
      * @returns {VisualEffectInstance}
      */
     createInstance(light, material) {
-        var instance = new VisualEffectInstance(this, 0);
+        let instance = new VisualEffectInstance(this, 0);
         instance.setVertexConstant(0, 0, new PVWMatrixConstant());
         instance.setVertexConstant(0, 1, new WMatrixConstant());
         instance.setVertexConstant(0, 2, new CameraModelPositionConstant());
@@ -109,15 +107,15 @@ export class LightSpotPerVertexEffect extends VisualEffect {
      *
      * 注意: 应避免使用该函数多次, 因为WebGL的program实例数量有限
      *
-     * @param light {Light}
-     * @param material {Material}
+     * @param {Light} light
+     * @param {Material} material
      * @returns {VisualEffectInstance}
      */
     static createUniqueInstance(light, material) {
-        var effect = new LightSpotPerVertexEffect();
+        let effect = new LightSpotPerVertexEffect();
         return effect.createInstance(light, material);
     }
-};
+}
 
 DECLARE_ENUM(LightSpotPerVertexEffect, {
     VS: `#version 300 es
@@ -164,14 +162,13 @@ void main(){
     }
     vColor = vec4(MaterialEmissive + attr*color, MaterialDiffuse.a);
     gl_Position = PVWMatrix * vec4(modelPosition, 1.0);
-}
-`,
+}`,
     FS: `#version 300 es
 precision highp float;
 in vec4 vColor;
 out vec4 fragColor;
 void main() {
     fragColor = vColor;
-}
-`
-});
+}`});
+
+export { LightSpotPerVertexEffect };

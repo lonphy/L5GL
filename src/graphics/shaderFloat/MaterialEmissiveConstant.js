@@ -1,13 +1,10 @@
-/**
- * 材质自发光系数
- */
-import {ShaderFloat} from './ShaderFloat'
-import {D3Object} from '../../core/D3Object'
+import { ShaderFloat } from './ShaderFloat';
+import { D3Object } from '../../core/D3Object';
 
-export class MaterialEmissiveConstant extends ShaderFloat{
+class MaterialEmissiveConstant extends ShaderFloat {
 
     /**
-     * @param material {Material} 材质
+     * @param {Material} material
      */
     constructor(material) {
         super(1);
@@ -15,11 +12,6 @@ export class MaterialEmissiveConstant extends ShaderFloat{
         this.material = material;
     }
 
-    /**
-     * 更新材自发光系数
-     * @param visual {Visual}
-     * @param camera {Camera}
-     */
     update(visual, camera) {
         this.copy(this.material.emissive);
     }
@@ -40,4 +32,6 @@ export class MaterialEmissiveConstant extends ShaderFloat{
     }
 };
 
-D3Object.Register('L5.MaterialEmissiveConstant', MaterialEmissiveConstant.factory);
+D3Object.Register('MaterialEmissiveConstant', MaterialEmissiveConstant.factory);
+
+export { MaterialEmissiveConstant };

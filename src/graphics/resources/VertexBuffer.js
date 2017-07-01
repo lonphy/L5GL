@@ -1,16 +1,7 @@
-/**
- * VertexBuffer 顶点缓冲
- *
- * @author lonphy
- * @version 1.0
- *
- * @type VertexBuffer
- * @extends {Buffer}
- */
-import {Buffer} from './Buffer'
-import {D3Object} from '../../core/D3Object'
+import { Buffer } from './Buffer';
+import { D3Object } from '../../core/D3Object';
 
-export class VertexBuffer extends Buffer {
+class VertexBuffer extends Buffer {
 
     /**
      * @param numElements
@@ -21,15 +12,13 @@ export class VertexBuffer extends Buffer {
         super(numElements, elementSize, usage);
     }
 
-    /**
-     * 文件解析工厂方法
-     * @param inStream {InStream}
-     * @returns {VertexBuffer}
-     */
     static factory(inStream) {
         var obj = new VertexBuffer(0, 0);
         obj.load(inStream);
         return obj;
     }
 }
-D3Object.Register('L5.VertexBuffer', VertexBuffer.factory);
+
+D3Object.Register('VertexBuffer', VertexBuffer.factory);
+
+export { VertexBuffer };

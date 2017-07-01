@@ -1,21 +1,19 @@
-/**
- * 投影-相机-物体 最终矩阵 PVWMatrixConstant
- */
-import {ShaderFloat} from './ShaderFloat'
-import {D3Object} from '../../core/D3Object'
+import { ShaderFloat } from './ShaderFloat';
+import { D3Object } from '../../core/D3Object';
 
-export class PVWMatrixConstant extends ShaderFloat {
+class PVWMatrixConstant extends ShaderFloat {
     constructor() {
         super(4);
         this.allowUpdater = true;
     }
 
-    update (visual, camera) {
-        var projViewMatrix = camera.projectionViewMatrix;
-        var worldMatrix = visual.worldTransform.toMatrix();
-        var projViewWorldMatrix = projViewMatrix.mul(worldMatrix);
-        this.copy(projViewWorldMatrix);
+    update(visual, camera) {
+        const projViewMatrix = camera.projectionViewMatrix;
+        const worldMatrix = visual.worldTransform.toMatrix();
+        this.copy(projViewMatrix.mul(worldMatrix));
     }
 }
 
-D3Object.Register('L5.PVWMatrixConstant', PVWMatrixConstant.factory);
+D3Object.Register('PVWMatrixConstant', PVWMatrixConstant.factory);
+
+export { PVWMatrixConstant };

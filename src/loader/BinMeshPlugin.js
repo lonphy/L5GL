@@ -1,9 +1,12 @@
-L5.BinMeshPlugin = function (buf) {
-    console.log(buf.byteLength);
-    let fmt = L5.VertexFormat.create(3,
-        L5.VertexFormat.AU_POSITION, L5.VertexFormat.AT_FLOAT3, 0,
-        L5.VertexFormat.AU_TEXCOORD, L5.VertexFormat.AT_FLOAT2, 0,
-        L5.VertexFormat.AU_NORMAL, L5.VertexFormat.AT_FLOAT3, 0
+import { XhrTask } from './XHRLoader';
+import { VertexFormat, Buffer, VertexBuffer, IndexBuffer } from '../graphics/resources/namespace';
+import { TriMesh } from '../graphics/sceneTree/namespace';
+
+function BinMeshPlugin(buf) {
+    let fmt = VertexFormat.create(3,
+        VertexFormat.AU_POSITION, VertexFormat.AT_FLOAT3, 0,
+        VertexFormat.AU_TEXCOORD, VertexFormat.AT_FLOAT2, 0,
+        VertexFormat.AU_NORMAL, VertexFormat.AT_FLOAT3, 0
     );
     const stride = fmt.stride;
 
@@ -12,18 +15,20 @@ L5.BinMeshPlugin = function (buf) {
     let iBufSize = head.getUint32(4, true);
 
 
-    var vBuffer = new L5.VertexBuffer(vBufSize / stride, 0, L5.Buffer.BU_STATIC);
+    let vBuffer = new VertexBuffer(vBufSize / stride, 0);
     vBuffer.elementSize = stride;
     vBuffer.numBytes = vBuffer.numElements * stride;
-    vBuffer._data = new Uint8Array(buf.slice(8, vBufSize+8));
+    vBuffer._data = new Uint8Array(buf.slice(8, vBufSize + 8));
 
-    var idxBuf = new L5.IndexBuffer();
+    let idxBuf = new IndexBuffer();
     idxBuf.elementSize = 4;
     idxBuf.numElements = iBufSize / 4;
     idxBuf.numBytes = iBufSize;
-    idxBuf._data = new Uint8Array(buf.slice(8+vBufSize));
+    idxBuf._data = new Uint8Array(buf.slice(8 + vBufSize));
 
-    let mesh = new L5.TriMesh(fmt, vBuffer, idxBuf);
+    let mesh = new TriMesh(fmt, vBuffer, idxBuf);
     mesh.name = 'loadedMeshes';
     return Promise.resolve(mesh);
-};
+}
+
+XhrTask.plugin('BinMeshPlugin', BinMeshPlugin);

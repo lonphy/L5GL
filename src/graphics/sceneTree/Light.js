@@ -1,12 +1,8 @@
-// @ts-check
-import {D3Object} from '../../core/D3Object'
-import * as util from '../../util/util'
-import {_Math, Point, Vector} from '../../math/index'
+import { D3Object } from '../../core/D3Object';
+import { DECLARE_ENUM } from '../../util/util';
+import { _Math, Point, Vector } from '../../math/index';
 
-/**
- * 灯光 - Light
- */
-export class Light extends D3Object {
+class Light extends D3Object {
     constructor(type) {
         super();
         this.type = type;
@@ -30,7 +26,7 @@ export class Light extends D3Object {
 
         // 聚光灯参数
         // 椎体夹角为弧度制, 范围为: 0 < angle <= Math.PI.
-        this.angle = _Math.PI;
+        this.angle = Math.PI;
         this.cosAngle = -1.0;
         this.sinAngle = 0.0;
         this.exponent = 1.0;
@@ -43,18 +39,18 @@ export class Light extends D3Object {
 
     /**
      * 设置光源[聚光灯]角度
-     * @param angle {number} 弧度有效值 0< angle <= PI
+     * @param {number} angle - 弧度有效值 0< angle <= PI
      */
     setAngle(angle) {
-        console.assert(0 < angle && angle <= _Math.PI, 'Angle out of range in SetAngle');
+        console.assert(0 < angle && angle <= Math.PI, 'Angle out of range in SetAngle');
         this.angle = angle;
-        this.cosAngle = _Math.cos(angle);
-        this.sinAngle = _Math.sin(angle);
+        this.cosAngle = Math.cos(angle);
+        this.sinAngle = Math.sin(angle);
     }
 
     /**
      * 设置光源方向
-     * @param dir{Vector} 方向向量
+     * @param {Vector} dir - 方向向量
      */
     setDirection(dir) {
         dir.normalize();
@@ -66,7 +62,7 @@ export class Light extends D3Object {
      * 设置光源位置
      *
      * 只对点光源以及聚光灯有效
-     * @param pos {Point} 位置
+     * @param {Point} pos - 位置
      */
     setPosition(pos) {
         this.position.copy(pos);
@@ -114,7 +110,7 @@ export class Light extends D3Object {
 
     /**
      * 文件解析工厂方法
-     * @param inStream {InStream}
+     * @param {InStream} inStream
      * @returns {Light}
      */
     static factory(inStream) {
@@ -124,12 +120,13 @@ export class Light extends D3Object {
     }
 };
 
-util.DECLARE_ENUM(Light, {
-    LT_AMBIENT:     0,  // 环境光
+DECLARE_ENUM(Light, {
+    LT_AMBIENT: 0,  // 环境光
     LT_DIRECTIONAL: 1, // 方向光
-    LT_POINT:       2, // 点光源
-    LT_SPOT:        3, // 聚光等
-    LT_INVALID:     4 // 无效光源
+    LT_POINT: 2, // 点光源
+    LT_SPOT: 3, // 聚光等
+    LT_INVALID: 4 // 无效光源
 });
 
 D3Object.Register('Light', Light.factory);
+export { Light };

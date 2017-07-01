@@ -1,13 +1,10 @@
-/**
- * 灯光 - 漫反射分量
- */
-import {ShaderFloat} from './ShaderFloat'
-import {D3Object} from '../../core/D3Object'
+import { ShaderFloat } from './ShaderFloat';
+import { D3Object } from '../../core/D3Object';
 
-export class LightDiffuseConstant extends ShaderFloat {
+class LightDiffuseConstant extends ShaderFloat {
 
     /**
-     * @param light {L5.Light}
+     * @param {Light} light
      */
     constructor(light) {
         super(1);
@@ -15,11 +12,6 @@ export class LightDiffuseConstant extends ShaderFloat {
         this.light = light;
     }
 
-    /**
-     * 更新漫反射分量
-     * @param visual {L5.Visual}
-     * @param camera {L5.Camera}
-     */
     update(visual, camera) {
         this.copy(this.light.diffuse);
     }
@@ -38,6 +30,8 @@ export class LightDiffuseConstant extends ShaderFloat {
         super.save(outStream);
         outStream.writePointer(this.light);
     }
-};
+}
 
-D3Object.Register('L5.LightDiffuseConstant', LightDiffuseConstant.factory);
+D3Object.Register('LightDiffuseConstant', LightDiffuseConstant.factory);
+
+export { LightDiffuseConstant };

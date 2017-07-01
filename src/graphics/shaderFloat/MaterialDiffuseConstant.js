@@ -1,10 +1,7 @@
-/**
- * 材质漫反射系数
- */
-import {ShaderFloat} from './ShaderFloat'
-import {D3Object} from '../../core/D3Object'
+import { ShaderFloat } from './ShaderFloat';
+import { D3Object } from '../../core/D3Object';
 
-export class MaterialDiffuseConstant extends ShaderFloat {
+class MaterialDiffuseConstant extends ShaderFloat {
 
     /**
      * @param material {Material} 材质
@@ -15,11 +12,6 @@ export class MaterialDiffuseConstant extends ShaderFloat {
         this.material = material;
     }
 
-    /**
-     * 更新材质漫反射系数
-     * @param visual {Visual}
-     * @param camera {Camera}
-     */
     update(visual, camera) {
         this.copy(this.material.diffuse);
     }
@@ -40,4 +32,6 @@ export class MaterialDiffuseConstant extends ShaderFloat {
     }
 };
 
-D3Object.Register('L5.MaterialDiffuseConstant', MaterialDiffuseConstant.factory);
+D3Object.Register('MaterialDiffuseConstant', MaterialDiffuseConstant.factory);
+
+export { MaterialDiffuseConstant };

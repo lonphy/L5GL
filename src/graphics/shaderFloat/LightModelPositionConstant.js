@@ -1,13 +1,10 @@
-/**
- * 灯光 - 光源位置
- */
-import {ShaderFloat} from './ShaderFloat'
-import {D3Object} from '../../core/D3Object'
+import { ShaderFloat } from './ShaderFloat';
+import { D3Object } from '../../core/D3Object';
 
-export class LightModelPositionConstant extends ShaderFloat {
+class LightModelPositionConstant extends ShaderFloat {
 
     /**
-     * @param light {Light} 灯光
+     * @param {Light} light
      */
     constructor(light) {
         super(1);
@@ -15,15 +12,9 @@ export class LightModelPositionConstant extends ShaderFloat {
         this.light = light;
     }
 
-    /**
-     * 更新材质环境光系数
-     * @param visual {Visual}
-     * @param camera {Camera}
-     */
     update(visual, camera) {
-        var worldInvMatrix = visual.worldTransform.inverse();
-        var modelPosition = worldInvMatrix.mulPoint(this.light.position);
-        this.copy(modelPosition);
+        const worldInvMatrix = visual.worldTransform.inverse();
+        this.copy(worldInvMatrix.mulPoint(this.light.position));
     }
 
     load(inStream) {
@@ -42,4 +33,6 @@ export class LightModelPositionConstant extends ShaderFloat {
     }
 };
 
-D3Object.Register('L5.LightModelPositionConstant', LightModelPositionConstant.factory);
+D3Object.Register('LightModelPositionConstant', LightModelPositionConstant.factory);
+
+export { LightModelPositionConstant };

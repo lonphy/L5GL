@@ -1,19 +1,13 @@
-/**
- * VisualEffectInstance
- *
- * @author lonphy
- * @version 2.0
- */
-import {D3Object} from '../../core/D3Object'
-import {ShaderParameters} from './ShaderParameters'
+import { D3Object } from '../../core/D3Object';
+import { ShaderParameters } from './ShaderParameters';
 
-export class VisualEffectInstance extends D3Object{
+class VisualEffectInstance extends D3Object {
     /**
      * @param {VisualEffect} effect
      * @param {number} techniqueIndex
      * @param {boolean} _privateCreate
      */
-    constructor(effect, techniqueIndex, _privateCreate=false) {
+    constructor(effect, techniqueIndex, _privateCreate = false) {
         super();
         if (!_privateCreate) {
             console.assert(effect !== null, 'effect must be specified.');
@@ -26,15 +20,15 @@ export class VisualEffectInstance extends D3Object{
             this.effect = effect;
             this.techniqueIndex = techniqueIndex;
 
-            var technique = effect.getTechnique(techniqueIndex);
-            var numPasses = technique.getNumPasses();
+            let technique = effect.getTechnique(techniqueIndex);
+            let numPasses = technique.getNumPasses();
 
             this.numPasses = numPasses;
             this.vertexParameters = new Array(numPasses);
             this.fragParameters = new Array(numPasses);
 
-            for (var p = 0; p < numPasses; ++p) {
-                var pass = technique.getPass(p);
+            for (let p = 0; p < numPasses; ++p) {
+                let pass = technique.getPass(p);
                 this.vertexParameters[p] = new ShaderParameters(pass.getVertexShader());
                 this.fragParameters[p] = new ShaderParameters(pass.getFragShader());
             }
@@ -48,7 +42,7 @@ export class VisualEffectInstance extends D3Object{
         }
     }
 
-    getNumPasses () {
+    getNumPasses() {
         return this.effect.getTechnique(this.techniqueIndex).getNumPasses();
     }
 
@@ -56,7 +50,7 @@ export class VisualEffectInstance extends D3Object{
      * @param {number} pass
      * @returns {VisualPass}
      */
-    getPass (pass) {
+    getPass(pass) {
         if (0 <= pass && pass < this.numPasses) {
             return this.effect.getTechnique(this.techniqueIndex).getPass(pass);
         }
@@ -69,7 +63,7 @@ export class VisualEffectInstance extends D3Object{
      * @param {number} pass
      * @returns {ShaderParameters}
      */
-    getVertexParameters (pass) {
+    getVertexParameters(pass) {
         if (0 <= pass && pass < this.numPasses) {
             return this.vertexParameters[pass];
         }
@@ -81,7 +75,7 @@ export class VisualEffectInstance extends D3Object{
      * @param {number} pass
      * @returns {ShaderParameters}
      */
-    getFragParameters (pass) {
+    getFragParameters(pass) {
         if (0 <= pass && pass < this.numPasses) {
             return this.fragParameters[pass];
         }
@@ -95,7 +89,7 @@ export class VisualEffectInstance extends D3Object{
      * @param {ShaderFloat} sfloat
      * @returns {number}
      */
-    setVertexConstantByName (pass, name, sfloat) {
+    setVertexConstantByName(pass, name, sfloat) {
         if (0 <= pass && pass < this.numPasses) {
             return this.vertexParameters[pass].setConstantByName(name, sfloat);
         }
@@ -109,7 +103,7 @@ export class VisualEffectInstance extends D3Object{
      * @param {ShaderFloat} sfloat
      * @returns {number}
      */
-    setFragConstantByName (pass, name, sfloat) {
+    setFragConstantByName(pass, name, sfloat) {
         if (0 <= pass && pass < this.numPasses) {
             return this.fragParameters[pass].setConstantByName(name, sfloat);
         }
@@ -124,7 +118,7 @@ export class VisualEffectInstance extends D3Object{
      * @param {Texture} texture
      * @returns {number}
      */
-    setVertexTextureByName (pass, name, texture) {
+    setVertexTextureByName(pass, name, texture) {
         if (0 <= pass && pass < this.numPasses) {
             return this.vertexParameters[pass].setTextureByName(name, texture);
         }
@@ -138,7 +132,7 @@ export class VisualEffectInstance extends D3Object{
      * @param {Texture} texture
      * @returns {number}
      */
-    setFragTextureByName (pass, name, texture) {
+    setFragTextureByName(pass, name, texture) {
         if (0 <= pass && pass < this.numPasses) {
             return this.fragParameters[pass].setTextureByName(name, texture);
         }
@@ -151,7 +145,7 @@ export class VisualEffectInstance extends D3Object{
      * @param {number} handle
      * @param {ShaderFloat} sfloat
      */
-    setVertexConstant (pass, handle, sfloat) {
+    setVertexConstant(pass, handle, sfloat) {
         if (0 <= pass && pass < this.numPasses) {
             return this.vertexParameters[pass].setConstant(handle, sfloat);
         }
@@ -321,16 +315,13 @@ export class VisualEffectInstance extends D3Object{
         // todo: implement
     }
 
-    /**
-     * 文件解析工厂方法
-     * @param {InStream} inStream
-     * @returns {VisualEffectInstance}
-     */
     static factory(inStream) {
-        var obj = new VisualEffectInstance(0, 0, true);
+        let obj = new VisualEffectInstance(0, 0, true);
         obj.load(inStream);
         return obj;
     }
 };
 
 D3Object.Register('VisualEffectInstance', VisualEffectInstance.factory);
+
+export { VisualEffectInstance };

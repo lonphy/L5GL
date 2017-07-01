@@ -1,15 +1,6 @@
-/**
- * Controller - 控制基类
- * 
- * @author lonphy
- * @version 2.0
- */
-import {D3Object} from '../../core/D3Object'
-import {DECLARE_ENUM} from '../../util/util'
-import {_Math} from '../../math/Math';
+import { D3Object } from '../../core/D3Object';
 
-export class Controller extends D3Object {
-
+class Controller extends D3Object {
     constructor() {
         super();
         this.repeat = Controller.RT_CLAMP;
@@ -19,18 +10,21 @@ export class Controller extends D3Object {
         this.frequency = 1;                    // default = 1
         this.active = true;                    // default = true
         this.object = null;                    // ControlledObject.
-        this.applicationTime = -_Math.MAX_REAL;              // 应用程序时间 毫秒.
+        this.applicationTime = -1;             // application time, ms
     }
+
     /**
-     * 从应用程序时间转换为控制器时间
+     * Conversion from application time units to controller time units.
+     * Derived classes may use this in their update routines.
      * @param {number} applicationTime
      * @returns {number}
+     * @protected
      */
     getControlTime(applicationTime) {
         let controlTime = this.frequency * applicationTime + this.phase;
 
         if (this.repeat === Controller.RT_CLAMP) {
-            // Clamp the time to the [min,max] interval.
+            // Clamp the time to the [min, max] interval.
             if (controlTime < this.minTime) {
                 return this.minTime;
             }
@@ -43,13 +37,13 @@ export class Controller extends D3Object {
         const timeRange = this.maxTime - this.minTime;
         if (timeRange > 0) {
             let multiples = (controlTime - this.minTime) / timeRange;
-            let integerTime = _Math.floor(multiples);
+            let integerTime = Math.floor(multiples);
             let fractionTime = multiples - integerTime;
             if (this.repeat === Controller.RT_WRAP) {
                 return this.minTime + fractionTime * timeRange;
             }
 
-            // Repeat == RT_CYCLE
+            // repeat == RT_CYCLE
             if (integerTime & 1) {
                 // Go backward in time.
                 return this.maxTime - fractionTime * timeRange;
@@ -60,14 +54,13 @@ export class Controller extends D3Object {
             }
         }
 
-        // minTime, maxTime 是一样的
+        // minTime is equal maxTime
         return this.minTime;
     }
 
     /**
-     * 动画更新
-     * @param {number} applicationTime 毫秒
-     * @returns {boolean}
+     * The animation update
+     * @param {number} applicationTime - milliseconds
      */
     update(applicationTime) {
         if (this.active) {
@@ -86,7 +79,7 @@ export class Controller extends D3Object {
         this.frequency = inStream.readFloat64();
         this.active = inStream.readBool();
         this.object = inStream.readPointer();
-        this.applicationTime = -_Math.MAX_REAL;
+        this.applicationTime = -1;
     }
 
     link(inStream) {
@@ -95,8 +88,10 @@ export class Controller extends D3Object {
     }
 }
 
-DECLARE_ENUM(Controller, {
-    RT_CLAMP: 0,
-    RT_WRAP:  1,
-    RT_CYCLE: 2
-});
+// Time management.  A controller may use its own time scale, and it
+// specifies how times are to be mapped to application time.
+Controller.RT_CLAMP = 0;  // default
+Controller.RT_WRAP = 1;
+Controller.RT_CYCLE = 2;
+
+export { Controller };

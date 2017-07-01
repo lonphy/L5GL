@@ -1,5 +1,5 @@
-import { _Math } from './Math'
-import { Matrix } from './Matrix'
+import { _Math } from './Math';
+import { Matrix } from './Matrix';
 
 /**
  * Quaternion 四元数
@@ -7,9 +7,8 @@ import { Matrix } from './Matrix'
  * 四元数表示为  
  * `q = w + x*i + y*j + z*k`  
  * 但(w, x, y, z) 在4D空间不一定是单位向量
- * @type {Quaternion}
  */
-export class Quaternion extends Float32Array {
+class Quaternion extends Float32Array {
 
     constructor(w = 0, x = 0, y = 0, z = 0) {
         super(4);
@@ -168,7 +167,7 @@ export class Quaternion extends Float32Array {
 
         if (sqrLength > 0) {
             ret[1] = 2 * _Math.acos(this[0]);
-            let invLength = 1 / _Math.sqrt(sqrLength);
+            let invLength = 1 / Math.sqrt(sqrLength);
             ret[0] = new Vector(this[1] * invLength, this[2] * invLength, this[3] * invLength);
         }
         else {
@@ -183,7 +182,7 @@ export class Quaternion extends Float32Array {
      * 求当前四元数的模
      */
     get length() {
-        return _Math.sqrt(this[0] * this[0] + this[1] * this[1] + this[2] * this[2] + this[3] * this[3]);
+        return Math.hypot(this[0], this[1], this[2], this[3]);
     }
 
     /**
@@ -243,10 +242,10 @@ export class Quaternion extends Float32Array {
         // exp(q) = cos(A)+sin(A)*(x*i+y*j+z*k).  If sin(A) is near zero,
         // use exp(q) = cos(A)+A*(x*i+y*j+z*k) since A/sin(A) has limit 1.
 
-        let angle = _Math.sqrt(this[1] * this[1] + this[2] * this[2] + this[3] * this[3]);
-        let sn = _Math.in(angle);
-        let w = _Math.cos(angle);
-        if (_Math.abs(sn) > 0) {
+        let angle = Math.hypot(this[1], this[2], this[3]);
+        let sn = Math.sin(angle);
+        let w = Math.cos(angle);
+        if (Math.abs(sn) > 0) {
             let coeff = sn / angle;
             return new Quaternion(w, coeff * this[1], coeff * this[2], coeff * this[3]);
         }
@@ -261,10 +260,10 @@ export class Quaternion extends Float32Array {
         // log(q) = A*(x*i+y*j+z*k).  If sin(A) is near zero, use log(q) =
         // sin(A)*(x*i+y*j+z*k) since sin(A)/A has limit 1.
 
-        if (_Math.abs(this[0]) < 1) {
+        if (Math.abs(this[0]) < 1) {
             let angle = _Math.acos(this[0]);
-            let sn = _Math.sin(angle);
-            if (_Math.abs(sn) > 0) {
+            let sn = Math.sin(angle);
+            if (Math.abs(sn) > 0) {
                 let coeff = angle / sn;
                 return new Quaternion(0, coeff * this[1], coeff * this[2], coeff * this[3]);
             }
@@ -311,12 +310,12 @@ export class Quaternion extends Float32Array {
         let cs = p.dot(q);
         let angle = _Math.acos(cs);
 
-        if (_Math.abs(angle) > 0) {
-            let sn = _Math.sin(angle);
+        if (Math.abs(angle) > 0) {
+            let sn = Math.sin(angle);
             let invSn = 1 / sn;
             let tAngle = t * angle;
-            let coeff0 = _Math.sin(angle - tAngle) * invSn;
-            let coeff1 = _Math.sin(tAngle) * invSn;
+            let coeff0 = Math.sin(angle - tAngle) * invSn;
+            let coeff1 = Math.sin(tAngle) * invSn;
 
             this[0] = coeff0 * p[0] + coeff1 * q[0];
             this[1] = coeff0 * p[1] + coeff1 * q[1];
@@ -341,12 +340,12 @@ export class Quaternion extends Float32Array {
         let cs = p.dot(q);
         let angle = _Math.acos(cs);
 
-        if (_Math.abs(angle) >= _Math.ZERO_TOLERANCE) {
-            let sn = _Math.sin(angle);
-            let phase = _Math.PI * extraSpins * t;
+        if (Math.abs(angle) >= _Math.ZERO_TOLERANCE) {
+            let sn = Math.sin(angle);
+            let phase = Math.PI * extraSpins * t;
             let invSin = 1 / sn;
-            let coeff0 = _Math.sin((1 - t) * angle - phase) * invSin;
-            let coeff1 = _Math.sin(t * angle + phase) * invSin;
+            let coeff0 = Math.sin((1 - t) * angle - phase) * invSin;
+            let coeff1 = Math.sin(t * angle + phase) * invSin;
 
             this[0] = coeff0 * p[0] + coeff1 * q[0];
             this[1] = coeff0 * p[1] + coeff1 * q[1];
@@ -410,19 +409,19 @@ export class Quaternion extends Float32Array {
         // Algorithm in Ken Shoemake's article in 1987 SIGGRAPH course notes
         // article "Quaternion Calculus and Fast Animation".
 
-        let trace = rot.item(0, 0) + rot.item(1, 1) + rot.item(2, 2);
+        let trace = rot[0] + rot[5] + rot[10];
         let root;
 
         if (trace > 0) {
             // |w| > 1/2, may as well choose w > 1/2
-            root = _Math.sqrt(trace + 1);  // 2w
+            root = Math.sqrt(trace + 1);  // 2w
             let root1 = 0.5 / root;  // 1/(4w)
 
             return new Quaternion(
                 0.5 * root,
-                (rot.item(2, 1) - rot.item(1, 2)) * root1,
-                (rot.item(0, 2) - rot.item(2, 0)) * root1,
-                (rot.item(1, 0) - rot.item(0, 1)) * root1
+                (rot[9] - rot[6]) * root1,
+                (rot[2] - rot[8]) * root1,
+                (rot[4] - rot[1]) * root1
             );
         }
 
@@ -430,16 +429,16 @@ export class Quaternion extends Float32Array {
 
         // |w| <= 1/2
         let i = 0;
-        if (rot.item(1, 1) > rot.item(0, 0)) {
+        if (rot[5] > rot[0]) {
             i = 1;
         }
-        if (rot.item(2, 2) > rot.item(i, i)) {
+        if (rot[10] > rot.item(i, i)) {
             i = 2;
         }
 
         let j = next[i];
         let k = next[j];
-        root = _Math.sqrt(rot.item(i, i) - rot.item(j, j) - rot.item(k, k) + 1);
+        root = Math.sqrt(rot.item(i, i) - rot.item(j, j) - rot.item(k, k) + 1);
         let ret = new Array(4);
         ret[i + 1] = 0.5 * root;
         root = 0.5 / root;
@@ -462,8 +461,8 @@ export class Quaternion extends Float32Array {
         //   q = cos(A/2)+sin(A/2)*(x*i+y*j+z*k)
 
         let halfAngle = 0.5 * angle;
-        let sn = _Math.sin(halfAngle);
-        return new Quaternion(_Math.cos(halfAngle), sn * axis.x, sn * axis.y, sn * axis.z);
+        let sn = Math.sin(halfAngle);
+        return new Quaternion(Math.cos(halfAngle), sn * axis.x, sn * axis.y, sn * axis.z);
     }
 
 
@@ -511,16 +510,16 @@ export class Quaternion extends Float32Array {
         }
         else {
             let invLength;
-            if (_Math.abs(v1.x) >= _Math.abs(v1.y)) {
+            if (Math.abs(v1.x) >= Math.abs(v1.y)) {
                 // V1.x or V1.z is the largest magnitude component.
-                invLength = _Math.invSqrt(v1.x * v1.x + v1.z * v1.z);
+                invLength = Math.hypot(v1.x, v1.z);
                 x = -v1.z * invLength;
                 y = 0;
                 z = +v1.x * invLength;
             }
             else {
                 // V1.y or V1.z is the largest magnitude component.
-                invLength = _Math.invSqrt(v1.y * v1.y + v1.z * v1.z);
+                invLength = Math.hypot(v1.y, v1.z);
                 x = 0;
                 y = +v1.z * invLength;
                 z = -v1.y * invLength;
@@ -537,3 +536,5 @@ export class Quaternion extends Float32Array {
         return this[0] * q[0] + this[1] * q[1] + this[2] * q[2] + this[3] * q[3];
     }
 }
+
+export { Quaternion };

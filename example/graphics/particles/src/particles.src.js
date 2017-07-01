@@ -24,31 +24,22 @@ class BloodCellController extends ParticleController {
 
 			// 控制坐标
 			for (let j = 0; j < 3; ++j) {
-				// posSizes[i * 4 + j] += 0.01 * _Math.symmetricRandom();
-				// if (posSizes[i * 4 + j] > 1) {
-				// 	posSizes[i * 4 + j] = 1;
-				// }
-				// else if (posSizes[i * 4 + j] < -1) {
-				// 	posSizes[i * 4 + j] = -1;
-				// }
-				posSizes[i * 4 + j] -= [0.01, 0.1, 0.001][j] * _Math.unitRandom();
+
+				posSizes[i * 4 + j] -= [0.01, 0.1, 0.001][j] * Math.random();
 				if (posSizes[i * 4 + j] < -3) {
 					posSizes[i * 4 + j] = 3;
 				}
 			}
 
 			// 控制大小
-			posSizes[i* 4 + 3] -= 0.0001
-			if (posSizes[i*4 +3] < 0) {
-				posSizes[i * 4 + 0] = 3 * _Math.unitRandom();
+			posSizes[i * 4 + 3] -= 0.0001
+			if (posSizes[i * 4 + 3] < 0) {
+				posSizes[i * 4 + 0] = 3 * Math.random();
 				posSizes[i * 4 + 1] = 3;
-				posSizes[i * 4 + 2] = 3 * _Math.unitRandom();
-				posSizes[i* 4 + 3] = 0.1 * _Math.unitRandom() ;
+				posSizes[i * 4 + 2] = 3 * Math.random();
+				posSizes[i * 4 + 3] = 0.1 * Math.random();
 			}
-			// posSizes[i * 4 + 3] *= (1 + 0.01 * _Math.symmetricRandom());
-			// if (posSizes[i * 4 + 3] > 0.25) {
-			// 	posSizes[i * 4 + 3] = 0.25;
-			// }
+
 		}
 
 		Renderer.updateAll(particles.vertexBuffer);
@@ -116,13 +107,13 @@ class ParticleSystems extends Application3D {
 		const vstride = vformat.stride;
 
 		const numParticles = 512;
-		let vbuffer = new VertexBuffer(4 * numParticles, vstride);
+		let vbuffer = new VertexBuffer(4 * numParticles, vstride, Buffer.BU_DYNAMIC);
 		let positionSizes = new Float32Array(4 * numParticles);
 		for (let i = 0; i < numParticles; ++i) {
 			positionSizes[i * 4] = _Math.symmetricRandom();
 			positionSizes[i * 4 + 1] = _Math.symmetricRandom();
 			positionSizes[i * 4 + 2] = _Math.symmetricRandom();
-			positionSizes[i * 4 + 3] = 0.1 * _Math.unitRandom();
+			positionSizes[i * 4 + 3] = 0.1 * Math.random();
 		}
 
 
@@ -146,34 +137,11 @@ class ParticleSystems extends Application3D {
 			data.set(imgData.data);
 			texture.upload();
 		}
-		pic.src = "snow.png"
-
-
-		// let factor = 1 / (xsize * xsize + ysize * ysize);
-		// for (let y = 0, i = 0; y < ysize; ++y) {
-		// 	for (let x = 0; x < xsize; ++x) {
-		// 		data[i++] = 128; // The image is red.
-		// 		data[i++] = 200;
-		// 		data[i++] = 40;
-
-		// 		// Semitransparent within a disk, dropping off to zero outside the disk.
-		// 		let dx = 2 * x - xsize;
-		// 		let dy = 2 * y - ysize;
-		// 		let value = factor * (dx * dx + dy * dy);
-		// 		if (value < 0.125) {
-		// 			value = Math.cos(4 * Math.PI * value);
-		// 		}
-		// 		else {
-		// 			value = 0;
-		// 		}
-		// 		data[i++] = 255 * value;
-		// 	}
-		// }
-
+		pic.src = "snow.png";
 		let effect = new Texture2DEffect(Shader.SF_LINEAR);
 		effect.getAlphaState(0, 0).blendEnabled = true;
 		effect.getDepthState(0, 0).enabled = false;
 		particles.effect = effect.createInstance(texture);
 	}
 }
-window.onload = () => runApplication(ParticleSystems);
+runApplication(ParticleSystems);

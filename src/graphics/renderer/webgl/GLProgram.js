@@ -1,9 +1,4 @@
-/**
- * Program 底层包装
- * @author lonphy
- * @version 2.0
- */
-export class GLProgram {
+class GLProgram {
 
     /**
      * @param {Renderer} renderer
@@ -21,6 +16,9 @@ export class GLProgram {
             gl.getProgramParameter(p, gl.LINK_STATUS),
             gl.getProgramInfoLog(p)
         );
+        gl.deleteShader(vs.shader);
+        gl.deleteShader(fs.shader);
+
         this.program = p;
         gl.useProgram(p);
         let uniformsLength = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS),
@@ -51,3 +49,5 @@ export class GLProgram {
         //renderer.gl.useProgram(null);
     }
 }
+
+export { GLProgram };

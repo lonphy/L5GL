@@ -1,13 +1,10 @@
-/**
- * 灯光 - 聚光灯参数
- */
-import {ShaderFloat} from './ShaderFloat'
-import {D3Object} from '../../core/D3Object'
+import { ShaderFloat } from './ShaderFloat';
+import { D3Object } from '../../core/D3Object';
 
-export class LightSpotConstant extends ShaderFloat {
+class LightSpotConstant extends ShaderFloat {
 
     /**
-     * @param light {Light}
+     * @param {Light} light
      */
     constructor(light) {
         super(1);
@@ -15,12 +12,7 @@ export class LightSpotConstant extends ShaderFloat {
         this.light = light;
     }
 
-    /**
-     * 更新材质环境光系数
-     * @param visual {Visual}
-     * @param camera {Camera}
-     */
-    update (visual, camera) {
+    update(visual, camera) {
         this.data[0] = this.light.angle;
         this.data[1] = this.light.cosAngle;
         this.data[2] = this.light.sinAngle;
@@ -41,6 +33,8 @@ export class LightSpotConstant extends ShaderFloat {
         super.save(outStream);
         outStream.writePointer(this.light);
     }
-};
+}
 
-D3Object.Register('L5.LightSpotConstant', LightSpotConstant.factory);
+D3Object.Register('LightSpotConstant', LightSpotConstant.factory);
+
+export { LightSpotConstant };

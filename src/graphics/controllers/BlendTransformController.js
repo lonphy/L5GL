@@ -1,18 +1,12 @@
-/**
- * BlendTransformController - 混合变换控制器
- *
- * @author lonphy
- * @version 2.0
- */
-import { D3Object } from '../../core/D3Object'
-import { Quaternion } from '../../math/Quaternion'
-import { _Math } from '../../math/Math'
-import { TransformController } from './TransformController'
+import { D3Object } from '../../core/D3Object';
+import { Quaternion } from '../../math/Quaternion';
+import { _Math } from '../../math/Math';
+import { TransformController } from './TransformController';
 
-export class BlendTransformController extends TransformController {
+class BlendTransformController extends TransformController {
 
     /**
-     *  ####Construction
+     *  #### Construction
      *  
      *  Set 'rsMatrices' to 'true' when theinput controllers manage
      *  transformations of the form Y = R*S*X + T, where R is a rotation, S is
@@ -97,7 +91,7 @@ export class BlendTransformController extends TransformController {
             let quat0 = Quaternion.fromRotateMatrix(rot0);
             let quat1 = Quaternion.fromRotateMatrix(rot1);
             if (quat0.dot(quat1) < 0) {
-                quat1 = quat1.negative();
+                quat1.copy(quat1.negative());
             }
 
             let sca0 = xfrm0.getScale();
@@ -113,9 +107,9 @@ export class BlendTransformController extends TransformController {
             }
             this.localTransform.setRotate(blendQuat.toRotateMatrix());
 
-            let pow = _Math.pow;
-            let sign = _Math.sign;
-            let abs = _Math.abs;
+            let pow = Math.pow;
+            let sign = Math.sign;
+            let abs = Math.abs;
             let blendSca;
 
             if (this.geometricScale) {
@@ -149,7 +143,7 @@ export class BlendTransformController extends TransformController {
 
             this.localTransform.setMatrix(blendMat);
         }
-        this.object.localTransform = this.localTransform;
+        this.object.localTransform.copy(this.localTransform);
         return true;
     }
 
@@ -169,4 +163,6 @@ export class BlendTransformController extends TransformController {
     }
 }
 
-D3Object.Register('L5.BlendTransformController', BlendTransformController.factory);
+D3Object.Register('BlendTransformController', BlendTransformController.factory);
+
+export { BlendTransformController };

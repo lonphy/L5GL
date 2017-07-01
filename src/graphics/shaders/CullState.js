@@ -1,19 +1,8 @@
-/**
- * 剔除表面 状态
- *
- * @author lonphy
- * @version 2.0
- *
- * @type {CullState}
- * @extends {D3Object}
- */
-import {D3Object} from '../../core/D3Object'
-import {InStream} from '../../core/InStream'
-import * as util from '../../util/util'
+import { D3Object } from '../../core/D3Object';
 
-export class CullState extends D3Object{
+class CullState extends D3Object {
 
-    constructor(){
+    constructor() {
         super();
         this.enabled = true;
         this.CCWOrder = true;
@@ -31,13 +20,8 @@ export class CullState extends D3Object{
         outStream.writeBool(this.CCWOrder);
     }
 
-    /**
-     * 文件解析工厂方法
-     * @param inStream {InStream}
-     * @returns {CullState}
-     */
     static factory(inStream) {
-        var obj = new CullState();
+        let obj = new CullState();
         obj.enabled = false;
         obj.CCWOrder = false;
         obj.load(inStream);
@@ -45,4 +29,6 @@ export class CullState extends D3Object{
     }
 }
 
-D3Object.Register('L5.CullState', CullState.factory);
+D3Object.Register('CullState', CullState.factory);
+
+export { CullState };

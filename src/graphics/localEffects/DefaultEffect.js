@@ -1,16 +1,14 @@
-/**
- * 默认效果着色器
- */
-import { DECLARE_ENUM } from '../../util/util'
+import { DECLARE_ENUM } from '../../util/util';
 
 import {
     VisualEffect, VisualEffectInstance, VisualTechnique, VisualPass,
     Program, Shader, VertexShader, FragShader,
     AlphaState, CullState, DepthState, OffsetState, StencilState
-} from '../shaders/namespace'
-import { PVWMatrixConstant } from '../shaderFloat/namespace'
+} from '../shaders/namespace';
 
-export class DefaultEffect extends VisualEffect {
+import { PVWMatrixConstant } from '../shaderFloat/namespace';
+
+class DefaultEffect extends VisualEffect {
     constructor() {
         super();
 
@@ -22,9 +20,8 @@ export class DefaultEffect extends VisualEffect {
         let fs = new FragShader('DefaultFS');
         fs.setProgram(DefaultEffect.FS);
 
-        let program = new Program('DefaultProgram', vs, fs);
         let pass = new VisualPass();
-        pass.program = program;
+        pass.program = new Program('DefaultProgram', vs, fs);
         pass.alphaState = new AlphaState();
         pass.cullState = new CullState();
         pass.depthState = new DepthState();
@@ -48,14 +45,13 @@ DECLARE_ENUM(DefaultEffect, {
 uniform mat4 PVWMatrix;
 layout(location=0) in vec3 modelPosition;
 void main(){
-    gl_Position = uPVWMatrix * vec4(modelPosition, 1.0);
-}
-`,
+    gl_Position = PVWMatrix * vec4(modelPosition, 1.0);
+}`,
     FS: `#version 300 es
 precision highp float;
 out vec4 fragColor;
 void main (void) {
-    fragColor = vec4(1.0, 0.0, 1.0, 1.0);
-}
-`
-});
+    fragColor = vec4(0.0, 0.0, 0.0, 1.0);
+}`});
+
+export { DefaultEffect };

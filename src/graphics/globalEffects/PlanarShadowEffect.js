@@ -1,23 +1,15 @@
-/**
- * 全局特效 - 平面投影
- *
- * @type {PlanarShadowEffect}
- * @extends {D3Object}
- *
- * @author lonphy
- * @version 2.0
- */
-import {D3Object} from '../../core/D3Object'
-import {AlphaState} from '../shaders/AlphaState'
-import {DepthState} from '../shaders/DepthState'
-import {StencilState} from '../shaders/StencilState'
+import { D3Object } from '../../core/D3Object';
+import { AlphaState, DepthState, StencilState } from '../shaders/namespace';
+import { Spatial, Material, Light } from '../sceneTree/namespace';
+import { MaterialEffect } from '../localEffects/namespace';
+import { Matrix, Plane } from '../../math/index';
+import { Texture2D } from '../resources/namespace';
 
-
-export class PlanarShadowEffect extends D3Object {
+class PlanarShadowEffect extends D3Object {
 
     /**
-     * @param numPlanes {int} 投影的平面数量
-     * @param shadowCaster {Node} 需要投影的物体
+     * @param {number} numPlanes - 投影的平面数量
+     * @param {Node} shadowCaster - 需要投影的物体
      */
     constructor(numPlanes, shadowCaster) {
         super();
@@ -38,8 +30,8 @@ export class PlanarShadowEffect extends D3Object {
     }
 
     /**
-     * @param renderer {Renderer}
-     * @param visibleSet {VisibleSet}
+     * @param {Renderer} renderer
+     * @param {VisibleSet} visibleSet
      */
     draw(renderer, visibleSet) {
         // 正常绘制可见物体
@@ -51,18 +43,18 @@ export class PlanarShadowEffect extends D3Object {
         //}
 
         // 保存全局覆盖状态
-        var saveDState = renderer.overrideDepthState;
-        var saveSState = renderer.overrideStencilState;
-        var depthState = this.depthState;
-        var stencilState = this.stencilState;
-        var alphaState = this.alphaState;
+        let saveDState = renderer.overrideDepthState;
+        let saveSState = renderer.overrideStencilState;
+        let depthState = this.depthState;
+        let stencilState = this.stencilState;
+        let alphaState = this.alphaState;
 
         // 渲染系统使用当前特效的状态
         renderer.overrideDepthState = depthState;
         renderer.overrideStencilState = stencilState;
 
         // Get the camera to store post-world transformations.
-        var camera = renderer.camera;
+        let camera = renderer.camera;
         for (i = 0; i < numPlanes; ++i) {
             // 开启深度测试
             depthState.enabled = true;
@@ -85,7 +77,7 @@ export class PlanarShadowEffect extends D3Object {
             // where (rf,gf,bf) is the final color to be written to the frame
             // buffer, (rs,gs,bs,as) is the shadow color, and (rd,gd,bd) is the
             // current color of the frame buffer.
-            var saveAlphaState = renderer.overrideAlphaState;
+            let saveAlphaState = renderer.overrideAlphaState;
             renderer.overrideAlphaState = alphaState;
             alphaState.blendEnabled = true;
             alphaState.srcBlend = AlphaState.BM_SRC_ALPHA;
@@ -108,7 +100,7 @@ export class PlanarShadowEffect extends D3Object {
             stencilState.onZPass = StencilState.OP_ZERO;  // visible set to 0
 
             // 计算光源的投影矩阵
-            var projection = Matrix.ZERO;
+            let projection = Matrix.ZERO;
             if (!this.getProjectionMatrix(i, projection)) {
                 continue;
             }
@@ -120,8 +112,8 @@ export class PlanarShadowEffect extends D3Object {
             // that objects that are out of view (i.e. culled relative to the
             // camera and not in the camera's VisibleSet) can cast shadows.
             for (j = 0; j < numVisible; ++j) {
-                var visual = visibleSet.getVisible(j);
-                var save = visual.effect;
+                let visual = visibleSet.getVisible(j);
+                let save = visual.effect;
                 visual.effect = this.materialEffectInstance;
                 renderer.drawVisible(visual);
                 visual.effect = save;
@@ -139,14 +131,14 @@ export class PlanarShadowEffect extends D3Object {
 
     /**
      * 获取投影矩阵
-     * @param i {int}
-     * @param projection {Matrix}
+     * @param {number} i
+     * @param {Matrix} projection
      */
     getProjectionMatrix(i, projection) {
         // 计算世界坐标系的投影平面
-        var vertex = new Array(3);
+        let vertex = new Array(3);
         this.planes[i].getWorldTriangle(0, vertex);
-        var worldPlane = Plane.fromPoint3(vertex[0], vertex[1], vertex[2]);
+        let worldPlane = Plane.fromPoint3(vertex[0], vertex[1], vertex[2]);
 
         // 计算需要计算阴影的物体在投影平面的哪一边
         if (this.shadowCaster.worldBound.whichSide(worldPlane) < 0) {
@@ -155,10 +147,10 @@ export class PlanarShadowEffect extends D3Object {
         }
 
         // 计算光源的投影矩阵
-        var projector = this.projectors[i];
-        var normal = worldPlane.normal;
+        let projector = this.projectors[i];
+        let normal = worldPlane.normal;
         if (projector.type === Light.LT_DIRECTIONAL) {
-            var NdD = normal.dot(projector.direction);
+            let NdD = normal.dot(projector.direction);
             if (NdD >= 0) {
                 // 投影必须在投影平面的正面
                 return false;
@@ -169,7 +161,7 @@ export class PlanarShadowEffect extends D3Object {
         }
 
         else if (projector.type === Light.LT_POINT || projector.type === Light.LT_SPOT) {
-            var NdE = projector.position.dot(normal);
+            let NdE = projector.position.dot(normal);
             if (NdE <= 0) {
                 // 投影必须在投影平面的正面
                 return false;
@@ -190,8 +182,8 @@ export class PlanarShadowEffect extends D3Object {
      *
      * 设置原来的投影平面为不可见, 由该特效实例负责渲染
      *
-     * @param i {int}
-     * @param plane {TriMesh}
+     * @param {number} i
+     * @param {TriMesh} plane
      */
     setPlane(i, plane) {
         plane.culling = Spatial.CULLING_ALWAYS;
@@ -200,7 +192,7 @@ export class PlanarShadowEffect extends D3Object {
 
     /**
      * 获取阴影的投影平面
-     * @param i {int}
+     * @param {number} i
      * @returns {TriMesh}
      */
     getPlane(i) {
@@ -209,8 +201,8 @@ export class PlanarShadowEffect extends D3Object {
 
     /**
      * 设置阴影的光源
-     * @param i {int}
-     * @param projector {Light}
+     * @param {number} i
+     * @param {Light} projector
      */
     setProjector(i, projector) {
         this.projectors[i] = projector;
@@ -218,7 +210,7 @@ export class PlanarShadowEffect extends D3Object {
 
     /**
      * 获取阴影的光源
-     * @param i {int}
+     * @param {number} i
      * @returns {Light}
      */
     getProjector(i) {
@@ -227,8 +219,8 @@ export class PlanarShadowEffect extends D3Object {
 
     /**
      * 设置阴影颜色
-     * @param i {int}
-     * @param shadowColor {Float32Array}
+     * @param  {number} i
+     * @param {Float32Array} shadowColor
      */
     setShadowColor(i, shadowColor) {
         if (!this.shadowColors[i]) {
@@ -241,10 +233,12 @@ export class PlanarShadowEffect extends D3Object {
 
     /**
      * 获取阴影的颜色
-     * @param i {int} 索引
+     * @param {number} i - 索引
      * @returns {Float32Array}
      */
     getShadowColor(i) {
         return new Float32Array(this.shadowColors[i]);
     }
 }
+
+export { PlanarShadowEffect };

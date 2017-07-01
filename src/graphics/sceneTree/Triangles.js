@@ -1,9 +1,9 @@
-import { Visual } from './Visual'
-import { VertexBufferAccessor } from '../resources/namespace'
-import { Point } from '../../math/index'
-import { Renderer } from '../renderer/Renderer'
+import { Visual } from './Visual';
+import { VertexBufferAccessor } from '../resources/namespace';
+import { Point, Vector } from '../../math/index';
+import { Renderer } from '../renderer/Renderer';
 
-export class Triangles extends Visual {
+class Triangles extends Visual {
 
     /**
      * @abstract
@@ -13,28 +13,32 @@ export class Triangles extends Visual {
     }
 
     /**
-     * @param index
-     * @param output
+     * @param {number} index
+     * @param {Array<number>} output
+     * @return {boolean}
      * @abstract
      */
     getTriangle(index, output) {
         throw new Error('Method:' + this.constructor.name + '.getTriangle not defined.');
     }
 
+    /**
+     * @return {number}
+     */
     getNumVertices() {
         return this.vertexBuffer.numElements;
     }
 
     /**
      * 获取物体坐标系的三角形顶点数组
-     * @param i {number}
-     * @param modelTriangle {Array<Point>}
+     * @param {number} i
+     * @param {Array<Point>} modelTriangle
      */
     getModelTriangle(i, modelTriangle) {
-        var v = new Array(3);
+        let v = new Array(3);
         if (this.getTriangle(i, v)) {
-            var vba = new VertexBufferAccessor(this.format, this.vertexBuffer);
-            var p = vba.getPosition(v[0]);
+            let vba = new VertexBufferAccessor(this.format, this.vertexBuffer);
+            let p = vba.getPosition(v[0]);
             modelTriangle[0] = new Point(p[0], p[1], p[2]);
 
             p = vba.getPosition(v[1]);
@@ -49,11 +53,11 @@ export class Triangles extends Visual {
 
     /**
      * 获取世界坐标系的三角形顶点数组
-     * @param i {number}
-     * @param worldTriangle {Point}
+     * @param {number} i
+     * @param {Point} worldTriangle
      */
     getWorldTriangle(i, worldTriangle) {
-        var pos = new Array(3);
+        let pos = new Array(3);
         if (this.getModelTriangle(i, pos)) {
             worldTriangle[0] = this.worldTransform.mulPoint(pos[0]);
             worldTriangle[1] = this.worldTransform.mulPoint(pos[1]);
@@ -64,16 +68,15 @@ export class Triangles extends Visual {
     }
 
     /**
-     *
-     * @param v {number}
+     * @param {number} v
      * @returns {Point}
      */
     getPosition(v) {
-        var index = this.format.getIndex(VertexFormat.AU_POSITION);
+        let index = this.format.getIndex(VertexFormat.AU_POSITION);
         if (index >= 0) {
-            var offset = this.format.getOffset(index);
-            var stride = this.format.stride;
-            var start = offset + v * stride;
+            let offset = this.format.getOffset(index);
+            let stride = this.format.stride;
+            let start = offset + v * stride;
             return new Point(
                 new Float32Array(this.vertexBuffer.getData(), start, 3)
             );
@@ -89,7 +92,7 @@ export class Triangles extends Visual {
             return;
         }
 
-        var vba = VertexBufferAccessor.fromVisual(this);
+        let vba = VertexBufferAccessor.fromVisual(this);
         if (vba.hasNormal()) {
             this.updateModelNormals(vba);
         }
@@ -105,63 +108,54 @@ export class Triangles extends Visual {
             }
         }
 
-        Renderer.updateAll(this.vertexBuffer);
+        Renderer.updateAll(this.vertexBuffer, this.format);
     }
 
     /**
-     * 更新物体模型空间法线
-     * @param vba {VertexBufferAccessor}
+     * @param {VertexBufferAccessor} vba
      */
     updateModelNormals(vba) {
-        var i, t, pos0, pos1, pos2, tv0, tv1, tNormal,
-            v = new Array(3);
         const numTriangles = this.getNumTriangles();
+
+        let i, t, pos0, pos1, pos2, tv0, tv1, tNormal,
+            v = new Uint32Array(3);
+
         for (i = 0; i < numTriangles; ++i) {
-            // 获取三角形3个顶点对应的索引.
+            // Get the vertex indices for the triangle.
             if (!this.getTriangle(i, v)) {
                 continue;
             }
-
-            // 获取顶点坐标.
             pos0 = new Point(vba.getPosition(v[0]));
             pos1 = new Point(vba.getPosition(v[1]));
             pos2 = new Point(vba.getPosition(v[2]));
 
-            // 计算三角形法线.
-            tv0 = pos1.subAsVector(pos0);
-            tv1 = pos2.subAsVector(pos0);
+            tv0 = pos1.subAsVector(pos0); // pos1 - pos0
+            tv1 = pos2.subAsVector(pos0); // pos2 - pos0
             tNormal = tv0.cross(tv1);
-            tNormal.normalize();
+            vba.setNormal(v[0], tNormal.add(vba.getNormal(v[0])));
+            vba.setNormal(v[1], tNormal.add(vba.getNormal(v[1])));
+            vba.setNormal(v[2], tNormal.add(vba.getNormal(v[2])));
+        }
 
-            // 更新对应3个顶点的法线
-            t = vba.getNormal(v[0]);
-            t[0] = tNormal.x;
-            t[1] = tNormal.y;
-            t[2] = tNormal.z;
-
-            t = vba.getNormal(v[1]);
-            t[0] = tNormal.x;
-            t[1] = tNormal.y;
-            t[2] = tNormal.z;
-
-            t = vba.getNormal(v[2]);
-            t[0] = tNormal.x;
-            t[1] = tNormal.y;
-            t[2] = tNormal.z;
+        const numVertices = this.getNumVertices();
+        tNormal = Vector.ZERO;
+        for (i = 0; i < numVertices; ++i) {
+            tNormal.copy(vba.getNormal(i)).normalize();
+            vba.setNormal(i, tNormal);
         }
     }
 
     /**
      * 更新物体模型空间切线
-     * @param vba {VertexBufferAccessor}
+     * @param {VertexBufferAccessor} vba
      */
     updateModelTangentsUseGeometry(vba) {
         // Compute the matrix of normal derivatives.
         const numVertices = vba.getNumVertices();
-        var dNormal = new Array(numVertices);
-        var wwTrn = new Array(numVertices);
-        var dwTrn = new Array(numVertices);
-        var i, j, row, col;
+        let dNormal = new Array(numVertices);
+        let wwTrn = new Array(numVertices);
+        let dwTrn = new Array(numVertices);
+        let i, j, row, col;
 
         for (i = 0; i < numTriangles; ++i) {
             wwTrn[i] = new Matrix().zero();
@@ -169,27 +163,27 @@ export class Triangles extends Visual {
             dNormal[i] = new Matrix().zero();
 
             // 获取三角形的3个顶点索引.
-            var v = new Array(3);
+            let v = new Array(3);
             if (!this.getTriangle(i, v)) {
                 continue;
             }
 
             for (j = 0; j < 3; j++) {
                 // 获取顶点坐标和法线.
-                var v0 = v[j];
-                var v1 = v[(j + 1) % 3];
-                var v2 = v[(j + 2) % 3];
-                var pos0 = new Point(vba.getPosition(v0));
-                var pos1 = new Point(vba.getPosition(v1));
-                var pos2 = new Point(vba.getPosition(v2));
-                var nor0 = new Vector(vba.getNormal(v0));
-                var nor1 = new Vector(vba.getNormal(v1));
-                var nor2 = new Vector(vba.getNormal(v2));
+                let v0 = v[j];
+                let v1 = v[(j + 1) % 3];
+                let v2 = v[(j + 2) % 3];
+                let pos0 = new Point(vba.getPosition(v0));
+                let pos1 = new Point(vba.getPosition(v1));
+                let pos2 = new Point(vba.getPosition(v2));
+                let nor0 = new Vector(vba.getNormal(v0));
+                let nor1 = new Vector(vba.getNormal(v1));
+                let nor2 = new Vector(vba.getNormal(v2));
 
                 // 计算从pos0到pos1的边,使其射向顶点切面，然后计算相邻法线的差
-                var edge = pos1.subAsVector(pos0);
-                var proj = edge.sub(nor0.scalar(edge.dot(nor0)));
-                var diff = nor1.sub(nor0);
+                let edge = pos1.subAsVector(pos0);
+                let proj = edge.sub(nor0.scalar(edge.dot(nor0)));
+                let diff = nor1.sub(nor0);
                 for (row = 0; row < 3; ++row) {
                     for (col = 0; col < 3; ++col) {
                         wwTrn[v0].setItem(row, col, wwTrn.item(row, col) + proj[row] * proj[col]);
@@ -214,7 +208,7 @@ export class Triangles extends Visual {
         // to D*W^T, but of course no update is needed in the implementation.
         // Compute the matrix of normal derivatives.
         for (i = 0; i < numVertices; ++i) {
-            var nor = vba.getNormal(i);
+            let nor = vba.getNormal(i);
             for (row = 0; row < 3; ++row) {
                 for (col = 0; col < 3; ++col) {
                     wwTrn[i].setItem(row, col, 0.5 * wwTrn[i].item(row, col) + nor[row] * nor[col]);
@@ -248,8 +242,8 @@ export class Triangles extends Visual {
         // curvature is stored as the mesh bitangent.
         for (i = 0; i < numVertices; ++i) {
             // Compute U and V given N.
-            var norvec = new Vector(vba.getNormal(i));
-            var uvec = new Vector(),
+            let norvec = new Vector(vba.getNormal(i));
+            let uvec = new Vector(),
                 vvec = new Vector();
 
             Vector.generateComplementBasis(uvec, vvec, norvec);
@@ -257,27 +251,27 @@ export class Triangles extends Visual {
             // Compute S = J^T * dN/dX * J.  In theory S is symmetric, but
             // because we have estimated dN/dX, we must slightly adjust our
             // calculations to make sure S is symmetric.
-            var s01 = uvec.dot(dNormal[i].mulPoint(vvec));
-            var s10 = vvec.dot(dNormal[i].mulPoint(uvec));
-            var sAvr = 0.5 * (s01 + s10);
-            var smat = [
+            let s01 = uvec.dot(dNormal[i].mulPoint(vvec));
+            let s10 = vvec.dot(dNormal[i].mulPoint(uvec));
+            let sAvr = 0.5 * (s01 + s10);
+            let smat = [
                 [uvec.dot(dNormal[i].mulPoint(uvec)), sAvr],
                 [sAvr, vvec.dot(dNormal[i].mulPoint(vvec))]
             ];
 
             // Compute the eigenvalues of S (min and max curvatures).
-            var trace = smat[0][0] + smat[1][1];
-            var det = smat[0][0] * smat[1][1] - smat[0][1] * smat[1][0];
-            var discr = trace * trace - 4.0 * det;
-            var rootDiscr = Math.sqrt(Math.abs(discr));
-            var minCurvature = 0.5 * (trace - rootDiscr);
+            let trace = smat[0][0] + smat[1][1];
+            let det = smat[0][0] * smat[1][1] - smat[0][1] * smat[1][0];
+            let discr = trace * trace - 4.0 * det;
+            let rootDiscr = Math.sqrt(Math.abs(discr));
+            let minCurvature = 0.5 * (trace - rootDiscr);
             // float maxCurvature = 0.5f*(trace + rootDiscr);
 
             // Compute the eigenvectors of S.
-            var evec0 = new Vector(smat[0][1], minCurvature - smat[0][0], 0);
-            var evec1 = new Vector(minCurvature - smat[1][1], smat[1][0], 0);
+            let evec0 = new Vector(smat[0][1], minCurvature - smat[0][0], 0);
+            let evec1 = new Vector(minCurvature - smat[1][1], smat[1][0], 0);
 
-            var tanvec, binvec;
+            let tanvec, binvec;
             if (evec0.squaredLength() >= evec1.squaredLength()) {
                 evec0.normalize();
                 tanvec = uvec.scalar(evec0.x).add(vvec.scalar(evec0.y));
@@ -290,14 +284,14 @@ export class Triangles extends Visual {
             }
 
             if (vba.hasTangent()) {
-                var t = vba.getTangent(i);
+                let t = vba.getTangent(i);
                 t[0] = tanvec.x;
                 t[1] = tanvec.y;
                 t[2] = tanvec.z;
             }
 
             if (vba.hasBinormal()) {
-                var b = vba.getBinormal(i);
+                let b = vba.getBinormal(i);
                 b[0] = binvec.x;
                 b[1] = binvec.y;
                 b[2] = binvec.z;
@@ -307,16 +301,16 @@ export class Triangles extends Visual {
     }
 
     /**
-     * @param vba {VertexBufferAccessor}
+     * @param {VertexBufferAccessor} vba
      */
     updateModelTangentsUseTCoords(vba) {
         // Each vertex can be visited multiple times, so compute the tangent
         // space only on the first visit.  Use the zero vector as a flag for the
         // tangent vector not being computed.
         const numVertices = vba.getNumVertices();
-        var hasTangent = vba.hasTangent();
-        var zero = Vector.ZERO;
-        var i, t;
+        let hasTangent = vba.hasTangent();
+        let zero = Vector.ZERO;
+        let i, t;
         if (hasTangent) {
             for (i = 0; i < numVertices; ++i) {
                 t = vba.getTangent(i);
@@ -337,16 +331,16 @@ export class Triangles extends Visual {
         for (i = 0; i < numTriangles; i++) {
             // Get the triangle vertices' positions, normals, tangents, and
             // texture coordinates.
-            var v = [0, 0, 0];
+            let v = [0, 0, 0];
             if (!this.getTriangle(i, v)) {
                 continue;
             }
 
-            var locPosition = new Array(3);
-            var locNormal = new Array(3);
-            var locTangent = new Array(3);
-            var locTCoord = new Array(2);
-            var curr, k;
+            let locPosition = new Array(3);
+            let locNormal = new Array(3);
+            let locTangent = new Array(3);
+            let locTCoord = new Array(2);
+            let curr, k;
             for (curr = 0; curr < 3; ++curr) {
                 k = v[curr];
                 locPosition[curr] = new Point(vba.getPosition(k));
@@ -356,17 +350,17 @@ export class Triangles extends Visual {
             }
 
             for (curr = 0; curr < 3; ++curr) {
-                var currLocTangent = locTangent[curr];
+                let currLocTangent = locTangent[curr];
                 if (!currLocTangent.equals(zero)) {
                     // 该顶点已被计算过
                     continue;
                 }
 
                 // 计算顶点切线空间
-                var norvec = locNormal[curr];
-                var prev = ((curr + 2) % 3);
-                var next = ((curr + 1) % 3);
-                var tanvec = Triangles.computeTangent(
+                let norvec = locNormal[curr];
+                let prev = ((curr + 2) % 3);
+                let next = ((curr + 1) % 3);
+                let tanvec = Triangles.computeTangent(
                     locPosition[curr], locTCoord[curr],
                     locPosition[next], locTCoord[next],
                     locPosition[prev], locTCoord[prev]
@@ -378,7 +372,7 @@ export class Triangles extends Visual {
                 tanvec.normalize();
 
                 // Compute the bitangent B, another tangent perpendicular to T.
-                var binvec = norvec.unitCross(tanvec);
+                let binvec = norvec.unitCross(tanvec);
 
                 k = v[curr];
                 if (hasTangent) {
@@ -403,20 +397,20 @@ export class Triangles extends Visual {
     /**
      * 计算切线
      *
-     * @param position0 {Point}
-     * @param tcoord0 {Array}
-     * @param position1 {Point}
-     * @param tcoord1 {Array}
-     * @param position2 {Point}
-     * @param tcoord2 {Array}
+     * @param {Point} position0
+     * @param {Array<number>} tcoord0
+     * @param {Point} position1
+     * @param {Array<number>} tcoord1
+     * @param {Point} position2
+     * @param {Array<number>} tcoord2
      * @returns {Vector}
      */
     static computeTangent(position0, tcoord0,
         position1, tcoord1,
         position2, tcoord2) {
         // Compute the change in positions at the vertex P0.
-        var v10 = position1.subAsVector(position0);
-        var v20 = position2.subAsVector(position0);
+        let v10 = position1.subAsVector(position0);
+        let v20 = position2.subAsVector(position0);
 
         const ZERO_TOLERANCE = Math.ZERO_TOLERANCE;
         const abs = Math.abs;
@@ -429,28 +423,28 @@ export class Triangles extends Visual {
 
         // Compute the change in texture coordinates at the vertex P0 in the
         // direction of edge P1-P0.
-        var d1 = tcoord1[0] - tcoord0[0];
-        var d2 = tcoord1[1] - tcoord0[1];
+        let d1 = tcoord1[0] - tcoord0[0];
+        let d2 = tcoord1[1] - tcoord0[1];
         if (abs(d2) < ZERO_TOLERANCE) {
-            // The triangle effectively has no variation in the v texture
+            // The triangle effectively has no letiation in the v texture
             // coordinate.
             if (abs(d1) < ZERO_TOLERANCE) {
-                // The triangle effectively has no variation in the u coordinate.
-                // Since the texture coordinates do not vary on this triangle,
+                // The triangle effectively has no letiation in the u coordinate.
+                // Since the texture coordinates do not lety on this triangle,
                 // treat it as a degenerate parametric surface.
                 return Vector.ZERO;
             }
 
-            // The variation is effectively all in u, so set the tangent vector
+            // The letiation is effectively all in u, so set the tangent vector
             // to be T = dP/du.
             return v10.div(d1);
         }
 
         // Compute the change in texture coordinates at the vertex P0 in the
         // direction of edge P2-P0.
-        var d3 = tcoord2[0] - tcoord0[0];
-        var d4 = tcoord2[1] - tcoord0[1];
-        var det = d2 * d3 - d4 * d1;
+        let d3 = tcoord2[0] - tcoord0[0];
+        let d4 = tcoord2[1] - tcoord0[1];
+        let det = d2 * d3 - d4 * d1;
         if (abs(det) < ZERO_TOLERANCE) {
             // The triangle vertices are collinear in parameter space, so treat
             // this as a degenerate parametric surface.
@@ -462,3 +456,5 @@ export class Triangles extends Visual {
         return v20.scalar(d2).sub(v10.scalar(d4)).div(det);
     }
 }
+
+export { Triangles };

@@ -1,5 +1,5 @@
 {
-  "name": "l5",
+  "name": "l5gl",
   "version": "0.2.0",
   "author": {
     "name": "lonphy",
@@ -7,13 +7,16 @@
   },
   "homepage": "http://l5gl.lonphy.com/",
   "scripts": {
-    "build": "rollup --no-conflict -c -w",
-    "doc": "rm -fr out && node_modules/.bin/jsdoc -r src/*"
+    "build": "rollup --no-conflict -c -w"
   },
   "devDependencies": {
     "rollup": "^0.41.6",
     "rollup-watch": "^3.2.2"
   },
   "description": "WebGL 2.0 framework",
-  "typings": "src/types/L5.d.ts"
+  "typings": "src/types/L5.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lonphy/L5GL.git"
+  }
 }

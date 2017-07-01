@@ -1,33 +1,30 @@
-/**
- * Culler - 裁剪
- *
- * @version 2.0
- * @author lonphy
- */
-import * as util from '../../util/util'
-import { _Math, Vector, Plane } from '../../math/index'
-import { Camera } from './Camera'
-import { VisibleSet } from './VisibleSet'
+import { DECLARE_ENUM } from '../../util/util';
+import { _Math, Vector, Plane } from '../../math/index';
+import { Camera } from './Camera';
+import { VisibleSet } from './VisibleSet';
 
-export class Culler {
+class Culler {
 
     /**
-     * @param {Camera} camera 
+     * construction.  Culling requires a camera model.  If the camera is 
+     * not passed to the constructor, you should set it using camera setter
+     *  before calling ComputeVisibleSet.
+     * @param {Camera|null} camera 
      */
-    constructor(camera) {
-        // The data members mFrustum, mPlane, and mPlaneState are
-        // uninitialized.  They are initialized in the GetVisibleSet call.
-
+    constructor(camera = null) {
         // The input camera has information that might be needed during the
         // culling pass over the scene.
-        this._camera = camera || null;
+        this._camera = camera;
 
         /**
-         * The potentially visible set for a call to GetVisibleSet.
+         * The potentially visible set for a call to getVisibleSet.
          * @type {VisibleSet}
          * @private
          */
         this._visibleSet = new VisibleSet();
+
+        // The data members _frustum, _plane, and _planeState are
+        // uninitialized.  They are initialized in the getVisibleSet call.
 
         // The world culling planes corresponding to the view frustum plus any
         // additional user-defined culling planes.  The member m_uiPlaneState
@@ -41,14 +38,14 @@ export class Culler {
         // the left plane.
         this._planeQuantity = 6;
         this._plane = new Array(Culler.MAX_PLANE_QUANTITY);
-        for (var i = 0, l = this._plane.length; i < l; ++i) {
+        for (let i = 0, l = this._plane.length; i < l; ++i) {
             this._plane[i] = new Plane(Vector.ZERO, 0);
         }
         this._planeState = 0;
 
         // 传入摄像机的视截体副本
         // 主要用于在裁剪时供各种子系统修改视截体参数, 而不影响摄像机
-        // 这些内部状态在渲染器中需要
+        // 渲染器需要这些内部状态
         this._frustum = new Array(Camera.VF_QUANTITY);
     }
     get camera() {
@@ -81,21 +78,21 @@ export class Culler {
         this._frustum[VF_LEFT] = left = frustum[VF_LEFT];
         this._frustum[VF_RIGHT] = right = frustum[VF_RIGHT];
 
-        var near2 = near * near;
-        var bottom2 = bottom * bottom;
-        var top2 = top * top;
-        var left2 = left * left;
-        var right2 = right * right;
+        let near2 = near * near;
+        let bottom2 = bottom * bottom;
+        let top2 = top * top;
+        let left2 = left * left;
+        let right2 = right * right;
 
         // 获取相机坐标结构
-        var position = this._camera.position;
-        var directionVec = this._camera.direction;
-        var upVec = this._camera.up;
-        var rightVec = this._camera.right;
-        var dirDotEye = position.dot(directionVec);
+        let position = this._camera.position;
+        let directionVec = this._camera.direction;
+        let upVec = this._camera.up;
+        let rightVec = this._camera.right;
+        let dirDotEye = position.dot(directionVec);
 
         // 更新近平面
-        this._plane[VF_NEAR].normal = directionVec;
+        this._plane[VF_NEAR].normal = Vector.ZERO.copy(directionVec);
         this._plane[VF_NEAR].constant = dirDotEye + near;
 
         // 更新远平面
@@ -103,18 +100,18 @@ export class Culler {
         this._plane[VF_FAR].constant = -(dirDotEye + far);
 
         // 更新下平面
-        var invLength = _Math.invSqrt(near2 + bottom2);
-        var c0 = bottom * -invLength;
-        var c1 = near * invLength;
-        var normal = directionVec.scalar(c0).add(upVec.scalar(c1));
-        var constant = position.dot(normal);
+        let invLength = _Math.invSqrt(near2 + bottom2);
+        let c0 = -bottom * invLength;
+        let c1 = near * invLength;
+        let normal = directionVec.scalar(c0).add(upVec.scalar(c1));
+        let constant = position.dot(normal);
         this._plane[VF_BOTTOM].normal = normal;
         this._plane[VF_BOTTOM].constant = constant;
 
         // 更新上平面
         invLength = _Math.invSqrt(near2 + top2);
         c0 = top * invLength;
-        c1 = near * -invLength;
+        c1 = -near * invLength;
         normal = directionVec.scalar(c0).add(upVec.scalar(c1));
         constant = position.dot(normal);
         this._plane[VF_TOP].normal = normal;
@@ -122,7 +119,7 @@ export class Culler {
 
         // 更新左平面
         invLength = _Math.invSqrt(near2 + left2);
-        c0 = left * -invLength;
+        c0 = -left * invLength;
         c1 = near * invLength;
         normal = directionVec.scalar(c0).add(rightVec.scalar(c1));
         constant = position.dot(normal);
@@ -132,7 +129,7 @@ export class Culler {
         // 更新右平面
         invLength = _Math.invSqrt(near2 + right2);
         c0 = right * invLength;
-        c1 = near * -invLength;
+        c1 = -near * invLength;
         normal = directionVec.scalar(c0).add(rightVec.scalar(c1));
         constant = position.dot(normal);
         this._plane[VF_RIGHT].normal = normal;
@@ -187,7 +184,7 @@ export class Culler {
      * this behavior; for example, the array might be maintained as a sorted
      * array for minimizing render state changes or it might be/ maintained
      * as a unique list of objects for a portal system.
-     * @param visible {Spatial}
+     * @param {Spatial} visible
      */
     insert(visible) {
         this._visibleSet.insert(visible);
@@ -197,7 +194,7 @@ export class Culler {
      * Compare the object's world bound against the culling planes.
      * Only Spatial calls this function.
      *
-     * @param bound {Bound}
+     * @param {Bound} bound
      * @returns {boolean}
      */
     isVisible(bound) {
@@ -208,12 +205,12 @@ export class Culler {
 
         // Start with the last pushed plane, which is potentially the most
         // restrictive plane.
-        var index = this._planeQuantity - 1;
-        var mask = (1 << index);
+        let index = this._planeQuantity - 1;
+        let mask = (1 << index);
 
-        for (var i = 0; i < this._planeQuantity; ++i, --index, mask >>= 1) {
+        for (let i = 0; i < this._planeQuantity; ++i, --index, mask >>= 1) {
             if (this._planeState & mask) {
-                var side = bound.whichSide(this._plane[index]);
+                let side = bound.whichSide(this._plane[index]);
 
                 if (side < 0) {
                     // 对象在平面的反面, 剔除掉
@@ -234,12 +231,12 @@ export class Culler {
 
     /**
      * Support for Portal.getVisibleSet.
-     * @param numVertices {number}
-     * @param vertices {Array<Point>}
-     * @param ignoreNearPlane {boolean}
+     * @param {number} numVertices
+     * @param {Array<Point>} vertices
+     * @param {boolean} ignoreNearPlane
      */
     isVisible1(numVertices, vertices, ignoreNearPlane) {
-        // The Boolean variable ignoreNearPlane should be set to 'true' when
+        // The Boolean letiable ignoreNearPlane should be set to 'true' when
         // the test polygon is a portal.  This avoids the situation when the
         // portal is in the view pyramid (eye+left/right/top/bottom), but is
         // between the eye and near plane.  In such a situation you do not want
@@ -249,23 +246,23 @@ export class Culler {
 
         // Start with the last pushed plane, which is potentially the most
         // restrictive plane.
-        var index = this._planeQuantity - 1;
-        for (var i = 0; i < this._planeQuantity; ++i, --index) {
-            var plane = this._plane[index];
-            if (ignoreNearPlane && index == Camera.VF_NEAR) {
+        let index = this._planeQuantity - 1;
+        for (let i = 0; i < this._planeQuantity; ++i, --index) {
+            let plane = this._plane[index];
+            if (ignoreNearPlane && (index === Camera.VF_NEAR)) {
                 continue;
             }
 
-            var j;
+            let j;
             for (j = 0; j < numVertices; ++j) {
-                var side = plane.whichSide(vertices[j]);
+                let side = plane.whichSide(vertices[j]);
                 if (side >= 0) {
                     // The polygon is not totally outside this plane.
                     break;
                 }
             }
 
-            if (j == numVertices) {
+            if (j === numVertices) {
                 // The polygon is totally outside this plane.
                 return false;
             }
@@ -274,8 +271,7 @@ export class Culler {
         return true;
     }
 
-
-    // Support for BspNode::GetVisibleSet.  Determine whether the view frustum
+    // Support for BspNode.getVisibleSet.  Determine whether the view frustum
     // is fully on one side of a plane.  The "positive side" of the plane is
     // the half space to which the plane normal points.  The "negative side"
     // is the other half space.  The function returns +1 if the view frustum
@@ -284,28 +280,28 @@ export class Culler {
     // straddles the plane.  The input plane is in world coordinates and the
     // world camera coordinate system is used for the test.
     /**
-     * @param plane {Plane}
+     * @param {Plane} plane
      * @returns {number}
      */
     whichSide(plane) {
         // The plane is N*(X-C) = 0 where the * indicates dot product.  The signed
         // distance from the camera location E to the plane is N*(E-C).
-        var NdEmC = plane.distanceTo(this._camera.position);
+        let NdEmC = plane.distanceTo(this._camera.position);
 
-        var normal = plane.normal;
-        var NdD = normal.dot(this._camera.direction);
-        var NdU = normal.dot(this._camera.up);
-        var NdR = normal.dot(this._camera.right);
-        var FdN = this._frustum[Camera.VF_FAR] / this._frustum[Camera.VF_NEAR];
+        let normal = plane.normal;
+        let NdD = normal.dot(this._camera.direction);
+        let NdU = normal.dot(this._camera.up);
+        let NdR = normal.dot(this._camera.right);
+        let FdN = this._frustum[Camera.VF_FAR] / this._frustum[Camera.VF_NEAR];
 
-        var positive = 0, negative = 0, sgnDist;
+        let positive = 0, negative = 0, sgnDist;
 
         // Check near-plane vertices.
-        var PDMin = this._frustum[Camera.VF_NEAR] * NdD;
-        var NUMin = this._frustum[Camera.VF_BOTTOM] * NdU;
-        var NUMax = this._frustum[Camera.VF_TOP] * NdU;
-        var NRMin = this._frustum[Camera.VF_LEFT] * NdR;
-        var NRMax = this._frustum[Camera.VF_RIGHT] * NdR;
+        let PDMin = this._frustum[Camera.VF_NEAR] * NdD;
+        let NUMin = this._frustum[Camera.VF_BOTTOM] * NdU;
+        let NUMax = this._frustum[Camera.VF_TOP] * NdU;
+        let NRMin = this._frustum[Camera.VF_LEFT] * NdR;
+        let NRMax = this._frustum[Camera.VF_RIGHT] * NdR;
 
         // V = E + dmin*D + umin*U + rmin*R
         // N*(V-C) = N*(E-C) + dmin*(N*D) + umin*(N*U) + rmin*(N*R)
@@ -348,11 +344,11 @@ export class Culler {
         }
 
         // check far-plane vertices (s = dmax/dmin)
-        var PDMax = this._frustum[Camera.VF_FAR] * NdD;
-        var FUMin = FdN * NUMin;
-        var FUMax = FdN * NUMax;
-        var FRMin = FdN * NRMin;
-        var FRMax = FdN * NRMax;
+        let PDMax = this._frustum[Camera.VF_FAR] * NdD;
+        let FUMin = FdN * NUMin;
+        let FUMax = FdN * NUMax;
+        let FRMin = FdN * NRMin;
+        let FRMax = FdN * NRMax;
 
         // V = E + dmax*D + umin*U + rmin*R
         // N*(V-C) = N*(E-C) + dmax*(N*D) + s*umin*(N*U) + s*rmin*(N*R)
@@ -410,7 +406,7 @@ export class Culler {
 
     /**
      * 计算裁剪后的可见物体
-     * @param scene {Spatial}
+     * @param {Spatial} scene
      */
     computeVisibleSet(scene) {
         if (this._camera && scene) {
@@ -424,6 +420,6 @@ export class Culler {
 
 };
 
-util.DECLARE_ENUM(Culler, {
-    MAX_PLANE_QUANTITY: 32
-});
+DECLARE_ENUM(Culler, { MAX_PLANE_QUANTITY: 32 });
+
+export { Culler };

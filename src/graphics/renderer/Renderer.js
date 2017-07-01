@@ -1,9 +1,3 @@
-/**
- * Renderer
- * @author lonphy
- * @version 2.0
- */
-import { WebGL_VERSION } from '../../util/version'
 import {
 	webgl,
 	GLRenderData,
@@ -12,30 +6,33 @@ import {
 	GLFragShader,
 	GLProgram,
 	GLIndexBuffer,
-	GLVertexBuffer,
+	GLVertexArray,
 	GLVertexFormat,
 	GLTexture2D,
+	GLTexture2DArray,
+	GLTexture3D,
 	GLTextureCube,
-	GLRenderTarget
-} from './webgl/namespace'
-import { AlphaState, CullState, DepthState, OffsetState, StencilState } from '../shaders/namespace'
-import { Visual } from '../sceneTree/Visual'
+	GLRenderTarget,
+	GLSampler
+} from './webgl/namespace';
+import { AlphaState, CullState, DepthState, OffsetState, StencilState } from '../shaders/namespace';
+import { Visual } from '../sceneTree/Visual';
 
-export class Renderer {
+class Renderer {
     /**
      * @param {HTMLCanvasElement} canvas
      * @param {number} width
      * @param {number} height
-     * @param clearColor
-     * @param colorFormat
-     * @param depthStencilFormat
+     * @param {ArrayBuffer} clearColor
+     * @param {number} colorFormat
+     * @param {number} depthStencilFormat
      * @param {number} numMultiSamples
      */
 	constructor(canvas, width, height, clearColor, colorFormat, depthStencilFormat, numMultiSamples) {
         /**
          * @type {WebGLRenderingContext}
          */
-		let gl = canvas.getContext(WebGL_VERSION, {
+		let gl = canvas.getContext('webgl2', {
 			alpha: true,
 			depth: true,
 			stencil: true,
@@ -64,6 +61,11 @@ export class Renderer {
 			this.defaultStencilState
 		);
 		Renderer.renderers.add(this);
+
+		// let c = document.createElement('canvas');
+		// c.setAttribute('style', 'width:150px;height:75px');
+		// this.textContext = c.getContext('2d');
+		// document.body.appendChild(this.textContext.canvas);
 	}
 
     /**
@@ -74,11 +76,11 @@ export class Renderer {
 	}
 
     /**
-     * @param width {number}
-     * @param height {number}
-     * @param colorFormat {number} TEXTURE_FORMAT_XXX
-     * @param depthStencilFormat {number} TEXTURE_FORMAT_XXX
-     * @param numMultiSamples {number}
+     * @param {number} width
+     * @param {number} height
+     * @param {number} colorFormat - TEXTURE_FORMAT_XXX
+     * @param {number} depthStencilFormat - TEXTURE_FORMAT_XXX
+     * @param {number} numMultiSamples
      */
 	initialize(width, height, colorFormat, depthStencilFormat, numMultiSamples) {
 
@@ -128,6 +130,8 @@ export class Renderer {
 		this._colorMask = (0x1 | 0x2 | 0x4 | 0x8);
 
 		// 框架结构对应到底层结构
+		this.vertexArrays = new Map(); // VAOs
+
 		this.vertexFormats = new Map();
 		this.vertexBuffers = new Map();
 		this.indexBuffers = new Map();
@@ -137,10 +141,11 @@ export class Renderer {
 		this.renderTargets = new Map();
 		this.vertexShaders = new Map();
 		this.fragShaders = new Map();
+		this.samplerStates = new Map();
 		this.programs = new Map();
 
-		var gl = this.gl;
-		var cc = this.clearColor;
+		let gl = this.gl;
+		let cc = this.clearColor;
 		gl.clearColor(cc[0], cc[1], cc[2], cc[3]);
 		gl.clearDepth(this.clearDepth);
 		gl.clearStencil(this.clearStencil);
@@ -169,7 +174,7 @@ export class Renderer {
 	//    VertexFormat
 	//    VertexBuffer
 	//    IndexBuffer
-	//    Texture(2d, cube),
+	//    Texture(2d, cube, 3d, 2d array),
 	//    RenderTarget
 	//    VertexShader
 	//    FragmentShader
@@ -261,14 +266,14 @@ export class Renderer {
 
     /**
      * The entry point to drawing the visible set of a scene tree.
-     * @param visibleSet {VisibleSet}
-     * @param globalEffect {*}
+     * @param {VisibleSet} visibleSet
+     * @param {*} globalEffect
      */
 	drawVisibleSet(visibleSet, globalEffect = null) {
 		if (!globalEffect) {
-			var numVisible = visibleSet.getNumVisible();
-			for (var i = 0; i < numVisible; ++i) {
-				var visual = visibleSet.getVisible(i);
+			let numVisible = visibleSet.getNumVisible();
+			for (let i = 0; i < numVisible; ++i) {
+				let visual = visibleSet.getVisible(i);
 				this.drawInstance(visual, visual.effect);
 			}
 		}
@@ -278,7 +283,7 @@ export class Renderer {
 	}
 
     /**
-     * @param visual {Visual}
+     * @param {Visual} visual
      */
 	drawVisible(visual) {
 		this.drawInstance(visual, visual.effect);
@@ -286,9 +291,8 @@ export class Renderer {
 
 
     /**
-     * 渲染单个对象
-     * @param visual {Visual}
-     * @param instance {VisualEffectInstance}
+     * @param {Visual} visual
+     * @param {VisualEffectInstance} instance
      */
 	drawInstance(visual, instance) {
 		if (!visual) {
@@ -301,18 +305,18 @@ export class Renderer {
 			return;
 		}
 
-		var vformat = visual.format;
-		var vbuffer = visual.vertexBuffer;
-		var ibuffer = visual.indexBuffer;
+		let vformat = visual.format;
+		let vbuffer = visual.vertexBuffer;
+		let ibuffer = visual.indexBuffer;
 
-		var numPasses = instance.getNumPasses();
-		for (var i = 0; i < numPasses; ++i) {
-			var pass = instance.getPass(i);
-			var vparams = instance.getVertexParameters(i);
-			var fparams = instance.getFragParameters(i);
-			var program = pass.program;
+		let numPasses = instance.getNumPasses();
+		for (let i = 0; i < numPasses; ++i) {
+			let pass = instance.getPass(i);
+			let vparams = instance.getVertexParameters(i);
+			let fparams = instance.getFragParameters(i);
+			let program = pass.program;
 
-			// Update any shader constants that vary during runtime.
+			// Update any shader constants that lety during runtime.
 			vparams.updateConstants(visual, this.camera);
 			fparams.updateConstants(visual, this.camera);
 
@@ -322,24 +326,18 @@ export class Renderer {
 			this.setDepthState(pass.depthState);
 			this.setOffsetState(pass.offsetState);
 			this.setStencilState(pass.stencilState);
-			//this.setWireState(pass.wireState);
 
-			// enable data
 			this._enableProgram(program, vparams, fparams);
-			this._enableVertexBuffer(vbuffer);
-			this._enableVertexFormat(vformat, program);
+			this._enableVertexBuffer(vbuffer, vformat);
 			if (ibuffer) {
 				this._enableIndexBuffer(ibuffer);
-			}
-
-			// Draw the primitive.
-			this.drawPrimitive(visual);
-
-			// disable data
-			if (ibuffer) {
+				// Draw the primitive.
+				this.drawPrimitive(visual);
 				this._disableIndexBuffer(ibuffer);
+			} else {
+				this.___drawPrimitiveWithoutIndices(visual);
 			}
-			this._disableVertexFormat(vformat);
+
 			this._disableVertexBuffer(vbuffer);
 
 			// Disable the shaders.
@@ -350,17 +348,17 @@ export class Renderer {
     /**
      * The entry point for drawing 3D objects, called by the single-object
      * Draw function.
-     * @param visual {Visual}
+     * @param {Visual} visual
      */
 	_drawPrimitive(visual) {
 	}
 
     /**
      * 设置渲染视口
-     * @param x {number}
-     * @param y {number}
-     * @param width {number}
-     * @param height {number}
+     * @param {number} x
+     * @param {number} y
+     * @param {number} width
+     * @param {number} height
      */
 	setViewport(x, y, width, height) {
 		this.gl.viewport(x, y, width, height);
@@ -383,8 +381,8 @@ export class Renderer {
 	resize(width, height) {
 		this.width = width;
 		this.height = height;
-		var gl = this.gl;
-		var p = gl.getParameter(gl.VIEWPORT);
+		let gl = this.gl;
+		let p = gl.getParameter(gl.VIEWPORT);
 		gl.viewport(p[0], p[1], width, height);
 	}
 
@@ -402,7 +400,7 @@ export class Renderer {
      * @returns {Array<number>}
      */
 	getDepthRange() {
-		var gl = this.gl;
+		let gl = this.gl;
 		return gl.getParameter(gl.DEPTH_RANGE);
 	}
 
@@ -440,7 +438,7 @@ export class Renderer {
 				this._updateAllTextureCube(obj, arguments[1], arguments[2]);
 				break;
 			case 'VertexBuffer':
-				this._updateAllVertexBuffer(obj);
+				this._updateAllVertexBuffer(obj, arguments[1]);
 				break;
 			case 'IndexBuffer':
 				this._updateAllIndexBuffer(obj);
@@ -449,61 +447,22 @@ export class Renderer {
 				console.assert(false, `${obj.constructor.name} not support [updateAll] method.`);
 		}
 	}
-
-	// ------------------- VertexFormat ----------------------------------
-    /**
-     * @param format {VertexFormat}
-     * @private
-     */
-	_bindVertexFormat(format) {
-		if (!this.vertexFormats.has(format)) {
-			this.vertexFormats.set(format, new GLVertexFormat(this, format));
+	// ------------------- Sampler ------------------------------
+	_bindAllSamplerState(sampler) {
+		Renderer._renderers.forEach(r => r._bindSamplerState(sampler));
+	}
+	_bindSamplerState(sampler) {
+		if (!this.samplerStates.has(sampler)) {
+			this.samplerStates.set(sampler, new GLSampler(this.gl, sampler));
 		}
 	}
-
-    /**
-     * @param format {VertexFormat}
-     * @private
-     */
-	static _bindAllVertexFormat(format) { }
-
-    /**
-     * @param format {VertexFormat}
-     * @private
-     */
-	_unbindVertexFormat(format) { }
-
-    /**
-     * @param format {VertexFormat}
-     * @private
-     */
-	static _unbindAllVertexFormat(format) { }
-
-    /**
-     * @param format {VertexFormat}
-     * @param program {Program}
-     * @private
-     */
-	_enableVertexFormat(format, program) {
-		var glFormat = this.vertexFormats.get(format);
-		if (!glFormat) {
-			glFormat = new GLVertexFormat(this, format, program);
-			this.vertexFormats.set(format, glFormat);
+	_enableSamplerState(sampler, textureUnit) {
+		let glSampler = this.samplerStates.get(sampler);
+		if (!glSampler) {
+			glSampler = new GLSampler(this.gl, sampler);
+			this.samplerStates.set(sampler, glSampler);
 		}
-		glFormat.enable(this);
-	}
-
-    /**
-     * @param format {VertexFormat}
-     * @param vp
-     * @param fp
-     * @private
-     */
-	_disableVertexFormat(format, vp, fp) {
-		var glFormat = this.vertexFormats.get(format);
-		if (glFormat) {
-			glFormat.disable(this);
-		}
+		glSampler.enable(this.gl, textureUnit);
 	}
 
 	// ------------------- 着色器程序管理 ----------------------------------
@@ -528,11 +487,11 @@ export class Renderer {
 	}
 
     /**
-     * @param program {Program}
+     * @param {Program} program
      * @private
      */
 	_unbindProgram(program) {
-		var glProgram = this.programs.get(program);
+		let glProgram = this.programs.get(program);
 		if (glProgram) {
 			glProgram.free(this.gl);
 			this.programs.delete(program);
@@ -555,7 +514,7 @@ export class Renderer {
      * @private
      */
 	_enableProgram(program, vp, fp) {
-		var glProgram = this.programs.get(program);
+		let glProgram = this.programs.get(program);
 		if (!glProgram) {
 			this._bindVertexShader(program.vertexShader);
 			this._bindFragShader(program.fragShader);
@@ -585,7 +544,7 @@ export class Renderer {
 
 		this._disableVertexShader(program.vertexShader, vp);
 		this._disableFragShader(program.fragShader, fp);
-		var glProgram = this.programs.get(program);
+		let glProgram = this.programs.get(program);
 		if (glProgram) {
 			glProgram.disable(this);
 		}
@@ -593,171 +552,148 @@ export class Renderer {
 
 	//----------------------- vertexBuffer ------------------------
     /**
-     * @param buffer {VertexBuffer}
+     * @param {VertexBuffer} buffer
+     * @param {VertexFormat} format
      * @private
      */
-	_bindVertexBuffer(buffer) { }
-
-    /**
-     * @param buffer {VertexBuffer}
-     * @private
-     */
-	static _bindAllVertexBuffer(buffer) { }
-
-    /**
-     * @param buffer {VertexBuffer}
-     * @private
-     */
-	_unbindVertexBuffer(buffer) { }
-
-    /**
-     * @param buffer {VertexBuffer}
-     * @private
-     */
-	static _unbindAllVertexBuffer(buffer) { }
-
-    /**
-     * @param buffer {VertexBuffer}
-     * @param streamIndex {number}
-     * @param offset {number}
-     * @private
-     */
-	_enableVertexBuffer(buffer, streamIndex, offset) {
-
-		var glVBuffer = this.vertexBuffers.get(buffer);
-		if (!glVBuffer) {
-			glVBuffer = new GLVertexBuffer(this, buffer);
-			this.vertexBuffers.set(buffer, glVBuffer);
+	_enableVertexBuffer(buffer, format) {
+		let glVao = this.vertexArrays.get(buffer);
+		if (!glVao) {
+			let glFormat = this.vertexFormats.get(format);
+			if (!glFormat) {
+				glFormat = new GLVertexFormat(this.gl, format);
+				this.vertexFormats.set(format, glFormat);
+			}
+			glVao = new GLVertexArray(this.gl, buffer, glFormat);
+			this.vertexArrays.set(buffer, glVao);
+			return;
 		}
 
-		glVBuffer.enable(this, buffer.elementSize);
+		glVao.enable(this.gl);
 	}
 
     /**
-     * @param buffer {VertexBuffer}
-     * @param streamIndex {number}
+     * @param {VertexBuffer} buffer
      * @private
      */
-	_disableVertexBuffer(buffer, streamIndex) {
-		var glVBuffer = this.vertexBuffers.get(buffer);
-		if (glVBuffer) {
-			glVBuffer.disable(this, streamIndex);
+	_disableVertexBuffer(buffer) {
+		let glVao = this.vertexArrays.get(buffer);
+		if (glVao) {
+			glVao.disable(this.gl);
 		}
 	}
 
     /**
-     * @param buffer {VertexBuffer}
+     * @param {VertexBuffer} buffer
+	 * @param {VertexFormat} format
      * @private
      */
-	_updateVertexBuffer(buffer) {
-		var glVBuffer = this.vertexBuffers.get(buffer);
-		if (!glVBuffer) {
-			glVBuffer = new GLVertexBuffer(this, buffer);
-			this.vertexBuffers.set(buffer, glVBuffer);
+	_updateVertexBuffer(buffer, format) {
+		let glFormat = this.vertexFormats.get(format);
+		if (!glFormat) {
+			glFormat = new GLVertexFormat(this.gl, format);
+			this.vertexFormats.set(format, glFormat);
 		}
 
-		glVBuffer.update(this, buffer);
+		let glVao = this.vertexArrays.get(buffer);
+		if (!glVao) {
+			glVao = new GLVertexArray(this.gl, buffer, glFormat);
+			this.vertexArrays.set(buffer, glVao);
+			return;
+		}
+
+		glVao.update(this.gl, buffer, glFormat);
 	}
 
     /**
-     * @param buffer {VertexBuffer}
+     * @param {VertexBuffer} buffer
+	 * @param {VertexFormat} format
      * @private
      */
-	static _updateAllVertexBuffer(buffer) {
-		Renderer.renderers.forEach(function (renderer) {
-			renderer._updateVertexBuffer(buffer);
-		});
+	static _updateAllVertexBuffer(buffer, format) {
+		Renderer.renderers.forEach(renderer => renderer._updateVertexBuffer(buffer, format));
 	}
 
 	//----------------------- indexBuffer ------------------------
     /**
-     * @param buffer {IndexBuffer}
-     * @private
-     */
-	_bindIndexBuffer(buffer) { }
-
-    /**
-     * @param buffer {IndexBuffer}
-     * @private
-     */
-	static _bindAllIndexBuffer(buffer) { }
-
-    /**
-     * @param buffer {IndexBuffer}
-     * @private
-     */
-	_unbindIndexBuffer(buffer) { }
-
-    /**
-     * @param buffer {IndexBuffer}
-     * @private
-     */
-	static _unbindAllIndexBuffer(buffer) { }
-
-    /**
-     * @param buffer {IndexBuffer}
+     * @param {IndexBuffer} buffer
      * @private
      */
 	_enableIndexBuffer(buffer) {
-		var glIBuffer = this.indexBuffers.get(buffer);
+		let glIBuffer = this.indexBuffers.get(buffer);
 		if (!glIBuffer) {
-			glIBuffer = new GLIndexBuffer(this, buffer);
+			glIBuffer = new GLIndexBuffer(this.gl, buffer);
 			this.indexBuffers.set(buffer, glIBuffer);
+			return;
 		}
-		glIBuffer.enable(this);
+		glIBuffer.enable(this.gl);
 	}
 
     /**
-     * @param buffer {IndexBuffer}
+     * @param {IndexBuffer} buffer
      * @private
      */
 	_disableIndexBuffer(buffer) {
-		var glIBuffer = this.indexBuffers.get(buffer);
+		let glIBuffer = this.indexBuffers.get(buffer);
 		if (glIBuffer) {
-			glIBuffer.disable(this);
+			glIBuffer.disable(this.gl);
 		}
 	}
 
     /**
-     * @param buffer {IndexBuffer}
+     * @param {IndexBuffer} buffer
      * @private
      */
-	_updateIndexBuffer(buffer) { }
+	_updateIndexBuffer(buffer) {
+		let glIBuffer = this.indexBuffers.get(buffer);
+		if (!glIBuffer) {
+			glIBuffer = new GLIndexBuffer(this.gl, buffer);
+			this.indexBuffers.set(buffer, glIBuffer);
+			return;
+		}
+		glIBuffer.update(this.gl, buffer);
+	}
 
     /**
-     * @param buffer {IndexBuffer}
+     * @param {IndexBuffer} buffer
      * @private
      */
-	static _updateAllIndexBuffer(buffer) { }
+	static _updateAllIndexBuffer(buffer) {
+		Renderer.renderers.forEach(renderer => renderer._updateIndexBuffer(buffer));
+	}
 
 	//----------------------- fragShader ------------------------
 
     /**
-     * @param shader {FragShader}
+     * @param {FragShader} shader
      * @private
      */
 	_bindFragShader(shader) {
 		if (!this.fragShaders.get(shader)) {
+			let numSamplers = shader.numSamplers;
+			if (numSamplers > 0) {
+				for (let i = 0; i < numSamplers; ++i) {
+					this._bindSamplerState(shader.getSamplerState(i));
+				}
+			}
 			this.fragShaders.set(shader, new GLFragShader(this, shader));
 		}
 	}
 
     /**
-     * @param shader {FragShader}
+     * @param {FragShader} shader
      * @private
      */
 	static _bindAllFragShader(shader) {
-		Renderer.renderers.forEach(function (r) {
-			r._bindFragShader(shader);
-		});
+		Renderer.renderers.forEach(r => r._bindFragShader(shader));
 	}
 
     /**
-     * @param shader {FragShader}
+     * @param {FragShader} shader
      * @private
      */
 	_unbindFragShader(shader) {
-		var glFShader = this.fragShaders.get(shader);
+		let glFShader = this.fragShaders.get(shader);
 		if (glFShader) {
 			glFShader.free(this.gl);
 			this.fragShaders.delete(shader);
@@ -765,23 +701,21 @@ export class Renderer {
 	}
 
     /**
-     * @param shader {FragShader}
+     * @param {FragShader} shader
      * @private
      */
 	static _unbindAllFragShader(shader) {
-		Renderer.renderers.forEach(function (r) {
-			r._unbindFragShader(shader);
-		});
+		Renderer.renderers.forEach(r => r._unbindFragShader(shader));
 	}
 
     /**
-     * @param shader {FragShader}
-     * @param mapping {Map}
-     * @param parameters {ShaderParameters}
+     * @param {FragShader} shader
+     * @param {Map} mapping
+     * @param {ShaderParameters} parameters
      * @private
      */
 	_enableFragShader(shader, mapping, parameters) {
-		var glFShader = this.fragShaders.get(shader);
+		let glFShader = this.fragShaders.get(shader);
 		if (!glFShader) {
 			glFShader = new GLFragShader(this, shader);
 			this.fragShaders.set(shader, glFShader);
@@ -790,12 +724,12 @@ export class Renderer {
 	}
 
     /**
-     * @param shader {FragShader}
-     * @param parameters {ShaderParameters}
+     * @param {FragShader} shader
+     * @param {ShaderParameters} parameters
      * @private
      */
 	_disableFragShader(shader, parameters) {
-		var glFShader = this.fragShaders.get(shader);
+		let glFShader = this.fragShaders.get(shader);
 		if (glFShader) {
 			glFShader.disable(this, shader, parameters);
 		}
@@ -803,11 +737,17 @@ export class Renderer {
 
 	//----------------------- vertexShader ------------------------
     /**
-     * @param shader {VertexShader}
+     * @param {VertexShader} shader
      * @private
      */
 	_bindVertexShader(shader) {
 		if (!this.vertexShaders.get(shader)) {
+			let numSamplers = shader.numSamplers;
+			if (numSamplers > 0) {
+				for (let i = 0; i < numSamplers; ++i) {
+					this._bindSamplerState(shader.getSamplerState(i));
+				}
+			}
 			this.vertexShaders.set(shader, new GLVertexShader(this, shader));
 		}
 	}
@@ -836,7 +776,7 @@ export class Renderer {
      * @private
      */
 	_enableVertexShader(shader, mapping, parameters) {
-		var glVShader = this.vertexShaders.get(shader);
+		let glVShader = this.vertexShaders.get(shader);
 		if (!glVShader) {
 			glVShader = new GLVertexShader(this, shader);
 			this.vertexShaders.set(shader, glVShader);
@@ -851,7 +791,7 @@ export class Renderer {
      * @private
      */
 	_disableVertexShader(shader, parameters) {
-		var glVShader = this.vertexShaders.get(shader);
+		let glVShader = this.vertexShaders.get(shader);
 		if (glVShader) {
 			glVShader.disable(this, shader, parameters);
 		}
@@ -883,28 +823,28 @@ export class Renderer {
 	static _unbindAllTexture2D(texture) { }
 
     /**
-     * @param texture {Texture2D}
-     * @param textureUnit {number}
+     * @param {Texture2D} texture
+     * @param {number} textureUnit
      * @private
      */
 	_enableTexture2D(texture, textureUnit) {
-		var glTexture2D = this.texture2Ds.get(texture);
+		let glTexture2D = this.texture2Ds.get(texture);
 		if (!glTexture2D) {
-			glTexture2D = new GLTexture2D(this, texture);
+			glTexture2D = new GLTexture2D(this.gl, texture);
 			this.texture2Ds.set(texture, glTexture2D);
 		}
-		glTexture2D.enable(this, textureUnit);
+		glTexture2D.enable(this.gl, textureUnit);
 	}
 
     /**
-     * @param texture {Texture2D}
-     * @param textureUnit {number}
+     * @param {Texture2D} texture
+     * @param {number} textureUnit
      * @private
      */
 	_disableTexture2D(texture, textureUnit) {
-		var glTexture2D = this.texture2Ds.get(texture);
+		let glTexture2D = this.texture2Ds.get(texture);
 		if (glTexture2D) {
-			glTexture2D.disable(this, textureUnit);
+			glTexture2D.disable(this.gl, textureUnit);
 		}
 	}
 
@@ -913,13 +853,13 @@ export class Renderer {
      * @param {number} level
      * @private
      */
-	_updateTexture2D(texture, level=0) {
+	_updateTexture2D(texture, level = 0) {
 		let glTexture2D = this.texture2Ds.get(texture);
 		if (!glTexture2D) {
-			glTexture2D = new GLTexture2D(this, texture);
+			glTexture2D = new GLTexture2D(this.gl, texture);
 			this.texture2Ds.set(texture, glTexture2D);
 		} else {
-			glTexture2D.update(this, level, texture.getData());
+			glTexture2D.update(this.gl, level, texture.getData());
 		}
 	}
 
@@ -992,27 +932,53 @@ export class Renderer {
 	 * @param {Visual} visual
 	 */
 	drawPrimitive(visual) {
-		var type = visual.primitiveType;
-		var vbuffer = visual.vertexBuffer;
-		var ibuffer = visual.indexBuffer;
-		var gl = this.gl;
-		var numPixelsDrawn;
-		var numSegments;
+		let type = visual.primitiveType;
+		let vbuffer = visual.vertexBuffer;
+		let ibuffer = visual.indexBuffer;
+		let gl = this.gl;
+		let numPixelsDrawn;
+		let numSegments;
 
 		switch (type) {
 			case Visual.PT_TRIMESH:
 			case Visual.PT_TRISTRIP:
 			case Visual.PT_TRIFAN:
 				{
-					var numVertices = vbuffer.numElements;
-					var numIndices = ibuffer.numElements;
+					let numVertices = vbuffer.numElements;
+					let numIndices = ibuffer.numElements;
 					if (numVertices > 0 && numIndices > 0) {
-						var indexType = (ibuffer.elementSize == 2) ? gl.UNSIGNED_SHORT : gl.UNSIGNED_INT;
-						var indexData = ibuffer.offset;
+						let indexType = (ibuffer.elementSize == 2) ? gl.UNSIGNED_SHORT : gl.UNSIGNED_INT;
+						let indexData = ibuffer.offset;
 						if (visual.wire) {
-							gl.drawElements(gl.LINE_STRIP, numIndices, indexType, indexData);
+							gl.drawElements(gl.LINE_LOOP, numIndices, indexType, indexData);
 						} else {
 							gl.drawElements(webgl.PrimitiveType[type], numIndices, indexType, indexData);
+						}
+					}
+					break;
+				}
+			default:
+				console.assert(false, 'Invalid type', type);
+		}
+	}
+
+	___drawPrimitiveWithoutIndices(visual) {
+		let type = visual.primitiveType;
+		let vbuffer = visual.vertexBuffer;
+		let gl = this.gl;
+		let numSegments;
+
+		switch (type) {
+			case Visual.PT_TRIMESH:
+			case Visual.PT_TRISTRIP:
+			case Visual.PT_TRIFAN:
+				{
+					let numVertices = vbuffer.numElements;
+					if (numVertices > 0) {
+						if (visual.wire) {
+							gl.drawArrays(gl.LINE_LOOP, 0, numVertices);
+						} else {
+							gl.drawArrays(webgl.PrimitiveType[type], 0, numVertices);
 						}
 					}
 					break;
@@ -1035,7 +1001,7 @@ export class Renderer {
 				}
 			case Visual.PT_POLYPOINT:
 				{
-					var numPoints = visual.numPoints;
+					let numPoints = visual.numPoints;
 					if (numPoints > 0) {
 						gl.drawArrays(gl.POINTS, 0, numPoints);
 					}
@@ -1048,97 +1014,22 @@ export class Renderer {
 
 	/**
 	 * draw text
-	 * @param x {number}
-	 * @param y {number}
-	 * @param color {Float32Array}
-	 * @param message {string}
+	 * @param {number} x
+	 * @param {number} y
+	 * @param {string} color
+	 * @param {string} message
 	 */
 	drawText(x, y, color, message) {
-		var gl = this.gl;
+		// let gl = this.gl;
+		// let textContext = this.textContext;
+		// const h = 14;
+		// // let w = textContext.measureText(message);
+		// textContext.clearRect(0, 0, textContext.canvas.width, textContext.canvas.height);
+		// textContext.textBaseline = 'top';
+		// textContext.font = 'lighter 28px Menlo';
+		// textContext.fillStyle = color;
 
-		// Switch to orthogonal view.
-		gl.matrixMode(gl.PROJECTION);
-		gl.pushMatrix();
-		gl.loadIdentity();
-		gl.ortho(-0.5, this.width - 0.5, -0.5, this.height - 0.5, -1, 1);
-		gl.matrixMode(gl.MODELVIEW);
-		gl.pushMatrix();
-		gl.loadIdentity();
-
-		// Set default render states, except for depth buffering that must be
-		// disabled because text is always overlayed.
-		this.setAlphaState(this.defaultAlphaState);
-		this.setCullState(this.defaultCullState);
-		this.setOffsetState(this.defaultOffsetState);
-		this.setStencilState(this.defaultStencilState);
-
-		var CRS = this.data.currentRS;
-		CRS.depthEnabled = false;
-		gl.disable(gl.DEPTH_TEST);
-
-		// Set the text color.
-		gl.color4fv(color[0], color[1], color[2], color[3]);
-
-		// Draw the text string (use right-handed coordinates).
-		gl.rasterPos3i(x, this.height - 1 - y, 0);
-
-		// Restore visual state.  Only depth buffering state varied from the
-		// default state.
-		CRS.depthEnabled = true;
-		gl.enable(gl.DEPTH_TEST);
-
-		// Restore matrices.
-		gl.PopMatrix();
-		gl.MatrixMode(gl.PROJECTION);
-		gl.PopMatrix();
-		gl.MatrixMode(gl.MODELVIEW);
-	}
-
-	/**
-	 * @param screenBuffer {Uint8Array}
-	 * @param reflectY {boolean}
-	 */
-	draw(screenBuffer, reflectY) {
-		if (!screenBuffer) {
-			console.assert(false, "Incoming screen buffer is null.\n");
-			return;
-		}
-
-		var gl = this.gl;
-
-		gl.matrixMode(gl.MODELVIEW);
-		gl.pushMatrix();
-		gl.loadIdentity();
-		gl.matrixMode(gl.PROJECTION);
-		gl.pushMatrix();
-		gl.loadIdentity();
-		gl.ortho(0, this.width, 0, this.height, 0, 1);
-		gl.rasterPos3f(0, 0, 0);
-
-		if (!reflectY) {
-			// Set raster position to window coord (0,H-1).  The hack here avoids
-			// problems with invalid raster positions which would cause
-			// glDrawPixels not to execute.  OpenGL uses right-handed screen
-			// coordinates, so using (0,H-1) as the raster position followed by
-			// glPixelZoom(1,-1) tells OpenGL to draw the screen in left-handed
-			// coordinates starting at the top row of the screen and finishing
-			// at the bottom row.
-			var bitmap = [0];
-			gl.bitmap(0, 0, 0, 0, 0, this.height, bitmap);
-		}
-		gl.popMatrix();
-		gl.matrixMode(gl.MODELVIEW);
-		gl.popMatrix();
-
-		if (!reflectY) {
-			gl.pixelZoom(1, -1);
-		}
-
-		gl.drawPixels(this.width, this.height, gl.BGRA, gl.UNSIGNED_BYTE, screenBuffer);
-
-		if (!reflectY) {
-			gl.pixelZoom(1, 1);
-		}
+		// textContext.fillText(message, x, y);
 	}
 
 	preDraw() { return true; }
@@ -1156,17 +1047,17 @@ export class Renderer {
 			this.alphaState = this.overrideAlphaState;
 		}
 
-		var gl = this.gl;
-		var as = this.alphaState;
-		var CRS = this.data.currentRS;
+		let gl = this.gl;
+		let as = this.alphaState;
+		let CRS = this.data.currentRS;
 
 		if (as.blendEnabled) {
 			if (!CRS.alphaBlendEnabled) {
 				CRS.alphaBlendEnabled = true;
 				gl.enable(gl.BLEND);
 			}
-			var srcBlend = webgl.AlphaBlend[as.srcBlend];
-			var dstBlend = webgl.AlphaBlend[as.dstBlend];
+			let srcBlend = webgl.AlphaBlend[as.srcBlend];
+			let dstBlend = webgl.AlphaBlend[as.dstBlend];
 			if (srcBlend != CRS.alphaSrcBlend || dstBlend != CRS.alphaDstBlend) {
 				CRS.alphaSrcBlend = srcBlend;
 				CRS.alphaDstBlend = dstBlend;
@@ -1191,8 +1082,8 @@ export class Renderer {
 	 * @param cullState {CullState}
 	 */
 	setCullState(cullState) {
-		var cs;
-		var gl = this.gl;
+		let cs;
+		let gl = this.gl;
 		if (!this.overrideCullState) {
 			cs = cullState;
 		}
@@ -1200,7 +1091,7 @@ export class Renderer {
 			cs = this.overrideCullState;
 		}
 		this.cullState = cs;
-		var CRS = this.data.currentRS;
+		let CRS = this.data.currentRS;
 
 		if (cs.enabled) {
 			if (!CRS.cullEnabled) {
@@ -1208,11 +1099,11 @@ export class Renderer {
 				gl.enable(gl.CULL_FACE);
 				gl.frontFace(gl.CCW);
 			}
-			var order = cs.CCWOrder;
+			let order = cs.CCWOrder;
 			if (this.reverseCullOrder) {
 				order = !order;
 			}
-			if (order != CRS.CCWOrder) {
+			if (order !== CRS.CCWOrder) {
 				CRS.CCWOrder = order;
 				gl.cullFace(CRS.CCWOrder ? gl.BACK : gl.FRONT);
 			}
@@ -1228,19 +1119,14 @@ export class Renderer {
 
 	/**
 	 * 设置深度测试状态
-	 * @param depthState {DepthState}
+	 * @param {DepthState} depthState
 	 */
 	setDepthState(depthState) {
-		var ds;
-		var gl = this.gl;
+		let ds = (!this.overrideDepthState) ? depthState : this.overrideDepthState;
+		let gl = this.gl;
 
-		if (!this.overrideDepthState) {
-			ds = depthState;
-		} else {
-			ds = this.overrideDepthState;
-		}
 		this.depthState = ds;
-		var CRS = this.data.currentRS;
+		let CRS = this.data.currentRS;
 
 		if (ds.enabled) {
 			if (!CRS.depthEnabled) {
@@ -1248,7 +1134,7 @@ export class Renderer {
 				gl.enable(gl.DEPTH_TEST);
 			}
 
-			var compare = webgl.DepthCompare[ds.compare];
+			let compare = webgl.DepthCompare[ds.compare];
 			if (compare != CRS.depthCompareFunction) {
 				CRS.depthCompareFunction = compare;
 				gl.depthFunc(compare);
@@ -1276,12 +1162,12 @@ export class Renderer {
 	}
 
 	/**
-	 * @param offsetState {OffsetState}
+	 * @param {OffsetState} offsetState
 	 */
 	setOffsetState(offsetState) {
-		var os;
-		var gl = this.gl;
-		var CRS = this.data.currentRS;
+		let os;
+		let gl = this.gl;
+		let CRS = this.data.currentRS;
 		if (!this.overrideOffsetState) {
 			os = offsetState;
 		}
@@ -1314,8 +1200,8 @@ export class Renderer {
 	 * @param {StencilState} stencilState
 	 */
 	setStencilState(stencilState) {
-		var gl = this.gl;
-		var ss;
+		let gl = this.gl;
+		let ss;
 		if (!this.overrideStencilState) {
 			ss = stencilState;
 		}
@@ -1323,14 +1209,14 @@ export class Renderer {
 			ss = this.overrideStencilState;
 		}
 		this.stencilState = ss;
-		var CRS = this.data.currentRS;
+		let CRS = this.data.currentRS;
 		if (ss.enabled) {
 			if (!CRS.stencilEnabled) {
 				CRS.stencilEnabled = true;
 				gl.enable(gl.STENCIL_TEST);
 			}
 
-			var compare = webgl.StencilCompare[ss.compare];
+			let compare = webgl.StencilCompare[ss.compare];
 			if (compare != CRS.stencilCompareFunction || ss.reference != CRS.stencilReference || ss.mask != CRS.stencilMask) {
 				CRS.stencilCompareFunction = compare;
 				CRS.stencilReference = ss.reference;
@@ -1343,9 +1229,9 @@ export class Renderer {
 				gl.stencilMask(ss.writeMask);
 			}
 
-			var onFail = webgl.StencilOperation[ss.onFail];
-			var onZFail = webgl.StencilOperation[ss.onZFail];
-			var onZPass = webgl.StencilOperation[ss.onZPass];
+			let onFail = webgl.StencilOperation[ss.onFail];
+			let onZFail = webgl.StencilOperation[ss.onZFail];
+			let onZPass = webgl.StencilOperation[ss.onZPass];
 
 			if (onFail != CRS.stencilOnFail || onZFail != CRS.stencilOnZFail || onZPass != CRS.stencilOnZPass) {
 				CRS.stencilOnFail = onFail;
@@ -1377,69 +1263,62 @@ export class Renderer {
 	resize(width, height) {
 		this.width = width;
 		this.height = height;
-		var gl = this.gl;
-
-		var param = gl.getParameter(gl.VIEWPORT);
+		const gl = this.gl;
+		const param = gl.getParameter(gl.VIEWPORT);
 		gl.viewport(param[0], param[1], width, height);
 	}
 
 	clearColorBuffer() {
-		var c = this.clearColor;
-		var gl = this.gl;
+		let c = this.clearColor;
+		let gl = this.gl;
 		gl.clearColor(c[0], c[1], c[2], c[3]);
 		gl.clear(gl.COLOR_BUFFER_BIT);
 	}
 	clearDepthBuffer() {
-		var gl = this.gl;
+		const gl = this.gl;
 		gl.clearDepth(this.clearDepth);
 		gl.clear(gl.DEPTH_BUFFER_BIT);
 	}
 	clearStencilBuffer() {
-		var gl = this.gl;
+		let gl = this.gl;
 		gl.clearStencil(this.clearStencil);
 		gl.clear(gl.STENCIL_BUFFER_BIT);
 	}
 
-	/**
-	 * @param x {number}
-	 * @param y {number}
-	 * @param w {number}
-	 * @param h {number}
-	 */
-	clearColorBuffer(x, y, w, h) {
-		var gl = this.gl;
-		var cc = this.clearColor;
+	clearColorBuffer(x, y, width, height) {
+		const gl = this.gl;
+		const cc = this.clearColor;
 		gl.clearColor(cc[0], cc[1], cc[2], cc[3]);
 		gl.enable(gl.SCISSOR_TEST);
-		gl.scissor(x, y, w, h);
+		gl.scissor(x, y, width, height);
 		gl.clear(gl.COLOR_BUFFER_BIT);
 		gl.disable(gl.SCISSOR_TEST);
 	}
 	/**
-	 * @param x {number}
-	 * @param y {number}
-	 * @param w {number}
-	 * @param h {number}
+	 * @param {number} x
+	 * @param {number} y
+	 * @param {number} width
+	 * @param {number} height
 	 */
-	clearDepthBuffer(x, y, w, h) {
-		var gl = this.gl;
+	clearDepthBuffer(x, y, width, height) {
+		const gl = this.gl;
 		gl.clearDepth(this.clearDepth);
 		gl.enable(gl.SCISSOR_TEST);
-		gl.scissor(x, y, w, h);
+		gl.scissor(x, y, width, height);
 		gl.clear(gl.DEPTH_BUFFER_BIT);
 		gl.disable(gl.SCISSOR_TEST);
 	}
 	/**
-	 * @param x {number}
-	 * @param y {number}
-	 * @param w {number}
-	 * @param h {number}
+	 * @param {number} x
+	 * @param {number} y
+	 * @param {number} width
+	 * @param {number} height
 	 */
-	clearStencilBuffer(x, y, w, h) {
-		var gl = this.gl;
+	clearStencilBuffer(x, y, width, height) {
+		const gl = this.gl;
 		gl.clearStencil(this.clearStencil);
 		gl.enable(gl.SCISSOR_TEST);
-		gl.scissor(x, y, w, h);
+		gl.scissor(x, y, width, height);
 		gl.clear(gl.STENCIL_BUFFER_BIT);
 		gl.disable(gl.SCISSOR_TEST);
 	}
@@ -1468,11 +1347,13 @@ export class Renderer {
 	 * @param {boolean} allowBlue
 	 * @param {boolean} allowAlpha
 	 */
-	setColorMask(allowRed, allowGreen, allowBlue, allowAlpha) {
-		this.allowRed = allowRed || false;
-		this.allowGreen = allowGreen || false;
-		this.allowBlue = allowBlue || false;
-		this.allowAlpha = allowAlpha || false;
+	setColorMask(allowRed = false, allowGreen = false, allowBlue = false, allowAlpha = false) {
+		this.allowRed = allowRed;
+		this.allowGreen = allowGreen;
+		this.allowBlue = allowBlue;
+		this.allowAlpha = allowAlpha;
 		this.gl.colorMask(allowRed, allowGreen, allowBlue, allowBlue);
 	}
 }
+
+export { Renderer };

@@ -1,12 +1,6 @@
-/**
- * VertexShader 底层包装
- *
- * @author lonphy
- * @version 2.0
- */
-import {GLShader} from './GLShader'
+import { GLShader } from './GLShader';
 
-export class GLVertexShader extends GLShader {
+class GLVertexShader extends GLShader {
 
     /**
      * @param {Renderer} renderer 
@@ -14,10 +8,10 @@ export class GLVertexShader extends GLShader {
      */
     constructor(renderer, shader) {
         super();
-        var gl = renderer.gl;
+        let gl = renderer.gl;
         this.shader = gl.createShader(gl.VERTEX_SHADER);
 
-        var programText = shader.getProgram();
+        let programText = shader.getProgram();
 
         gl.shaderSource(this.shader, programText);
         gl.compileShader(this.shader);
@@ -28,23 +22,23 @@ export class GLVertexShader extends GLShader {
         );
     }
     /**
-     * @param shader {VertexShader}
-     * @param mapping {Map}
-     * @param parameters {ShaderParameters}
-     * @param renderer {Renderer}
+     * @param {Renderer} renderer
+     * @param {Map} mapping
+     * @param {VertexShader} shader
+     * @param {ShaderParameters} parameters
      */
-    enable (renderer, mapping, shader, parameters) {
-        var gl = renderer.gl;
+    enable(renderer, mapping, shader, parameters) {
+        let gl = renderer.gl;
 
         // 更新uniform 变量
 
         // step1. 遍历顶点着色器常量
-        var numConstants = shader.numConstants;
-        for (var i = 0; i < numConstants; ++i) {
-            var locating = mapping.get(shader.getConstantName(i));
-            var funcName = shader.getConstantFuncName(i);
-            var size = shader.getConstantSize(i);
-            var data = parameters.getConstant(i).data;
+        let numConstants = shader.numConstants;
+        for (let i = 0; i < numConstants; ++i) {
+            let locating = mapping.get(shader.getConstantName(i));
+            let funcName = shader.getConstantFuncName(i);
+            let size = shader.getConstantSize(i);
+            let data = parameters.getConstant(i).data;
             if (size > 4) {
                 gl[funcName](locating, false, data);
             } else {
@@ -52,14 +46,16 @@ export class GLVertexShader extends GLShader {
             }
         }
 
-        this.setSamplerState(renderer, shader, parameters, renderer.data.maxVShaderImages, renderer.data.currentSS);
+        this.setSamplerState(renderer, shader, parameters, renderer.data.maxVShaderImages);
     }
     /**
-     * @param shader {VertexShader}
-     * @param parameters {ShaderParameters}
-     * @param renderer {Renderer}
+     * @param {VertexShader} shader
+     * @param {ShaderParameters} parameters
+     * @param {Renderer} renderer
      */
-    disable (renderer, shader, parameters) {
+    disable(renderer, shader, parameters) {
         this.disableTexture(renderer, shader, parameters, renderer.data.maxVShaderImages);
     }
 }
+
+export { GLVertexShader };

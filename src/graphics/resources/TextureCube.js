@@ -1,16 +1,7 @@
-/**
- * TextureCube 立方纹理构造
- * @param format {number} 纹理格式， 参考L5.Texture.TT_XXX
- * @param dimension {number} 相当于宽度、高度， 宽=高
- * @param numLevels {number} 纹理级数 0 为最大值
- *
- * @author lonphy
- * @version 1.0
- */
-import {Texture} from './Texture'
-import {_Math} from '../../math/index'
+import { Texture } from './Texture';
+import { _Math } from '../../math/index';
 
-export class TextureCube extends Texture {
+class TextureCube extends Texture {
     constructor(format, dimension, numLevels) {
         console.assert(dimension > 0, 'Dimension0 must be positive');
         super(format, Texture.TT_CUBE, numLevels);
@@ -206,16 +197,16 @@ export class TextureCube extends Texture {
 
     /**
      *
-     * @param dim {number}
-     * @param texels {ArrayBuffer}
+     * @param {number} dim
+     * @param {ArrayBuffer} texels
      * @param dimNext {number}
      * @param texelsNext {number}
      * @param rgba {ArrayBuffer}
      * @protected
      */
     generateNextMipmap(dim, texels,
-                       dimNext, texelsNext,
-                       rgba) {
+        dimNext, texelsNext,
+        rgba) {
         let numTexels = dim * dim,
             format = this.format;
         let pixelSize = Texture.PIXEL_SIZE[format];
@@ -230,11 +221,11 @@ export class TextureCube extends Texture {
                 base = 2 * (i0 + dim * i1);
                 for (c = 0; c < 4; ++c) {
                     rgba[j * 4 + c] = 0.25 * (
-                            rgba[base * 4 + c] +
-                            rgba[(base + 1) * 4 + c] +
-                            rgba[(base + dim) * 4 + c] +
-                            rgba[(base + dim + 1) * 4 + c]
-                        );
+                        rgba[base * 4 + c] +
+                        rgba[(base + 1) * 4 + c] +
+                        rgba[(base + dim) * 4 + c] +
+                        rgba[(base + dim + 1) * 4 + c]
+                    );
                 }
             }
         }
@@ -245,3 +236,4 @@ export class TextureCube extends Texture {
             this.data.subarray(texelsNext, (texelsNext + numTexelsNext * pixelSize)));
     }
 }
+export { TextureCube };

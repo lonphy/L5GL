@@ -159,13 +159,12 @@ export class Matrix extends Float32Array {
             (a00 * b09 - a01 * b07 + a02 * b06) * invDet,
             (-a30 * b03 + a31 * b01 - a32 * b00) * invDet,
             (a20 * b03 - a21 * b01 + a22 * b00) * invDet
-            );
+        );
     }
 
 
     /**
      * 伴随矩阵
-     * @returns {Matrix}
      */
     adjoint() {
         let m00 = this[0], m01 = this[1], m02 = this[2], m03 = this[3];
@@ -207,7 +206,7 @@ export class Matrix extends Float32Array {
             +m00 * b3 - m01 * b1 + m02 * b0,
             -m30 * a3 + m31 * a1 - m32 * a0,
             +m20 * a3 - m21 * a1 + m22 * a0
-            );
+        );
     }
 
     /**
@@ -236,7 +235,7 @@ export class Matrix extends Float32Array {
      */
     mulPoint(p) {
         let c = this,
-            x = p.x, y = p.y, z = p.z, w = p.w;
+            x = p[0], y = p[1], z = p[2], w = p[3];
 
         return new p.constructor(
             c[0] * x + c[4] * y + c[8] * z + c[12] * w,
@@ -280,7 +279,7 @@ export class Matrix extends Float32Array {
             b30 * a01 + b31 * a11 + b32 * a21 + b33 * a31,
             b30 * a02 + b31 * a12 + b32 * a22 + b33 * a32,
             b30 * a03 + b31 * a13 + b32 * a23 + b33 * a33
-            );
+        );
     }
 
     /**
@@ -334,7 +333,7 @@ export class Matrix extends Float32Array {
         // product of vectors A and B.
 
         // Compute q0.
-        let invLength = _Math.invSqrt(this[0] * this[0] + this[4] * this[4] + this[8] * this[8]);
+        let invLength = Math.hypot(this[0], this[4], this[8]);
 
         this[0] *= invLength;
         this[4] *= invLength;
@@ -347,7 +346,7 @@ export class Matrix extends Float32Array {
         this[5] -= dot0 * this[4];
         this[9] -= dot0 * this[8];
 
-        invLength = _Math.invSqrt(this[1] * this[1] + this[5] * this[5] + this[9] * this[9]);
+        invLength = Math.hypot(this[1], this[5], this[9]);
 
         this[1] *= invLength;
         this[5] *= invLength;
@@ -362,7 +361,7 @@ export class Matrix extends Float32Array {
         this[6] -= dot0 * this[4] + dot1 * this[5];
         this[10] -= dot0 * this[8] + dot1 * this[9];
 
-        invLength = _Math.invSqrt(this[2] * this[2] + this[6] * this[6] + this[10] * this[10]);
+        invLength = Math.hypot(this[2], this[6], this[10]);
 
         this[2] *= invLength;
         this[6] *= invLength;
@@ -446,20 +445,6 @@ export class Matrix extends Float32Array {
         v[1] = this[s + 1];
         v[2] = this[s + 2];
         v[3] = this[s + 3];
-    }
-
-    debug() {
-        let str = '------------- matrix info ----------------\n';
-        for (let i = 0; i < 4; ++i) {
-            for (let j = 0; j < 4; ++j) {
-                if (j !== 0) {
-                    str += "\t\t";
-                }
-                str += this[i * 4 + j].toFixed(10);
-            }
-            str += "\n";
-        }
-        console.log(str);
     }
 
     static get IDENTITY() {
@@ -622,8 +607,8 @@ export class Matrix extends Float32Array {
      * @param {number} angle 旋转角度
      */
     static makeRotation(axis, angle) {
-        let c = _Math.cos(angle),
-            s = _Math.sin(angle),
+        let c = Math.cos(angle),
+            s = Math.sin(angle),
             x = axis.x, y = axis.y, z = axis.z,
             oc = 1 - c,
             xx = x * x,
@@ -660,12 +645,11 @@ export class Matrix extends Float32Array {
     }
 
     /**
-     * 生成旋转矩阵
-     * @param {number} angle 旋转角度
+     * 绕X轴旋转指定角度
+     * @param {number} angle
      */
     static makeRotateX(angle) {
-        let c = _Math.cos(angle), s = _Math.sin(angle);
-
+        let c = Math.cos(angle), s = Math.sin(angle);
         return new Matrix(
             1, 0, 0, 0,
             0, c, s, 0,
@@ -678,11 +662,21 @@ export class Matrix extends Float32Array {
      * @param {number} angle
      */
     static makeRotateY(angle) {
-        let c = _Math.cos(angle), s = _Math.sin(angle);
+        let c = Math.cos(angle), s = Math.sin(angle);
         return new Matrix(
             c, 0, -s, 0,
             0, 1, 0, 0,
             s, 0, c, 0,
+            0, 0, 0, 1
+        );
+    }
+
+    static makeRotateZ(angle) {
+        let c = Math.cos(angle), s = Math.sin(angle);
+        return new Matrix(
+            c, s, 0, 0,
+            -s, c, 0, 0,
+            0, 0, 1, 0,
             0, 0, 0, 1
         );
     }

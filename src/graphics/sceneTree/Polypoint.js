@@ -1,10 +1,10 @@
-import { Visual } from './Visual'
+import { Visual } from './Visual';
 
-export class PolyPoint extends Visual {
+class PolyPoint extends Visual {
 
     /**
-     * @param format {L5.VertexFormat}
-     * @param vertexBuffer {L5.VertexBuffer}
+     * @param {VertexFormat} format
+     * @param {VertexBuffer} vertexBuffer
      */
     constructor(format, vertexBuffer) {
         super(Visual.PT_POLYPOINT, format, vertexBuffer, null);
@@ -16,7 +16,7 @@ export class PolyPoint extends Visual {
     }
 
     setNumPoints(num) {
-        var numVertices = this.vertexBuffer.numElements;
+        let numVertices = this.vertexBuffer.numElements;
         if (0 <= num && num <= numVertices) {
             this.numPoints = num;
         }
@@ -25,3 +25,5 @@ export class PolyPoint extends Visual {
         }
     }
 }
+
+export { PolyPoint };

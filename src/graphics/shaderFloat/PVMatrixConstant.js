@@ -1,10 +1,7 @@
-/**
- * 透视视图坐标系矩阵
- */
-import {ShaderFloat} from './ShaderFloat'
-import {D3Object} from '../../core/D3Object'
+import { ShaderFloat } from './ShaderFloat';
+import { D3Object } from '../../core/D3Object';
 
-export class PVMatrixConstant extends ShaderFloat{
+class PVMatrixConstant extends ShaderFloat {
 
     constructor() {
         super(4);
@@ -12,5 +9,9 @@ export class PVMatrixConstant extends ShaderFloat{
     }
 
     update(visual, camera) {
+        const projViewMatrix = camera.projectionViewMatrix;
+        this.copy(projViewMatrix);
     }
 }
+
+export { PVMatrixConstant };

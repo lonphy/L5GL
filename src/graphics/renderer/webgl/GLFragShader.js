@@ -1,12 +1,6 @@
-/**
- * FragShader 底层包装
- * 
- * @author lonphy
- * @version 2.0
- */
-import { GLShader } from './GLShader'
+import { GLShader } from './GLShader';
 
-export class GLFragShader extends GLShader {
+class GLFragShader extends GLShader {
 
     /**
      * @param {Renderer} renderer 
@@ -30,7 +24,7 @@ export class GLFragShader extends GLShader {
 
     /**
      * 释放持有的GL资源
-     * @param {WebGLRenderingContext} gl
+     * @param {WebGL2RenderingContext} gl
      */
     free(gl) {
         gl.deleteShader(this.shader);
@@ -59,16 +53,18 @@ export class GLFragShader extends GLShader {
             }
         }
 
-        this.setSamplerState(renderer, shader, parameters, renderer.data.maxFShaderImages, renderer.data.currentSS);
+        this.setSamplerState(renderer, shader, parameters, renderer.data.maxFShaderImages);
     }
 
     /**
-     * @param renderer {Renderer}
-     * @param shader {FragShader}
-     * @param parameters {ShaderParameters}
+     * @param {Renderer} renderer
+     * @param {FragShader} shader
+     * @param {ShaderParameters} parameters
      */
     disable(renderer, shader, parameters) {
         let gl = renderer.gl;
         this.disableTexture(renderer, shader, parameters, renderer.data.maxFShaderImages);
     }
 }
+
+export { GLFragShader };

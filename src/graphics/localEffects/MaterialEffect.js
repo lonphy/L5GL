@@ -1,15 +1,12 @@
-/**
- * 材质效果着色器
- */
-import { DECLARE_ENUM } from '../../util/util'
+import { DECLARE_ENUM } from '../../util/util';
 import {
     Shader, VertexShader, FragShader, Program,
     VisualPass, VisualTechnique, VisualEffectInstance, VisualEffect,
     AlphaState, CullState, DepthState, OffsetState, StencilState,
-} from '../shaders/namespace'
-import { PVWMatrixConstant, MaterialDiffuseConstant } from '../shaderFloat/namespace'
+} from '../shaders/namespace';
+import { PVWMatrixConstant, MaterialDiffuseConstant } from '../shaderFloat/namespace';
 
-export class MaterialEffect extends VisualEffect {
+class MaterialEffect extends VisualEffect {
     constructor() {
         super();
 
@@ -62,14 +59,13 @@ uniform mat4 PVWMatrix;
 layout(location=0) in vec3 modelPosition;
 void main(){
     gl_Position = PVWMatrix * vec4(modelPosition, 1.0);
-}
-`,
+}`,
     FS: `#version 300 es
 precision highp float;
 uniform vec4 MaterialDiffuse;
 out vec4 fragColor;
 void main(){
     fragColor = MaterialDiffuse;
-}
-`
-});
+}`});
+
+export { MaterialEffect };

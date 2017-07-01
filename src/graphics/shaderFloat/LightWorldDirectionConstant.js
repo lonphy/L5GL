@@ -1,10 +1,7 @@
-/**
- * 灯光 - 世界坐标系方向
- */
-import {ShaderFloat} from './ShaderFloat'
-import {D3Object} from '../../core/D3Object'
+import { ShaderFloat } from './ShaderFloat';
+import { D3Object } from '../../core/D3Object';
 
-export class LightWorldDirectionConstant extends ShaderFloat {
+class LightWorldDirectionConstant extends ShaderFloat {
 
     /**
      * @param light {Light}
@@ -15,12 +12,7 @@ export class LightWorldDirectionConstant extends ShaderFloat {
         this.light = light;
     }
 
-    /**
-     * 更新光源世界坐标系的方向
-     * @param visual {Visual}
-     * @param camera {Camera}
-     */
-    update (visual, camera) {
+    update(visual, camera) {
         this.copy(this.light.direction);
     }
 
@@ -38,6 +30,8 @@ export class LightWorldDirectionConstant extends ShaderFloat {
         super.save(outStream);
         outStream.writePointer(this.light);
     }
-};
+}
 
-D3Object.Register('L5.LightWorldDirectionConstant', LightWorldDirectionConstant.factory);
+D3Object.Register('LightWorldDirectionConstant', LightWorldDirectionConstant.factory);
+
+export { LightWorldDirectionConstant };

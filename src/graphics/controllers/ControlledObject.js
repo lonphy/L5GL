@@ -1,30 +1,23 @@
+import { D3Object } from '../../core/D3Object';
+import { Controller } from './Controller';
+
 /**
- * ControlledObject - 控制基类
- *
- * @version 2.0
- * @author lonphy
+ * Abstract base class
  */
-
-import { D3Object } from '../../core/D3Object'
-import { Controller } from './Controller'
-
-export class ControlledObject extends D3Object {
+class ControlledObject extends D3Object {
+    /** @protected */
     constructor() {
         super();
         this.numControllers = 0;
         this.controllers = [];
     }
+
     /**
      * @param {number} i
      * @returns {Controller|null}
      */
     getController(i) {
-        if (0 <= i && i < this.numControllers) {
-            return this.controllers[i];
-        }
-
-        console.assert(false, 'Invalid index in getController.');
-        return null;
+        return this.controllers[i] || null;
     }
 
     /**
@@ -35,12 +28,6 @@ export class ControlledObject extends D3Object {
         // complex graphs of controllers.  TODO:  Consider allowing this?
         if (!(controller instanceof Controller)) {
             console.assert(false, 'Controllers may not be controlled');
-            return;
-        }
-
-        // The controller must exist.
-        if (!controller) {
-            console.assert(false, 'Cannot attach a null controller');
             return;
         }
 
@@ -90,8 +77,7 @@ export class ControlledObject extends D3Object {
     }
 
     /**
-     * @param {number} applicationTime 
-     * @return {boolean}
+     * @param {number} applicationTime
      */
     updateControllers(applicationTime) {
         let someoneUpdated = false, l = this.numControllers;
@@ -104,7 +90,7 @@ export class ControlledObject extends D3Object {
     }
 
     /**
-     * @param inStream {InStream}
+     * @param {InStream} inStream
      */
     load(inStream) {
         super.load(inStream);
@@ -116,8 +102,13 @@ export class ControlledObject extends D3Object {
         this.capacity = this.numControllers;
     }
 
+    /**
+     * @param {InStream} inStream
+     */
     link(inStream) {
         super.link(inStream);
         this.controllers = inStream.resolveArrayLink(this.numControllers, this.controllers);
     }
 }
+
+export { ControlledObject };

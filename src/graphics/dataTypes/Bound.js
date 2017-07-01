@@ -1,9 +1,6 @@
-import { Point, _Math } from '../../math/index'
+import { Point, _Math } from '../../math/index';
 
-/**
- * 包围盒(球体)
- */
-export class Bound {
+class Bound {
     constructor() {
         this.center = Point.ORIGIN;
         this.radius = 0;
@@ -112,7 +109,7 @@ export class Bound {
             }
         }
 
-        this.radius = _Math.sqrt(this.radius);
+        this.radius = Math.sqrt(this.radius);
     }
 
     /**
@@ -259,3 +256,5 @@ export class Bound {
         return c <= rSumSqr;
     }
 }
+
+export { Bound };

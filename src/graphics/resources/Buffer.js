@@ -1,6 +1,5 @@
-// @ts-check
-import { D3Object } from '../../core/D3Object'
-import * as util from '../../util/util'
+import { D3Object } from '../../core/D3Object';
+import { DECLARE_ENUM } from '../../util/util';
 
 /**
  * Buffer - 缓冲基础类
@@ -28,9 +27,7 @@ class Buffer extends D3Object {
     getData() {
         return this._data;
     }
-    /**
-     * @param {InStream} inStream
-     */
+
     load(inStream) {
         super.load(inStream);
         this.numElements = inStream.readUint32();
@@ -41,11 +38,11 @@ class Buffer extends D3Object {
     }
 }
 
-util.DECLARE_ENUM(Buffer, {
+DECLARE_ENUM(Buffer, {
     BU_STATIC: 0,
     BU_DYNAMIC: 1,
     BU_RENDER_TARGET: 2,
     BU_DEPTH_STENCIL: 3
 });
 
-export { Buffer }
+export { Buffer };
